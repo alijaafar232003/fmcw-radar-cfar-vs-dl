@@ -1,0 +1,13 @@
+# Core simulation + dataset generation
+numpy
+scipy
+matplotlib
+pandas
+pyyaml
+
+# Deep learning phase (Phase C) — uncomment when starting the DL pipeline
+# torch
+# torchvision
+
+# Optional demo (Phase D)
+# streamlit

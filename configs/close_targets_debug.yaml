@@ -1,0 +1,55 @@
+dataset:
+  name: close_targets_debug
+  description: "Close target pairs for CFAR masking/resolution testing."
+  output_root: data
+  num_frames: 10
+  random_seed: 1005
+
+targets:
+  mode: close_pair
+
+  base_range_m:
+    min: 25.0
+    max: 70.0
+
+  base_velocity_mps:
+    min: -8.0
+    max: 8.0
+
+  separation:
+    range_bins:
+      min: 1
+      max: 4
+    velocity_bins:
+      min: 0
+      max: 2
+
+  amplitude_db:
+    strong:
+      min: 12.0
+      max: 16.0
+    weak:
+      min: 0.0
+      max: 6.0
+
+scene:
+  snr_db:
+    mode: fixed
+    value: 20.0
+
+  clutter:
+    enabled: false
+    strength_db: -18.0
+    width_bins: 3
+
+  multipath:
+    enabled: false
+    delay_m: 2.0
+    attenuation_db: -12.0
+
+save:
+  rd_map_db: true
+  rd_map_mag: true
+  label_mask: true
+  labels_csv: true
+  preview_png: true

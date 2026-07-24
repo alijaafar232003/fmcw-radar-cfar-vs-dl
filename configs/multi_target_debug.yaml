@@ -1,0 +1,50 @@
+dataset:
+  name: multi_target_debug
+  description: "Random 0-5 target frames for multi-target CFAR testing."
+  output_root: data
+  num_frames: 20
+  random_seed: 1006
+
+targets:
+  mode: random
+  min_targets: 0  
+  max_targets: 5
+
+  range_m:
+    min: 8.0
+    max: 100.0
+
+  velocity_mps:
+    min: -15.0
+    max: 15.0
+
+  amplitude_db:
+    min: 0.0
+    max: 16.0
+
+scene:
+  snr_db:
+    mode: random_uniform
+    min: -5.0
+    max: 20.0
+
+  clutter:
+    enabled: false
+    strength_db: -18.0
+    width_bins: 3
+
+  multipath:
+    enabled: false
+    delay_m: 2.0
+    attenuation_db: -12.0
+
+  min_separation:
+    range_bins: 5
+    velocity_bins: 4
+
+save:
+  rd_map_db: true
+  rd_map_mag: true
+  label_mask: true
+  labels_csv: true
+  preview_png: true

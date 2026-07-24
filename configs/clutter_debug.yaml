@@ -1,0 +1,49 @@
+dataset:
+  name: clutter_debug
+  description: "Targets with near-zero Doppler clutter."
+  output_root: data
+  num_frames: 20
+  random_seed: 1004
+
+targets:
+  mode: random
+  min_targets: 1
+  max_targets: 3
+
+  range_m:
+    min: 10.0
+    max: 90.0
+
+  velocity_mps:
+    min: -12.0
+    max: 12.0
+
+  amplitude_db:
+    min: 8.0
+    max: 15.0
+
+scene:
+  snr_db:
+    mode: fixed
+    value: 15.0
+
+  clutter:
+    enabled: true
+    strength_db: -5.0
+    width_bins: 5
+
+  multipath:
+    enabled: false
+    delay_m: 2.0
+    attenuation_db: -12.0
+
+  min_separation:
+    range_bins: 8
+    velocity_bins: 6
+
+save:
+  rd_map_db: true
+  rd_map_mag: true
+  label_mask: true
+  labels_csv: true
+  preview_png: true

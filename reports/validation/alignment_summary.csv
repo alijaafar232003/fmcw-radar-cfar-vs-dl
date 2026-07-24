@@ -1,0 +1,8 @@
+dataset,frames,targets,strict,overlap,low_snr,records_pass,records_total,max_abs_dr,max_abs_dv,median_cell_snr_db,all_pass
+clean_debug,10,24,24,0,0,24,24,1,1,35.345,True
+close_targets_debug,10,20,0,20,0,20,20,0,0,33.49,True
+clutter_debug,20,42,42,0,0,42,42,1,1,25.37,True
+multi_target_debug,20,54,20,0,34,55,55,0,0,11.045,True
+multipath_debug,10,14,14,0,0,14,14,1,0,30.990000000000002,True
+noise_only_debug,10,0,0,0,0,10,10,0,0,,True
+snr_sweep_debug,240,240,60,0,180,240,240,1,1,9.715,True

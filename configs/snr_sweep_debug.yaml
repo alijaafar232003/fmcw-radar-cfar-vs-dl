@@ -1,0 +1,54 @@
+dataset:
+  name: snr_sweep_debug
+  description: "Single-target cell-SNR sweep for Pd-vs-SNR characterisation."
+  output_root: data
+  # 8 SNR points x 30 frames each. Pd is a proportion, so each SNR point needs
+  # many frames for a low-variance estimate; a handful would give a noisy curve.
+  num_frames: 240
+  random_seed: 1003
+
+targets:
+  mode: fixed_count
+  count: 1
+
+  range_m:
+    min: 20.0
+    max: 80.0
+
+  velocity_mps:
+    min: -10.0
+    max: 10.0
+
+  # 0 dB amplitude so the requested cell SNR below IS this target's cell SNR
+  # (a non-zero amplitude would offset every point by that amount).
+  amplitude_db:
+    min: 0.0
+    max: 0.0
+
+scene:
+  # Requested cell SNR (post-integration, at the detector) - see radar.calibration.
+  # Chosen to span the detection transition, so Pd rises from ~0 to ~1.
+  snr_db:
+    mode: cycle
+    values: [0.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 21.0]
+
+  clutter:
+    enabled: false
+    strength_db: -18.0
+    width_bins: 3
+
+  multipath:
+    enabled: false
+    delay_m: 2.0
+    attenuation_db: -12.0
+
+  min_separation:
+    range_bins: 0
+    velocity_bins: 0
+
+save:
+  rd_map_db: true
+  rd_map_mag: true
+  label_mask: true
+  labels_csv: true
+  preview_png: true
