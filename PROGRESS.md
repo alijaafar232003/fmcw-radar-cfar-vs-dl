@@ -148,12 +148,26 @@ embedded in/next to the clutter ridge.
   the single-operating-point tables (Pd-vs-SNR, per-scenario) now use the CALIBRATED alpha so all
   three methods sit at the same measured Pfa. Documented in `docs/cfar_methods_review.md`.
 
+## Milestone 10 — CFAR "home-turf" scenarios (OS + GO wins)  ✅
+- Built `masking_debug` (close_pair, separation 5–9 range bins: resolvable but inside one
+  training window, strong+weak amplitudes). **OS beats CA/GO on the weak target: Pd_weak
+  OS 0.65 vs CA 0.15 vs GO 0.12.** The clean demonstration of *why OS exists*.
+- Strengthened `clutter_debug` to a real edge. Note: `strength_db` is an ABSOLUTE amplitude
+  scale, so +10 did nothing (buried under the ~688 calibrated noise var); **~45 forms a real
+  edge**. **GO wins: clutter-edge FA GO 8.4 vs CA 14.2 vs OS 17.1** (GO suppresses ~41%).
+- Complementarity result (the CFAR headline): OS wins masking / worst in clutter; GO wins
+  clutter / worst in masking; CA balanced + cheapest, optimal on clean (clean is a 3-way tie).
+  No universal winner -> motivates DL.
+- Notebook gained a "home-turf comparison" section (table + masking figure). Documented in
+  `docs/cfar_methods_review.md`.
+- **Flagged for realism roadmap:** clutter should use a proper clutter-to-noise-ratio
+  calibration (like cell-SNR) instead of the current absolute `strength_db`.
+
 ## Current position
-Phase A ✅. Phase B ✅ — CA/OS/GO built, audited, calibrated, geometry-tuned; comparison
-notebook complete and documented.
-**On schedule** (Week 0 weekend done). **Next = Week 1: design the OS/GO-favouring scenarios,
-then start the DL foundation** (frozen datasets + loader + small CNN/U-Net running end-to-end
-by ~2 Aug). See `SCHEDULE.md`.
+Phase A ✅. Phase B ✅ (complete: detectors, calibration, tuning, AND the scenarios that
+demonstrate each method's advantage). **On schedule** (Week 0 done, 26 Jul).
+**Next = Week 1: the DL foundation** — range-dependent amplitude, frozen train/val/test
+datasets, PyTorch loader, small CNN/U-Net running end-to-end by ~2 Aug (see `SCHEDULE.md`).
 
 *(Note: `Plan.md` was deleted; this file is now the single roadmap record.)*
 

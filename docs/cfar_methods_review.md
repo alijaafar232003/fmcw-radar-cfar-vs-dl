@@ -137,6 +137,31 @@ OS has the lowest multiplier because its noise estimate is the highest.
 | VI | adaptive CA/GO/SO | mixed/unknown scenes | non-Gaussian clutter; tuning | medium |
 | DL | learned from data | complex clutter, low SNR | data need, no guaranteed Pfa | high |
 
+## Demonstrated "home-turf" results (this project, matched Pfa=1e-4)
+
+Two scenarios were designed so each specialist meets the case it is built for. The
+complementarity is the central CFAR result — **each wins its own regime and loses the other's**:
+
+| Scenario | Metric | CA | OS | GO |
+|---|---|---|---|---|
+| Clean (`snr_sweep`) | Pd | 0.53 | 0.53 | 0.53 (tie) |
+| Masking (`masking_debug`) | weak-target Pd | 0.15 | **0.65** | 0.12 |
+| Clutter (`clutter_debug`) | clutter-edge false alarms/frame | 14.2 | 17.1 | **8.4** |
+
+- **`masking_debug`**: strong + *resolvable* weak target (separation 5–9 range bins — beyond the
+  ±2-bin mainlobe so resolvable, but inside the guard+train = 10-bin window). CA's mean estimate
+  is inflated by the strong neighbour and masks the weak target; OS excludes the strong outlier
+  (order statistic) and recovers it; GO is worst (its max-of-halves is dominated by the strong side).
+- **`clutter_debug`** (strengthened, strong near-zero-Doppler ridge): at the clutter edge CA
+  false-alarms; GO takes the greater half-window and suppresses the burst (~41% fewer than CA);
+  OS is worst at edges.
+- **Clean**: all three tie on Pd; CA is optimal in principle (lowest CFAR loss) and cheapest, so
+  it is the right default rather than a Pd winner.
+
+*Caveat:* clutter strength is currently an absolute amplitude scale (`strength_db=45` relative to
+the ~688 calibrated noise variance). A proper clutter-to-noise-ratio calibration, analogous to
+the cell-SNR one, is on the realism roadmap.
+
 ## Predicted results for this project (hypotheses to test)
 - `clean_debug` → all ≈ equal (CA slightly best).
 - `clutter_debug` (edge/ridge) → CA degrades; **GO best classical**; DL strong.

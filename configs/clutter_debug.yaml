@@ -29,8 +29,12 @@ scene:
 
   clutter:
     enabled: true
-    strength_db: -5.0
-    width_bins: 5
+    # NOTE: strength_db is currently an ABSOLUTE amplitude scale, so it must be large
+    # relative to the calibrated thermal-noise variance (~688 at snr_db=15) to form a real
+    # clutter edge. ~45 puts the ridge several dB above the noise floor. (A proper
+    # clutter-to-noise-ratio calibration, like the cell-SNR one, is on the realism roadmap.)
+    strength_db: 45.0
+    width_bins: 4
 
   multipath:
     enabled: false
