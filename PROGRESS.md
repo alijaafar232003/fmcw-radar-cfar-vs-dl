@@ -130,10 +130,30 @@ high-SNR. To *demonstrate* OS's masking advantage and GO's clutter-edge advantag
 targeted scenarios: two RESOLVABLE targets within one training window, and detectable targets
 embedded in/next to the clutter ridge.
 
+## Milestone 9 — CFAR threshold calibration + geometry tuning  ✅
+- **Problem:** only CA has a closed-form `alpha(Pfa)`; OS/GO reused it and so were not at the
+  design Pfa (over-conservative → ~0 false alarms on noise).
+- **Fix:** `src/cfar/calibrate.py` — empirical Monte-Carlo calibration. Process many pure-noise
+  CPIs → CFAR ratio maps → pool ratios over valid cells → `alpha` = (1−Pfa) quantile. Works for
+  any CFAR statistic.
+- **Validated:** empirical CA matches the analytic formula to 2.9% (1e-3) / 4.6% (1e-4) — the
+  small bias is the window's inter-cell correlation, so the empirical value is the more accurate
+  one for real data. **Verified** on independent noise: all three hit target (Pfa=1e-4 → CA
+  9.4e-5, OS 9.8e-5, GO 9.8e-5).
+- Calibrated alpha (guard 2, train 8): Pfa=1e-4 → CA 9.74, GO 9.09, OS 6.98; Pfa=1e-3 → 7.17 /
+  6.69 / 5.17.
+- **Geometry sweep:** guard 2 vs 3 changes Pd < 1% (insensitive, as predicted from the mainlobe);
+  train Pd flat beyond ~8 → **guard 2, train 8** chosen (knee of CFAR-loss vs locality).
+- `notebooks/cfar_comparison.ipynb` rebuilt: added a calibration section + geometry sweep, and
+  the single-operating-point tables (Pd-vs-SNR, per-scenario) now use the CALIBRATED alpha so all
+  three methods sit at the same measured Pfa. Documented in `docs/cfar_methods_review.md`.
+
 ## Current position
-Phase A ✅. Phase B core ✅ — CA/OS/GO built, audited, verified; comparison notebook done.
-**Next:** the quick tuning sweep (train-cell size; calibrate OS/GO alpha to an exact Pfa), and
-design the OS/GO-favouring scenarios noted above. Then Phase C (frozen datasets + DL).
+Phase A ✅. Phase B ✅ — CA/OS/GO built, audited, calibrated, geometry-tuned; comparison
+notebook complete and documented.
+**On schedule** (Week 0 weekend done). **Next = Week 1: design the OS/GO-favouring scenarios,
+then start the DL foundation** (frozen datasets + loader + small CNN/U-Net running end-to-end
+by ~2 Aug). See `SCHEDULE.md`.
 
 *(Note: `Plan.md` was deleted; this file is now the single roadmap record.)*
 

@@ -83,6 +83,49 @@ determines its strengths and weaknesses.
 
 ---
 
+## Threshold calibration (CA analytic; OS/GO Monte-Carlo)
+
+The detection threshold is `T = alpha * Z` (Z = local noise estimate); `alpha` sets the design
+false-alarm rate `Pfa`.
+
+**CA has a closed form.** Its estimate is the arithmetic mean of `N` exponential (square-law)
+cells, so the CUT/estimate ratio has a known distribution and
+
+    alpha_CA = N * (Pfa^(-1/N) - 1).
+
+**OS and GO do not.** OS uses an order statistic (the k-th ranked cell) and GO the maximum of
+two half-window means — different statistics with different distributions. Reusing `alpha_CA`
+for them gives the wrong Pfa (with guard 2 / train 8 it left OS and GO far too conservative,
+≈ 0 false alarms on pure noise, because their estimates sit above the mean: OS ≈ 1.39× = the
+0.75 quantile of exponential noise, GO ≈ 1.09×).
+
+**Empirical (Monte-Carlo) calibration** (`src/cfar/calibrate.py`) — works for any statistic:
+1. Process many pure-noise CPIs through the identical RD chain → noise power maps.
+2. Run the CFAR ratio map (CUT ÷ local estimate) on each; pool the ratio over valid cells.
+3. `alpha(Pfa)` = the **(1 − Pfa) quantile** of that pooled ratio distribution.
+
+*Validation:* the empirical CA threshold matches the analytic formula to ~3–5% (the small
+positive bias is the window's mild inter-cell correlation, which the empirical method captures
+and the idealised formula does not). *Verification:* on independent noise, all three then hit
+the target Pfa (e.g. at Pfa = 1e-4: CA 9.4e-5, OS 9.8e-5, GO 9.8e-5).
+
+Calibrated multipliers (guard 2, train 8, N_ref = 416):
+
+| Pfa | CA | GO | OS |
+|---|---|---|---|
+| 1e-3 | 7.17 | 6.69 | 5.17 |
+| 1e-4 | 9.74 | 9.09 | 6.98 |
+
+OS has the lowest multiplier because its noise estimate is the highest.
+
+## Window-geometry tuning (guard / training cells)
+
+- **Guard = 2** covers the mainlobe (measured: −20 dB at ±2 bins, < −90 dB by ±3). A sweep
+  confirmed guard 2 vs 3 changes Pd by < 1% — it is set by physics, not tuning.
+- **Training = 8 per side (N_ref = 416)** sits at the knee of the CFAR-loss vs locality
+  trade-off: on the graded SNR sweep at matched Pfa, Pd is flat beyond ≈ 8 training cells,
+  while larger windows sacrifice locality in the clutter scenarios.
+
 ## Summary
 
 | Method | Noise estimate `Z` | Best at | Worst at | Cost |
