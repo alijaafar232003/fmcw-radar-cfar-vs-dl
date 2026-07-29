@@ -1,0 +1,43 @@
+dataset:
+  name: frozen_test
+  description: Frozen benchmark - TEST split. Same distribution as train, disjoint
+    seed.
+  output_root: data
+  num_frames: 2000
+  random_seed: 70003
+targets:
+  mode: random
+  min_targets: 0
+  max_targets: 5
+  range_m:
+    min: 8.0
+    max: 110.0
+  velocity_mps:
+    min: -25.0
+    max: 25.0
+  amplitude_db:
+    min: 6.0
+    max: 26.0
+scene:
+  snr_db:
+    mode: random_uniform
+    min: -2.0
+    max: 16.0
+  propagation:
+    enabled: true
+    ref_range_m: 50.0
+    exponent_db: 40.0
+  clutter:
+    enabled: true
+    strength_db: 45.0
+    width_bins: 4
+  multipath:
+    enabled: true
+    delay_m: 2.0
+    attenuation_db: -12.0
+  min_separation:
+    range_bins: 3
+    velocity_bins: 3
+save:
+  compact: true
+  preview_png: false

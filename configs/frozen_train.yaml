@@ -1,0 +1,67 @@
+# FROZEN BENCHMARK DATASET - TRAINING SPLIT
+#
+# A realistic MIXTURE of conditions (not a single isolated effect). The per-scenario debug sets
+# stay separate for diagnostics/ablations; these frozen splits produce the headline numbers.
+#
+# Neutrality: the mixture favours no detector. A test set built from the masking scenario would
+# favour OS; one built from clutter would favour GO. Train/val/test differ ONLY by random_seed,
+# so the three splits are identically distributed but share no frames (no leakage).
+
+dataset:
+  name: frozen_train
+  description: "Frozen benchmark - TRAIN split. Mixed conditions, radar-equation amplitude."
+  output_root: data
+  num_frames: 10000
+  random_seed: 70001          # train / val / test use different seeds -> disjoint frames
+
+targets:
+  mode: random
+  min_targets: 0              # includes empty frames (false-alarm cases)
+  max_targets: 5
+
+  range_m:
+    min: 8.0
+    max: 110.0
+
+  velocity_mps:
+    min: -25.0
+    max: 25.0
+
+  # Intrinsic reflectivity (RCS proxy) BEFORE propagation loss. The radar equation below then
+  # weakens distant targets, so effective SNR varies with range as it does in reality.
+  amplitude_db:
+    min: 6.0
+    max: 26.0
+
+scene:
+  # Requested cell SNR for a 0 dB reference target; spans the detection transition so the
+  # benchmark discriminates between methods rather than saturating at Pd = 1.
+  snr_db:
+    mode: random_uniform
+    min: -2.0
+    max: 16.0
+
+  # Radar equation: received power ~ 1/R^4 (40 dB per decade of range), referenced to 50 m.
+  # Closes the "amplitude independent of range" gap found in the data-quality audit.
+  propagation:
+    enabled: true
+    ref_range_m: 50.0
+    exponent_db: 40.0
+
+  clutter:
+    enabled: true
+    strength_db: 45.0
+    width_bins: 4
+
+  multipath:
+    enabled: true
+    delay_m: 2.0
+    attenuation_db: -12.0
+
+  min_separation:
+    range_bins: 3
+    velocity_bins: 3
+
+save:
+  compact: true               # omit rd_map_db + per-frame axes (~60% smaller, no info lost)
+  preview_png: false          # 10k previews would be slow and unnecessary

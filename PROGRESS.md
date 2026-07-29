@@ -187,11 +187,32 @@ embedded in/next to the clutter ridge.
 - **DECISION: real data is for statistical validation / qualitative demo only** — never for
   Pd/Pfa scoring (no bin-level truth, no false-alarm truth). Sim-to-real transfer = future work.
 
+## Milestone 12 — Radar equation + FROZEN benchmark datasets  ✅
+- **Radar equation** (`src/radar/propagation.py`) — closes the audit's "amplitude independent of
+  range" gap. Received power `∝ σ/R⁴`, applied as `40·log10(R/R_ref)` referenced to 50 m, folded
+  in *before* the clean-map SNR measurement so `cell_snr_db` reflects true post-propagation
+  strength. **Verified:** doubling range costs 12.04 dB; in generated data
+  corr(range, cell_SNR) = **−0.79** (mean cell SNR 42.5 dB at 0–30 m → 10.2 dB at 90–120 m).
+  Difficulty is now *physically* motivated.
+- **Frozen splits generated** (the authoritative benchmark; `configs/frozen_{train,val,test}.yaml`):
+  train 10,000 / val 2,000 / test 2,000 frames, same distribution, **different seeds**.
+  A neutral MIXTURE (0–5 targets, SNR spanning the transition, clutter + multipath enabled) —
+  deliberately not built from the masking/clutter diagnostic sets, which would favour OS/GO.
+- **Compact storage** — `rd_map_db` and per-frame axes dropped (axes saved once as `axes.npz`):
+  177 KB/frame vs 317 KB (−44%), no information lost.
+- **Verification:** no leakage (0 shared frames between any split pair); distributions match
+  (mean targets 2.53/2.53/2.56, median cell SNR ≈21 dB); no NaN/Inf.
+- **Alignment:** rate rises with SNR and is **exactly 1.000 above 22 dB** (966 targets, 0 errors);
+  0.97 at 15–18 dB. Investigated the ~0.5% marginal cases — they are **noise spikes beating a
+  weak target near the detection threshold, i.e. correct physics, not a labelling bug** (errors
+  vanish at high SNR, which a labelling bug would not do). The old 15 dB validation gate was
+  slightly permissive; the reliably-visible threshold is ~22 dB.
+
 ## Current position
-Phase A ✅. Phase B ✅. Data audit ✅. **On schedule** (Week 0 done, 26 Jul).
-**Next = Week 1: the DL foundation** — frozen train/val/test datasets, PyTorch loader, small
-CNN/U-Net running end-to-end by ~2 Aug (see `SCHEDULE.md`). Optional if quick:
-range-dependent amplitude before freezing the datasets.
+Phase A ✅. Phase B ✅. Data audit ✅. Frozen datasets ✅. **On schedule** (Week 1, 27 Jul).
+**Next: the DL pipeline** — PyTorch loader (rd_map_mag + label_mask), small CNN/U-Net →
+heatmap → peak-find/NMS → point list, scored through the SAME `src/eval` used for CFAR.
+Week 1 milestone: training end-to-end by ~2 Aug (see `SCHEDULE.md`).
 
 *(Note: `Plan.md` was deleted; this file is now the single roadmap record.)*
 

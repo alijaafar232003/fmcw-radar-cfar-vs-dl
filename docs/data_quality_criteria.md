@@ -154,6 +154,16 @@ this project's data*. The heavy-tailed reference values (`c < 2`) come from the 
 clutter-statistics **literature**, not from distributions fitted to CARRADA/RADDet (which were
 not available). The comparison is therefore *our measurement vs literature reference models*.
 
+**Closed gap — range-dependent amplitude (the radar equation).** The audit found that target
+amplitude and range were *independent*: a target at 100 m could be as strong as one at 10 m,
+which is physically impossible. Received power obeys `P_r ∝ σ/R⁴`, so the frozen datasets now
+apply a `40·log10(R/R_ref)` loss (`src/radar/propagation.py`), referenced to 50 m. Verified:
+doubling the range costs **12.04 dB** (the 1/R⁴ law), and in generated data the correlation
+between range and measured cell SNR is **−0.77** (mean cell SNR falls 42.5 → 10.2 dB from the
+0–30 m to the 90–120 m band). This makes difficulty *physically* motivated — distant targets are
+hard because they are distant — and matches the systematic range-dependence seen in real
+recordings.
+
 **Decision — Gaussian clutter retained; heavy-tailed clutter deferred to future work.** The
 present CFAR results are valid for homogeneous Gaussian clutter, the classical regime CFAR was
 derived for. Changing the model would require regenerating every dataset and repeating the CFAR
