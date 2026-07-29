@@ -163,11 +163,35 @@ embedded in/next to the clutter ridge.
 - **Flagged for realism roadmap:** clutter should use a proper clutter-to-noise-ratio
   calibration (like cell-SNR) instead of the current absolute `strength_db`.
 
+## Milestone 11 — Data quality audit + real-dataset comparison  ✅
+- **Why:** to answer "how do you know your synthetic data isn't rigged?" with evidence.
+- `docs/data_quality_criteria.md` — 9-criterion framework (physical fidelity, label correctness,
+  statistical realism, difficulty calibration, coverage, no shortcuts, benchmark neutrality,
+  external validity, reproducibility) + how practitioners verify each + references.
+- `notebooks/data_quality_audit.ipynb` — measured audit, 6 figures, scorecard.
+- **Measured results:** noise exponential (KS 0.005 ✔); targets **off-grid** (0.13 m of a 0.50 m
+  bin → no bin-centre shortcut ✔); coverage 0–5 targets / 9–100 m / ±15 m/s / SNR −1.5…38.5 dB ✔;
+  difficulty calibrated ✔. **Gap: clutter Weibull shape c = 2.03 → Gaussian-like**, whereas real
+  ground clutter is heavy-tailed (c < 2).
+- **Real-dataset comparison** (published specs): same 77 GHz automotive regime as CARRADA
+  (4 GHz BW, 0.2 m, 256×64) and RADDet (0.5 GHz, 0.3 m, 256×64); ours 256×128, 0.5 m, 128 m —
+  a medium-range profile. Precedent for synthetic-only: RadSimReal, CVPR 2024.
+- **Care taken:** the heavy-tailed reference curves are **literature values**, NOT distributions
+  fitted to CARRADA/RADDet (not available) — the notebook and docs label this explicitly.
+- **Key argument:** every identified gap makes the simulation *easier* than reality (Gaussian
+  clutter, point targets, no phase noise, constant RCS), so results are not flattered by an
+  artificially hostile environment; CFAR's weaknesses would be **worse** on real data.
+- **DECISION: keep Gaussian clutter now; heavy-tailed clutter = documented future work.**
+  Changing it would mean regenerating everything and redoing CFAR, right on the DL critical path;
+  and the gap is conservative. Logged on the realism roadmap.
+- **DECISION: real data is for statistical validation / qualitative demo only** — never for
+  Pd/Pfa scoring (no bin-level truth, no false-alarm truth). Sim-to-real transfer = future work.
+
 ## Current position
-Phase A ✅. Phase B ✅ (complete: detectors, calibration, tuning, AND the scenarios that
-demonstrate each method's advantage). **On schedule** (Week 0 done, 26 Jul).
-**Next = Week 1: the DL foundation** — range-dependent amplitude, frozen train/val/test
-datasets, PyTorch loader, small CNN/U-Net running end-to-end by ~2 Aug (see `SCHEDULE.md`).
+Phase A ✅. Phase B ✅. Data audit ✅. **On schedule** (Week 0 done, 26 Jul).
+**Next = Week 1: the DL foundation** — frozen train/val/test datasets, PyTorch loader, small
+CNN/U-Net running end-to-end by ~2 Aug (see `SCHEDULE.md`). Optional if quick:
+range-dependent amplitude before freezing the datasets.
 
 *(Note: `Plan.md` was deleted; this file is now the single roadmap record.)*
 

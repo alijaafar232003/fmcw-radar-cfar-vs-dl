@@ -133,6 +133,40 @@ That is a defensible scientific position. Claiming "my data is realistic" withou
 
 ---
 
+## Audit outcome and decisions (this project)
+
+Measured against the criteria (full evidence in `notebooks/data_quality_audit.ipynb`):
+
+| Criterion | Result |
+|---|---|
+| Physical fidelity | PASS — full chirp→dechirp→FFT chain; derived quantities match theory |
+| Label correctness | PASS — RD peak = label bin = mask, verified across all scenarios |
+| Statistical realism | **PARTIAL** — noise exponential (KS 0.005) ✔; clutter Weibull c = 2.03 (Gaussian-like) ✘ |
+| Difficulty calibration | PASS — cell-SNR calibrated, Pd sweeps 0→1 |
+| Coverage | PASS — 0–5 targets, 9–100 m, ±15 m/s, cell SNR −1.5…38.5 dB |
+| No shortcuts | PASS — targets off-grid (0.13 m of a 0.50 m bin) |
+| Benchmark neutrality | ACTION — keep diagnostic sets separate from the frozen test set |
+| External validity | PARTIAL — same 77 GHz regime as CARRADA/RADDet; gaps listed below |
+| Reproducibility | PASS — fixed seeds, configs stored with the data |
+
+**Measured vs cited — an important distinction.** The clutter shape `c = 2.03` is *measured from
+this project's data*. The heavy-tailed reference values (`c < 2`) come from the published radar
+clutter-statistics **literature**, not from distributions fitted to CARRADA/RADDet (which were
+not available). The comparison is therefore *our measurement vs literature reference models*.
+
+**Decision — Gaussian clutter retained; heavy-tailed clutter deferred to future work.** The
+present CFAR results are valid for homogeneous Gaussian clutter, the classical regime CFAR was
+derived for. Changing the model would require regenerating every dataset and repeating the CFAR
+study. The gap is **conservative**: real, spikier clutter would make CA-CFAR perform *worse*, so
+it does not threaten the conclusions — and adding K/Weibull clutter later would strengthen them,
+since that is where OS-CFAR and a learned detector gain most.
+
+**Where real radar data fits.** Not usable for Pd/Pfa scoring (no bin-level ground truth, and no
+truth for false alarms). Usable for statistical validation (fit real clutter, compare
+distributions — needs no labels) and for a qualitative demonstration (run the detectors on real
+frames). Full sim-to-real transfer (train synthetic → test real) is the gold standard and is
+identified as future work.
+
 ## References
 
 - Ouaknine et al., *CARRADA Dataset: Camera and Automotive Radar with Range–Angle–Doppler
