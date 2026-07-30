@@ -305,11 +305,50 @@ sizes strata for estimation reliability instead**. The correct proportions were 
 measuring them — the audit produced the design. `random → audit → stratified` is standard
 experimental method.
 
+## Milestone 15 — Stratified benchmark: DL wins EVERY condition  ✅
+Full record: `docs/results_stratified.md`; notebook §13.
+
+**Datasets generated + verified:** `bench_train` 9,600 / `bench_val` 1,600 / `bench_test` 2,400 —
+exactly 1200/200/300 per stratum, **no leakage**, per-stratum behaviour correct. Coverage fixed:
+masking **1.1% → 7.0%**, unresolved **0.4% → 12.8%**.
+
+**Retrained** TinyCNN from scratch on `bench_train` (12 epochs): train 0.119→0.066,
+val 0.096→0.0755, no overfitting. Same 5,041 params, same 21×21 receptive field.
+
+**Per-condition results (bench_test, matched Pfa=1e-4, 150 frames/stratum):**
+
+| Condition | CA | OS | GO | **DL** |
+|---|---|---|---|---|
+| isolated | 0.867 | 0.867 | 0.867 | **0.880** |
+| masking | 0.493 | 0.643 | 0.493 | **0.727** |
+| unresolved | 0.490 | 0.490 | 0.490 | **0.547** |
+| clutter | 0.666 | 0.686 | 0.618 | **0.723** |
+| multi | 0.852 | 0.855 | 0.848 | **0.871** |
+| multipath | 0.831 | 0.831 | 0.818 | **0.840** |
+| mixed | 0.783 | 0.798 | 0.768 | **0.804** |
+
+**DL has the highest Pd in all 7 target-bearing conditions.** Mechanism metrics:
+- **masking weak-target Pd: DL 0.500 vs OS 0.333**, CA/GO 0.033 → **the earlier loss is REVERSED**
+  (was DL 0.40 vs OS 0.65). Only the training distribution changed — no architecture change.
+- **unresolved weak Pd: DL 0.193 vs 0.013–0.020** for every CFAR → genuine sub-resolution-cell
+  recovery from blob-shape asymmetry, now on 150 frames (not the earlier 10-frame artifact).
+- **clutter-band FA/frame: DL 2.47 vs GO 4.83** (best classical), CA 7.91, OS 11.36 — *and* higher
+  Pd (0.723 vs GO 0.618). GO buys FA suppression by losing detections; DL doesn't pay that price.
+- **Fairness check: DL's measured Pfa (4.8e-5) is the LOWEST of the four** (2.5–4× more
+  conservative), so its advantage is NOT from a looser operating point.
+
+**Central thesis supported:** the classical methods are complementary (OS best at masking / worst at
+clutter; GO the converse; CA leads nothing), while **one 5k-parameter learned model is best
+everywhere** — with context deliberately matched to CFAR's window.
+
+**Notebook fixed and verified:** `dl_cnn_experiment.ipynb` — 36 cells, **19/19 executed, 10 figures,
+zero errors** (earlier run had been killed and left empty). Includes the before/after coverage plot.
+
 ## Current position
-Phase A ✅. Phase B ✅. Data audit ✅. Frozen datasets ✅. DL Model 0 ✅. Coverage study ✅.
-Stratified dataset **generating**.
-**Next:** retrain Model 0 on `bench_train` (all conditions now covered) → re-run the stratified
-per-condition comparison → then Model 1 (U-Net). Ahead of `SCHEDULE.md`.
+Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅ (both datasets). Coverage study ✅.
+Stratified benchmark ✅. **Ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul; due 9 Aug).
+**Next: Model 1 (U-Net)** — breaks the matched-RF constraint to test whether *more* context helps.
+Then Phase D ablations + report.
 
 *(Note: `Plan.md` was deleted; this file is now the single roadmap record.)*
 
