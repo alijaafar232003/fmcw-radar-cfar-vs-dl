@@ -1,0 +1,100 @@
+# STRATIFIED BENCHMARK DATASET — TRAINING SPLIT
+#
+# WHY STRATIFIED (the design justification):
+# The first dataset (`frozen_*`) used simple random sampling — physically realistic scenes with
+# randomly drawn targets. Auditing it against the evaluation conditions showed that realistic
+# random sampling UNDER-REPRESENTS rare but important cases:
+#     masking configurations   1.1% of targets
+#     unresolvable close pairs 0.4% of targets
+#     clutter-affected        16.0% of targets
+# Measured DL performance then tracked that coverage almost monotonically: the network beat every
+# CFAR variant on clutter (well covered) but lost to OS-CFAR on masking (barely covered).
+#
+# Reliable per-condition detection estimates require adequate samples in EVERY stratum, so this
+# dataset uses a STRATIFIED design: 8 named conditions in equal proportion, assigned by cycling
+# (exactly balanced, reproducible). Each frame records its `condition` in metadata, so evaluation
+# can be stratified with guaranteed sample counts.
+#
+# train / val / test share this design and differ only by random_seed -> identically distributed,
+# no shared frames.
+
+dataset:
+  name: bench_train
+  description: "Stratified benchmark - TRAIN. 8 conditions in equal proportion."
+  output_root: data
+  num_frames: 9600          # 1200 per condition
+  random_seed: 80001
+
+# ---- defaults, inherited by every condition unless overridden ----
+targets:
+  mode: random
+  min_targets: 1
+  max_targets: 3
+  range_m:   {min: 8.0,  max: 110.0}
+  velocity_mps: {min: -25.0, max: 25.0}
+  amplitude_db: {min: 6.0, max: 26.0}
+  min_separation: {range_bins: 12, velocity_bins: 12}
+
+scene:
+  snr_db: {mode: random_uniform, min: -2.0, max: 16.0}
+  # Radar equation ON for every condition, so the physics is consistent across strata
+  # (the earlier per-scenario debug sets lacked it, creating a secondary distribution shift).
+  propagation: {enabled: true, ref_range_m: 50.0, exponent_db: 40.0}
+  clutter:   {enabled: false, strength_db: 45.0, width_bins: 4}
+  multipath: {enabled: false, delay_m: 2.0, attenuation_db: -12.0}
+  min_separation: {range_bins: 12, velocity_bins: 12}
+
+# ---- the 8 strata (cycled -> exactly equal counts) ----
+scenarios:
+  - name: isolated              # clean single target, well separated
+    targets: {mode: fixed_count, count: 1}
+
+  - name: masking               # strong + RESOLVABLE weak target inside one CFAR window
+    targets:
+      mode: close_pair
+      base_range_m: {min: 20.0, max: 90.0}
+      base_velocity_mps: {min: -12.0, max: 12.0}
+      separation: {range_bins: {min: 5, max: 9}, velocity_bins: {min: 0, max: 3}}
+      amplitude_db: {strong: {min: 14.0, max: 24.0}, weak: {min: 2.0, max: 10.0}}
+
+  - name: unresolved            # pair inside one mainlobe (resolution limit)
+    targets:
+      mode: close_pair
+      base_range_m: {min: 20.0, max: 90.0}
+      base_velocity_mps: {min: -12.0, max: 12.0}
+      separation: {range_bins: {min: 1, max: 3}, velocity_bins: {min: 0, max: 1}}
+      amplitude_db: {strong: {min: 14.0, max: 24.0}, weak: {min: 6.0, max: 14.0}}
+
+  - name: clutter               # targets in / near the zero-Doppler ridge
+    targets:
+      mode: random
+      min_targets: 1
+      max_targets: 3
+      velocity_mps: {min: -5.0, max: 5.0}
+    scene:
+      clutter: {enabled: true, strength_db: 45.0, width_bins: 4}
+
+  - name: multi                 # dense scene
+    targets: {mode: random, min_targets: 4, max_targets: 5,
+              min_separation: {range_bins: 6, velocity_bins: 6}}
+    scene: {min_separation: {range_bins: 6, velocity_bins: 6}}
+
+  - name: multipath             # ghost reflections present
+    targets: {mode: random, min_targets: 1, max_targets: 2}
+    scene:
+      multipath: {enabled: true, delay_m: 2.0, attenuation_db: -12.0}
+
+  - name: noise                 # empty frames -> false-alarm measurement
+    targets: {mode: fixed_count, count: 0}
+
+  - name: mixed                 # realistic combination (the old frozen_* recipe)
+    targets: {mode: random, min_targets: 0, max_targets: 5,
+              min_separation: {range_bins: 3, velocity_bins: 3}}
+    scene:
+      clutter:   {enabled: true, strength_db: 45.0, width_bins: 4}
+      multipath: {enabled: true, delay_m: 2.0, attenuation_db: -12.0}
+      min_separation: {range_bins: 3, velocity_bins: 3}
+
+save:
+  compact: true
+  preview_png: false

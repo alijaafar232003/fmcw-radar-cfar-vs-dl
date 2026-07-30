@@ -254,12 +254,62 @@ is forced to discard.
 - **Honest limitations recorded:** trained on only 3,000/10,000 frames for 8 epochs (a *floor*,
   not a ceiling); no analytically guaranteed Pfa unlike CFAR; synthetic-only training.
 
+## Milestone 14 — Coverage study + stratified dataset redesign  ✅
+Full record: `docs/dataset_coverage_study.md`; notebook §10–12.
+
+**The narrative: evidence → diagnosis → redesign** (deliberately run in that order, so the design
+change is empirically justified rather than asserted).
+
+**Evidence — home-turf test (all 4 methods, matched Pfa=1e-4).** The DL threshold was Monte-Carlo
+calibrated on pure noise with the CFAR protocol (0.8638).
+
+| Scenario (metric) | CA | OS | GO | **DL** |
+|---|---|---|---|---|
+| Masking — weak-target Pd ↑ | 0.15 | **0.65** | 0.12 | **0.40** |
+| Clutter — band FA/frame ↓ | 14.15 | 17.10 | 8.35 | **0.95** |
+| Unresolved — Pd (0.5 = physics cap) | 0.50 | 0.50 | 0.50 | 0.55 |
+
+- **Clutter: DL dominates** — ~9× fewer clutter-band false alarms than GO (best classical) while
+  holding Pd = 0.86. Local window statistics can't represent clutter; a learned function reads its
+  *texture*.
+- **Masking: DL mid-table** — beats CA (0.15) and GO (0.12) but loses to the specialist OS (0.65).
+- **Unresolved: all capped ~0.5** (physics). DL's 0.55 = 1 frame of 10 → within noise, NOT
+  super-resolution.
+- Caveats recorded: sets are small (40/20/10 frames → preliminary), and they predate the radar
+  equation → secondary distribution shift.
+
+**Diagnosis — DL performance tracks training coverage almost monotonically:**
+
+| Condition | Coverage in `frozen_train` | Outcome |
+|---|---|---|
+| Clutter | ~16 % | DL wins |
+| Masking | ~1.1 % | DL loses to OS |
+| Unresolved | ~0.4 % | no advantage |
+
+→ The masking weakness is a **data-coverage problem, not a capability limit**. Without this
+diagnosis the project would have wrongly concluded "CFAR beats DL at masking".
+
+**Redesign — stratified sampling.** Generator gained a `scenarios:` block: per frame it cycles
+through 8 named strata and deep-merges that stratum's overrides onto the defaults; **each frame
+records its `condition` in metadata**, so per-condition evaluation has guaranteed sample counts.
+Strata: `isolated, masking, unresolved, clutter, multi, multipath, noise, mixed`.
+`bench_train` 9,600 / `bench_val` 1,600 / `bench_test` 2,400 (1200/200/300 per stratum), disjoint
+seeds, **radar equation on in every stratum** (consistent physics). Verified on a 40-frame trial:
+exactly balanced, tags recorded, per-stratum behaviour correct.
+**Nothing deleted** — `frozen_*` kept as the neutral aggregate benchmark; `mixed` preserves the
+realistic recipe.
+
+**Defence of the redesign** (the "why not from the start?" question): simple random sampling
+maximises *realism* but necessarily under-represents rare configurations; **stratified sampling
+sizes strata for estimation reliability instead**. The correct proportions were not knowable before
+measuring them — the audit produced the design. `random → audit → stratified` is standard
+experimental method.
+
 ## Current position
-Phase A ✅. Phase B ✅. Data audit ✅. Frozen datasets ✅. **DL Model 0 ✅ (Week 1 milestone met
-3 days early).**
-**Next: Model 1 (U-Net)** — breaks the matched-RF constraint to test whether *more* context helps;
-expected to gain most in clutter and multi-target masking. Then Model 2 (attention) if time, and
-the Phase D ablations. See `SCHEDULE.md`.
+Phase A ✅. Phase B ✅. Data audit ✅. Frozen datasets ✅. DL Model 0 ✅. Coverage study ✅.
+Stratified dataset **generating**.
+**Next:** retrain Model 0 on `bench_train` (all conditions now covered) → re-run the stratified
+per-condition comparison → then Model 1 (U-Net). Ahead of `SCHEDULE.md`.
 
 *(Note: `Plan.md` was deleted; this file is now the single roadmap record.)*
 

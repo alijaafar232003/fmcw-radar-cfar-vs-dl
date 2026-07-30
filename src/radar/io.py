@@ -59,6 +59,7 @@ def save_frame(
     scenario: str,
     clutter: dict,
     multipath: dict,
+    condition: str | None = None,
     noise_var: float | None = None,
     snr_processing_gain_db: float | None = None,
     compact: bool = False,
@@ -86,6 +87,9 @@ def save_frame(
 
     metadata = {
         "scenario": scenario,
+        # Stratification key: which designed condition this frame belongs to (stratified
+        # mixture datasets only). Enables per-condition evaluation with guaranteed sample counts.
+        "condition": condition,
         # Requested cell SNR for a 0 dB-amplitude reference target. Each target's own
         # measured cell SNR is in its label entry (and in labels.csv).
         "reference_cell_snr_db": float(snr_db),
