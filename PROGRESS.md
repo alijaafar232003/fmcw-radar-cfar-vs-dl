@@ -208,11 +208,58 @@ embedded in/next to the clutter ridge.
   vanish at high SNR, which a labelling bug would not do). The old 15 dB validation gate was
   slightly permissive; the reliably-visible threshold is ~22 dB.
 
+## Milestone 13 — DL Model 0 (Tiny CNN): pipeline + first CFAR-vs-DL result  ✅
+**Week 1 milestone met (30 Jul, target was 2 Aug).** Full design record in `docs/dl_design.md`.
+
+- **Formulation:** dense per-cell heatmap regression — deliberately *structurally identical* to
+  CFAR (per-cell score → threshold → NMS → points), so only the **decision rule** differs.
+  The network is a *learned replacement for the CFAR thresholding step*, not a generic detector.
+- **`src/dl/`**: `dataset.py` (normalization), `models.py` (TinyCNN), `train.py` (loss, gates,
+  loop), `infer.py` (heatmap→points, evaluation).
+- **Key design — receptive field matched to CFAR.** CA-CFAR uses a 21×21 window; TinyCNN uses
+  dilated 3×3 convs with dilations (1,2,3,4) → RF = 21×21. This makes Model 0 a **controlled
+  experiment**: identical context, learned vs hand-derived rule. Dilations increase smoothly with
+  no common factor (Hybrid-Dilated-Convolution guidance) to avoid gridding artifacts.
+- **Normalization (highest-leverage choice):** dB above the frame's own noise-floor median.
+  Rejected raw power (7 orders of magnitude), fixed global reference (scale varies 57× between
+  frames), and the stored `rd_map_db` (per-frame max normalization **destroys absolute SNR**).
+  Measured: median std **0.000** across frames.
+- **Loss:** `BCEWithLogitsLoss(pos_weight=200)`; measured imbalance **1:1563** (0.064% positive),
+  so plain BCE would collapse to all-zeros at 99.94% "accuracy".
+- **ALL GATES PASSED:** dataset shapes/finiteness/median≈0; **orientation 72/72** (no transpose
+  bug); params 5,041; **receptive field MEASURED at 21×21** by backprop from one output pixel;
+  **overfit-one-batch: loss 0.798→0.00023 (3514×), 25/25 peaks within 1 bin**; training
+  converged (train 0.203→0.102, val 0.141→0.107, no overfitting).
+- **Fairness enforced three ways:** DL imports **CFAR's own `all_peaks`** (same NMS, size 5);
+  the **same border `valid` mask** is applied so the Pfa denominator matches; the same
+  `src/eval` matching and metrics.
+
+### FIRST CFAR-vs-DL RESULT (frozen_test, 500 frames, matched Pfa)
+| Method | Pd@1e-4 | Pd@1e-3 | Pd@1e-2 | ms/frame |
+|---|---|---|---|---|
+| **DL (TinyCNN, 5k params)** | **0.784** | **0.832** | 0.856 | 55.5 |
+| CA-CFAR | 0.752 | 0.814 | 0.859 | 6.9 |
+| OS-CFAR | 0.742 | 0.820 | 0.862 | 296.7 |
+| GO-CFAR | 0.752 | 0.806 | 0.855 | 38.4 |
+
+**DL wins in the low-Pfa regime** (+3.2 pts at 1e-4, +1.8 at 1e-3) — the operationally important
+one. Methods converge at high Pfa. The margin is **modest, as predicted for matched context** — a
+dramatic win would signal an unfair comparison. **Why it can win at all:** CFAR must *exclude* its
+guard region from the noise estimate (a mean cannot tell "bright from my own mainlobe" from "noise
+is high"); a learned function can use those cells, i.e. it exploits information the classical rule
+is forced to discard.
+
+- `notebooks/dl_cnn_experiment.ipynb` — all gates, training curves, heatmap visualisation,
+  ROC/FROC vs CFAR, Pd-vs-SNR, runtime-vs-accuracy, conclusions.
+- **Honest limitations recorded:** trained on only 3,000/10,000 frames for 8 epochs (a *floor*,
+  not a ceiling); no analytically guaranteed Pfa unlike CFAR; synthetic-only training.
+
 ## Current position
-Phase A ✅. Phase B ✅. Data audit ✅. Frozen datasets ✅. **On schedule** (Week 1, 27 Jul).
-**Next: the DL pipeline** — PyTorch loader (rd_map_mag + label_mask), small CNN/U-Net →
-heatmap → peak-find/NMS → point list, scored through the SAME `src/eval` used for CFAR.
-Week 1 milestone: training end-to-end by ~2 Aug (see `SCHEDULE.md`).
+Phase A ✅. Phase B ✅. Data audit ✅. Frozen datasets ✅. **DL Model 0 ✅ (Week 1 milestone met
+3 days early).**
+**Next: Model 1 (U-Net)** — breaks the matched-RF constraint to test whether *more* context helps;
+expected to gain most in clutter and multi-target masking. Then Model 2 (attention) if time, and
+the Phase D ablations. See `SCHEDULE.md`.
 
 *(Note: `Plan.md` was deleted; this file is now the single roadmap record.)*
 
