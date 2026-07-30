@@ -327,28 +327,61 @@ val 0.096→0.0755, no overfitting. Same 5,041 params, same 21×21 receptive fie
 | multipath | 0.831 | 0.831 | 0.818 | **0.840** |
 | mixed | 0.783 | 0.798 | 0.768 | **0.804** |
 
-**DL has the highest Pd in all 7 target-bearing conditions.** Mechanism metrics:
-- **masking weak-target Pd: DL 0.500 vs OS 0.333**, CA/GO 0.033 → **the earlier loss is REVERSED**
-  (was DL 0.40 vs OS 0.65). Only the training distribution changed — no architecture change.
-- **unresolved weak Pd: DL 0.193 vs 0.013–0.020** for every CFAR → genuine sub-resolution-cell
-  recovery from blob-shape asymmetry, now on 150 frames (not the earlier 10-frame artifact).
-- **clutter-band FA/frame: DL 2.47 vs GO 4.83** (best classical), CA 7.91, OS 11.36 — *and* higher
-  Pd (0.723 vs GO 0.618). GO buys FA suppression by losing detections; DL doesn't pay that price.
-- **Fairness check: DL's measured Pfa (4.8e-5) is the LOWEST of the four** (2.5–4× more
-  conservative), so its advantage is NOT from a looser operating point.
+*(Table above is the CORRECTED post-NMS-fix version; `unresolved` DL was 0.547 pre-fix.)*
 
-**Central thesis supported:** the classical methods are complementary (OS best at masking / worst at
-clutter; GO the converse; CA leads nothing), while **one 5k-parameter learned model is best
-everywhere** — with context deliberately matched to CFAR's window.
+**DL has the highest Pd in 6 of 7 conditions and ties on the 7th.** Mechanism metrics:
+- **masking weak-target Pd: DL 0.500 vs OS 0.333**, CA/GO 0.033. Unaffected by the NMS fix, and the
+  5–9 bin separation exceeds the suppression radius → the most robust DL result in the study.
+- **unresolved: 4-way tie at 0.490** — no method beats the resolution limit, as physics dictates.
+- **clutter-band FA/frame: DL 2.47 vs GO 4.83** (best classical), CA 7.91, OS 11.36 — *and* higher
+  Pd (0.723 vs GO 0.618).
+
+## Milestone 16 — Fairness audit: NMS bug found & fixed; result NOT yet trustworthy  ⚠️
+**See `NEXT_SESSION.md` for the full plan. Do not put these numbers in the report yet.**
+
+- **BUG FOUND (and fixed).** `all_peaks` used `score == maximum_filter(score)`, marking *every* cell
+  of a plateau as a peak. A sigmoid output has flat/tied regions (CFAR's continuous ratio does not),
+  so **DL emitted multiple detections per target** — 1.90 per single-target frame vs CA's 0.83 — and
+  because the evaluator ignores unmatched detections inside a truth's guard region, the duplicates
+  cost nothing. DL was getting several free attempts per target.
+  Fixed via `_collapse_plateaus()` in `src/cfar/detect.py` (one detection per connected peak region,
+  applied identically to all detectors).
+- **How it was caught:** DL scored 0.547 on `unresolved`, *exceeding* the physical 0.5 cap. A physics
+  sanity check exposed it.
+- **RETRACTED:** the "19 % genuine sub-resolution-cell recovery" claim. Corrected to 8 %, and that is
+  most likely a matching artifact. All four methods now tie at 0.490.
+- **Survived the fix unchanged:** masking (DL 0.500 vs OS 0.333), clutter (DL 2.47 vs GO 4.83),
+  isolated, multi, multipath, mixed.
+
+**Open asymmetries — the comparison is not yet fair:**
+1. **The CNN gets an implicit matched filter; CFAR does not** (it tests a single cell while the CNN
+   integrates the whole ~5×5 mainlobe). Leading explanation for DL winning even on isolated targets.
+2. **CFAR geometry was tuned on `snr_sweep`** (clean, single target) then applied everywhere — likely
+   penalising it badly in the clutter stratum, where a 21×21 window dwarfs the ~4-bin ridge.
+3. **Pfa is matched by *design*, not by *measurement*** (4.8e-5 … 1.9e-4, a 4× spread).
+4. **DL was retrained per distribution; CFAR was not re-tuned.**
+5. **±1-bin gate may measure localisation rather than detection** (DL learns label bins; CFAR finds
+   physical peaks).
+6. **Train and test share one generator** → possible exploitation of generator regularities.
 
 **Notebook fixed and verified:** `dl_cnn_experiment.ipynb` — 36 cells, **19/19 executed, 10 figures,
 zero errors** (earlier run had been killed and left empty). Includes the before/after coverage plot.
 
 ## Current position
-Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅ (both datasets). Coverage study ✅.
-Stratified benchmark ✅. **Ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul; due 9 Aug).
-**Next: Model 1 (U-Net)** — breaks the matched-RF constraint to test whether *more* context helps.
-Then Phase D ablations + report.
+Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
+**Ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul; due 9 Aug) — spend that slack on the
+fairness audit.
+
+**NEXT = the fairness audit, not U-Net.** A U-Net built on an unfair protocol would inherit the
+problem. See **`NEXT_SESSION.md`**:
+- **Step A (cheap diagnostics):** A1 matched *measured* Pfa via ROC · A2 trivial global-threshold
+  baseline (if it ≈ CFAR, the benchmark is too easy) · A3 widen the matching gate to ±2.
+- **Step B (real fixes):** B1 give CFAR the matched-filter benefit (**highest value** — tests the
+  leading hypothesis; expected to close much of the gap) · B2 tune CFAR per condition.
+- **Step C:** perturb the generator at test time and re-test DL without retraining.
+
+**Guiding principle:** a smaller, well-understood DL advantage is worth far more than a large
+unexplained one. "DL ≈ CFAR once CFAR gets equivalent pre-integration" is a perfectly good result.
 
 *(Note: `Plan.md` was deleted; this file is now the single roadmap record.)*
 

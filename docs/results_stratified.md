@@ -1,5 +1,23 @@
 # Results — Stratified Benchmark: DL vs CFAR per condition
 
+> ## ⚠️ CORRECTED — read this first
+> An earlier version of this document reported inflated DL figures caused by a **non-maximum
+> suppression bug**. `all_peaks` used `score == maximum_filter(score)`, which marks *every* cell of
+> a plateau as a peak. A network's sigmoid output has flat/tied regions (CFAR's continuous ratio
+> almost never ties), so **DL emitted multiple detections per target** — 1.90 per single-target
+> frame versus CA's 0.83. Because the evaluator ignores unmatched detections inside a truth's guard
+> region, those duplicates carried **no false-alarm penalty**, giving DL several free attempts per
+> target.
+>
+> Fixed in `src/cfar/detect.py` (`_collapse_plateaus`): one detection per connected peak region,
+> applied identically to every detector. All numbers below are **post-fix**.
+>
+> **Retracted claim:** the earlier "genuine sub-resolution-cell recovery (19 %)" was an artifact.
+> Corrected to 8 %, and even that is most likely a *matching* artifact rather than resolution — see
+> §3. The honest result is that **all four methods score identically (0.490) on unresolved pairs**.
+>
+> **Open methodological concerns are listed in §6 — the comparison is not yet fully fair.**
+
 The decisive experiment. After the coverage audit (`docs/dataset_coverage_study.md`) showed that
 masking and unresolved-pair configurations were almost absent from training, the dataset was
 redesigned with stratified sampling and the network retrained from scratch. This document records
@@ -37,14 +55,18 @@ Coverage before vs after the redesign (share of training targets):
 |---|---|---|---|---|
 | isolated | 0.867 | 0.867 | 0.867 | **0.880** |
 | masking | 0.493 | 0.643 | 0.493 | **0.727** |
-| unresolved | 0.490 | 0.490 | 0.490 | **0.547** |
+| unresolved | 0.490 | 0.490 | 0.490 | 0.490 (4-way tie) |
 | clutter | 0.666 | 0.686 | 0.618 | **0.723** |
-| multi | 0.852 | 0.855 | 0.848 | **0.871** |
+| multi | 0.852 | 0.855 | 0.848 | **0.870** |
 | multipath | 0.831 | 0.831 | 0.818 | **0.840** |
 | mixed | 0.783 | 0.798 | 0.768 | **0.804** |
 | noise | — | — | — | — (no targets) |
 
-**The learned detector has the highest Pd in every one of the seven target-bearing conditions.**
+**The learned detector has the highest Pd in six of the seven target-bearing conditions, and ties
+on the seventh.** On `unresolved` all four methods score exactly 0.490 — two targets inside one
+mainlobe produce a single peak, so no thresholding rule can exceed ~0.5. That agreement with the
+physical limit is a useful sanity check on the corrected pipeline (the pre-fix DL figure of 0.547
+*exceeded* the limit, which is what exposed the bug).
 
 ---
 
@@ -55,17 +77,18 @@ Coverage before vs after the redesign (share of training targets):
 | Condition | CA | OS | GO | **DL** |
 |---|---|---|---|---|
 | masking — weak-target Pd | 0.033 | 0.333 | 0.033 | **0.500** |
-| unresolved — weak-target Pd | 0.020 | 0.013 | 0.013 | **0.193** |
+| unresolved — weak-target Pd | 0.020 | 0.013 | 0.013 | 0.080 |
 
-* **Masking: DL now beats the specialist.** 0.500 versus OS-CFAR's 0.333 — and 15× the
-  cell-averaging and greatest-of variants (0.033). Before the redesign the network *lost* to
-  OS-CFAR on this mechanism; with masking properly represented in training it wins.
-* **Unresolved pairs: DL recovers ~19 % of weak partners where every CFAR variant recovers ~1–2 %.**
-  This is genuine sub-resolution-cell recovery: two targets inside one mainlobe produce a single
-  merged blob, and no thresholding rule applied to that blob can separate them, but a learned
-  function can exploit the *shape* asymmetry of a merged pair. With 12.8 % training coverage (up
-  from 0.4 %) and 150 test frames, this is now a statistically meaningful effect rather than the
-  single-frame artifact seen earlier.
+* **Masking: DL beats the specialist.** 0.500 versus OS-CFAR's 0.333 — and 15× the cell-averaging
+  and greatest-of variants (0.033). This figure was **unaffected by the NMS fix**, and the pair
+  separation there (5–9 bins) exceeds the suppression radius, so two genuine detections can coexist.
+  This is the most robust DL result in the study.
+* **Unresolved pairs: no method resolves them.** Overall Pd is identical (0.490) for all four. The
+  DL weak-target figure of 0.080 versus ~0.013–0.020 for CFAR should **not** be read as
+  resolution: with only one detection surviving suppression and two truths 1–3 bins apart, one-to-one
+  matching assigns it to whichever truth is nearer, so this mostly reflects where the merged blob's
+  peak sits — a **matching artifact**, not sub-resolution recovery. The earlier claim of 19 % genuine
+  recovery is **retracted**.
 
 ## Clutter-region false alarms (the clutter-edge mechanism)
 
