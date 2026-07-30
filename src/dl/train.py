@@ -136,7 +136,7 @@ def train(model, train_ds, val_ds, epochs: int = 5, batch_size: int = 16, lr: fl
             loss = loss_fn(model(x), y)
             loss.backward()
             opt.step()
-            tr_sum += float(loss) * x.shape[0]
+            tr_sum += float(loss.detach()) * x.shape[0]
             tr_n += x.shape[0]
 
         model.eval()
