@@ -367,18 +367,77 @@ val 0.096→0.0755, no overfitting. Same 5,041 params, same 21×21 receptive fie
 **Notebook fixed and verified:** `dl_cnn_experiment.ipynb` — 36 cells, **19/19 executed, 10 figures,
 zero errors** (earlier run had been killed and left empty). Includes the before/after coverage plot.
 
+## Milestone 17 — Literature corpus review (19 papers, full text)  ✅
+Full record: `docs/literature_corpus_review.md`. Extends `docs/literature_dl_vs_cfar.md`, which was
+built from web sources; RadCNN and the *Electronics* 2022 review, listed there as "could not obtain",
+are now read in full, plus 15 more. PDFs live in `papers/` (gitignored — publisher copies).
+
+**The corpus splits into five families that answer different questions.** Only one — per-cell learned
+threshold (RadCNN, Gusland, Lallouet, *and our TinyCNN*) — makes a head-to-head Pd-at-matched-Pfa
+comparison against CFAR meaningful. Conflating families is how "DL beats CFAR by 40×" claims arise.
+
+**Four findings that bear directly on our result:**
+- **In homogeneous noise, a well-built CNN ties CFAR** (RadCNN S4; Gusland below 450 m). We win there
+  (0.880 vs 0.867) — the strongest single indication that something still favours the network.
+- **A good learned detector normally loses somewhere.** RadCNN loses 0.8 dB in its S3 (target in
+  noise, reference window overlapping clutter). We lose nowhere. That is atypical, not impressive.
+- **Two rival explanations exist for a win in homogeneous noise**, and we had only found one:
+  (a) mainlobe integration — the CNN convolves the whole ~5×5 mainlobe, CFAR tests one cell; and
+  (b) **CFAR loss** — the finite reference window makes CFAR's threshold a random variable
+  (Lallouet et al., Thales). They must be separated by experiment, not argued.
+- **Banerjee et al. prove CA-CFAR *is* a convolution + ReLU** with fixed weights (+1 on the CUT,
+  −α/N on each training cell, bias 0). Our matched-receptive-field TinyCNN is therefore the *learned
+  instance of a proven generalisation of CA-CFAR* — not merely "a small CNN". This is the theoretical
+  backbone the project was missing.
+
+**Independent support for choices we made:** Gusland restricts the CNN's receptive field to match the
+CA-CFAR patch (our Milestone 13 design, arrived at independently) and notes guard cells are
+unnecessary for a CNN — the citation that makes our asymmetry #1 legible. RadCNN reports measured Pfa
+drifting from design Pfa under clutter as a *finding*, not a flaw. The *Electronics* review confirms
+Pd at matched Pfa is the field's standard metric — so matching at **measured** Pfa exceeds it.
+
+## Milestone 18 — Phase renamed: attribution, not audit  🔄 IN PROGRESS
+"Fairness audit" framed the work as fixing a defect. The work is actually **attribution**: *where
+does the DL margin come from?* — a question whose answer is a result whichever way it falls. Renamed
+because the outcome must not be presupposed, and because "hypothesis testing" would collide with the
+binary hypothesis testing (H₀/H₁) that is the project's own subject matter.
+
+Six named hypotheses, each with an experiment that can falsify it:
+
+| | Hypothesis | Decisive experiment | Falsified if |
+|---|---|---|---|
+| H1 | CNN integrates the ~5×5 mainlobe; CFAR tests one cell | guard-constrained CNN (annulus RF) + matched-filter→CFAR | isolated-target margin survives the guard constraint |
+| H2 | CFAR loss — finite reference window ⇒ noisy threshold | clairvoyant-threshold detector as upper bound | CFAR↔clairvoyant gap ≪ observed margin |
+| H3 | Protocol — ±1-bin gate, design-vs-measured Pfa | tolerance sweep + matched *measured* Pfa | margin unchanged by both |
+| H4 | Adaptation asymmetry — DL retrained, CFAR not | per-condition CFAR tuning | margin unchanged |
+| H5 | Generator exploitation | perturb generator at test, no retraining | DL does not collapse |
+| H6 | Clutter texture is unrepresentable by local window statistics | **already supported** — 2.47 vs 4.83 FA/frame, replicated by RadCNN S2 and Gusland | — |
+
+**H2 is cheap to bound analytically and should go first.** With guard 2 / train 8 (N=416 reference
+cells) at Pfa 1e-4, `α = N(Pfa^(−1/N) − 1)` ≈ 9.31 against the clairvoyant `−ln(Pfa)` ≈ 9.21 → CFAR
+loss ≈ **0.05 dB**; using our empirically calibrated α = 9.74 (which absorbs inter-cell correlation)
+≈ **0.24 dB**. Small in absolute terms — but near the knee of the Pd-vs-SNR curve that is the same
+order as the 1.3-point isolated-target gap. So H2 is **live, not dismissible**, and needs the
+clairvoyant bound rather than a hand-wave.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
-**Ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul; due 9 Aug) — spend that slack on the
-fairness audit.
+Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,
+due 9 Aug). **Writing has not started — that is the real risk, not the experiments.**
 
-**NEXT = the fairness audit, not U-Net.** A U-Net built on an unfair protocol would inherit the
-problem. See **`NEXT_SESSION.md`**:
-- **Step A (cheap diagnostics):** A1 matched *measured* Pfa via ROC · A2 trivial global-threshold
-  baseline (if it ≈ CFAR, the benchmark is too easy) · A3 widen the matching gate to ±2.
-- **Step B (real fixes):** B1 give CFAR the matched-filter benefit (**highest value** — tests the
-  leading hypothesis; expected to close much of the gap) · B2 tune CFAR per condition.
-- **Step C:** perturb the generator at test time and re-test DL without retraining.
+**NEXT = attribution, not U-Net.** A U-Net built on an unattributed margin would inherit the problem.
+Plan in `NEXT_SESSION.md`; ranked ideas in `docs/literature_corpus_review.md` §5.
+- **Tier A (numbers must be trustworthy):** A-1 bracket mainlobe integration from both sides
+  (guard-constrained CNN *and* MF+CFAR — settles H1 vs H2) · A-2 measure whether our detector is
+  actually CFAR (Diskin's definition: FPR invariant to nuisance params at fixed threshold) ·
+  A-3 matching-tolerance sweep ±1/±2/±3 · A-4 publish the measured-Pfa table · A-5 add an S3 stratum
+  (the condition where RadCNN's CNN loses).
+- **Tier B:** heavy-tailed clutter (Weibull/K, exact recipe now available) · stronger classical
+  baseline (two-stage CFAR with per-region PDF estimation) · loss ablation (Dice/Tversky/Lagrangian) ·
+  Gaussian label smoothing · mutual radar interference.
+- **Tier C (the paper):** the **CFAR→CNN ablation ladder** L0…L5, decomposing the total margin into
+  named relaxations. Nobody in the corpus does this, and Banerjee's conv+ReLU equivalence is what
+  makes it rigorous. It converts our fairness problem into the contribution.
 
 **Guiding principle:** a smaller, well-understood DL advantage is worth far more than a large
 unexplained one. "DL ≈ CFAR once CFAR gets equivalent pre-integration" is a perfectly good result.

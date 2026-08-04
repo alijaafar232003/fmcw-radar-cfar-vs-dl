@@ -26,3 +26,7 @@ Thumbs.db
 
 # Generated results (regenerate from code)
 results/
+
+# Reference papers (publisher PDFs — not ours to redistribute; ~55 MB).
+# The analysis lives in docs/literature_corpus_review.md, which cites them by DOI/arXiv.
+papers/

@@ -1,5 +1,10 @@
 # Literature Review — Deep Learning vs CFAR for Radar Target Detection
 
+> **Superseded in scope by `literature_corpus_review.md` (31 July 2026)**, which analyses the full
+> text of 19 papers in `papers/` — including RadCNN and the *Electronics* 2022 review, both listed
+> as "could not obtain" in §5 below. This file remains valid; read it first for the narrow
+> DL-vs-CFAR question, then the corpus review for mechanisms, open gaps, and the plan forward.
+
 Research conducted 30 July 2026 to answer one question: **when other groups compare a CNN against
 CFAR, how large is the gain, and what do they do differently?** This directly addresses the concern
 that our own result (DL winning in every condition) is too good to be true.
