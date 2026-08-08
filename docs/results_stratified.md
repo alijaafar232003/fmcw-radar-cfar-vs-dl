@@ -1,5 +1,14 @@
 # Results — Stratified Benchmark: DL vs CFAR per condition
 
+> ## ⚠️ SUPERSEDED — obtained on the previous radar configuration
+> Measured with **B = 300 MHz, Tc = 32 µs, M = 128 → 256 × 128 RD map, 0.50 m / 0.475 m/s per
+> bin, 128 m range**. On 4 August 2026 the sensor was re-specified to match CARRADA
+> (**768 MHz, 72.4 µs, M = 64 → 256 × 64, 0.195 m / 0.42 m/s, 50 m**); see
+> `docs/radar_config_carrada.md`.
+>
+> **Do not quote these figures.** Kept as the experimental record. The stratified *design* and
+> the per-condition evaluation method carry over; the datasets and measurements are regenerated.
+
 > ## ⚠️ CORRECTED — read this first
 > An earlier version of this document reported inflated DL figures caused by a **non-maximum
 > suppression bug**. `all_peaks` used `score == maximum_filter(score)`, which marks *every* cell of

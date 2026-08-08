@@ -62,9 +62,9 @@ f_beat = (2 · R · slope) / c          →        R = (c · f_beat) / (2 · slo
 So a single **Range FFT** of the beat signal turns beat frequency into a range axis. This
 "mix then low-frequency" trick is called **dechirping** (or "stretch processing").
 
-> Sanity check with your numbers: a target at the max range 128 m gives
-> `f_beat = 2·128·9.375e12 / 3e8 = 8 MHz`, which is exactly half your sampling rate (Nyquist).
-> That is why 128 m is your maximum range.
+> Sanity check with your numbers: a target at the max range 50 m gives
+> `f_beat = 2·50·1.0608e13 / 3e8 = 3.54 MHz`, which is exactly half your sampling rate (Nyquist).
+> That is why 50 m is your maximum range.
 
 ## 1.4 Getting velocity — Doppler across chirps
 One chirp gives range. To get velocity you send **many chirps** (a burst) and look at how the
@@ -85,24 +85,25 @@ A burst of `M` chirps, each sampled `N` times, forms one **Coherent Processing I
 - **Fast time** (within a chirp, `N` samples) → after Range FFT → **range axis**.
 - **Slow time** (across chirps, `M` of them) → after Doppler FFT → **velocity axis**.
 
-*Your values:* `N = 512`, `M = 128`. Two FFTs turn the `M×N` CPI into the **Range–Doppler map**.
+*Your values:* `N = 512`, `M = 64`. Two FFTs turn the `M×N` CPI into the **Range–Doppler map**.
 
 ## 1.6 The Range–Doppler (RD) map
 The final image. One axis = range, other axis = velocity. A target is a **bright peak** at its
-`(range, velocity)` cell. *Your RD map is 256 × 128*:
+`(range, velocity)` cell. *Your RD map is 256 × 64*:
 - Range bins = `N/2 = 256` (only the positive-frequency half of the Range FFT is kept).
-- Velocity bins = `M = 128`.
+- Velocity bins = `M = 64`.
 
 ## 1.7 The performance equations (memorise these — they define your radar)
 | Quantity | Formula | Your value | Meaning |
 |---|---|---|---|
-| Wavelength | `λ = c/fc` | 3.9 mm | sets Doppler sensitivity |
-| Chirp slope | `B/Tc` | 9.375×10¹² Hz/s | steepness of the ramp |
-| Sample rate | `fs = N/Tc` | 16 MHz | ADC speed |
-| **Range resolution** | `c/(2B)` | **0.50 m** | smallest separable range gap |
-| **Max range** | `c·fs/(4·slope)` | **128 m** | Nyquist limit on beat freq |
-| **Velocity resolution** | `λ/(2·M·Tc)` | **0.48 m/s** | smallest separable speed gap |
-| **Max velocity** | `λ/(4·Tc)` | **±30.4 m/s** | unambiguous Doppler limit |
+| Wavelength | `λ = c/fc` | 3.893 mm | sets Doppler sensitivity |
+| Chirp slope | `B/Tc` | 1.0608×10¹³ Hz/s | steepness of the ramp |
+| Sample rate | `fs = N/Tc` | 7.072 MHz | ADC speed |
+| **Range resolution** | `c/(2B)` | **0.195 m** | smallest separable range gap |
+| **Max range** | `c·fs/(4·slope)` | **50.0 m** | Nyquist limit on beat freq |
+| **Velocity resolution** | `λ/(2·M·Tc)` | **0.420 m/s** | smallest separable speed gap |
+| **Max velocity** | `λ/(4·Tc)` | **±13.44 m/s** | unambiguous Doppler limit |
+| Frame time | `M·Tc` | 4.634 ms | one CPI |
 
 **Key intuition:** range resolution depends on **bandwidth** (more `B` = finer range);
 velocity resolution depends on **how long you observe** (more chirps `M·Tc` = finer velocity).
@@ -186,7 +187,9 @@ better. The risk: it needs training data and may not generalise.
 ## 3.1 Radar configuration (`src/radar/config.py`)
 Defines the radar (`fc, B, Tc, N, M`) and computes the derived numbers in Part 1.7.
 **Significance:** every later result depends on these; fixing them defines your whole
-experiment. *Current: 77 GHz, 300 MHz, 32 µs, 512, 128 → 256×128 RD map.*
+experiment. *Current: 77 GHz, 768 MHz, 72.4 µs, 512, 64 → 256×64 RD map.*
+These are matched to the CARRADA dataset so simulated and real maps are directly
+comparable — see `docs/radar_config_carrada.md` for the derivation.
 
 ## 3.2 The signal simulator (`src/radar/simulator.py`)
 This is the physics engine. Map each function to Part 1:
@@ -290,13 +293,13 @@ Final structure: baseline physics on everywhere → one isolated set per effect 
 | Symbol | Meaning | Your value |
 |---|---|---|
 | `fc` | carrier frequency | 77 GHz |
-| `B` | bandwidth | 300 MHz |
-| `Tc` | chirp duration | 32 µs |
+| `B` | bandwidth | 768 MHz |
+| `Tc` | chirp duration | 72.4 µs |
 | `N` | samples per chirp (fast time) | 512 |
-| `M` | chirps per CPI (slow time) | 128 |
-| `λ` | wavelength | 3.9 mm |
-| `slope` | chirp slope `B/Tc` | 9.375×10¹² Hz/s |
-| `fs` | sample rate `N/Tc` | 16 MHz |
+| `M` | chirps per CPI (slow time) | 64 |
+| `λ` | wavelength | 3.893 mm |
+| `slope` | chirp slope `B/Tc` | 1.0608×10¹³ Hz/s |
+| `fs` | sample rate `N/Tc` | 7.072 MHz |
 | `c` | speed of light | 3×10⁸ m/s |
 
 ## 5.2 Formula cheat-sheet

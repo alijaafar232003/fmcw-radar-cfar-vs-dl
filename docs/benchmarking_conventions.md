@@ -9,11 +9,21 @@ Written to be copied into the FYP report / notebook later.
 ## Part 1 — SNR definition  ✅ IMPLEMENTED
 
 > **Status: done.** Implemented in `src/radar/calibration.py`; per-target `cell_snr_db` is
-> stored in every `labels.csv`. Measured processing gain **43.38 dB** (on-bin error 0.02 dB,
-> noise model within 1.1%). Acceptance check passed: **Pd rises 0.00 → 1.00** across the sweep,
-> transition ~9–12 dB. `scene.snr_db` in a config now means *requested cell SNR for a 0 dB
+> stored in every `labels.csv`. `scene.snr_db` in a config means *requested cell SNR for a 0 dB
 > reference target*; a target of amplitude `a_db` lands near `snr_db + a_db`, and its measured
 > value is recorded per target. The rest of this Part documents the reasoning.
+>
+> ⚠️ **Processing gain must be re-measured (4 Aug 2026).** The 43.38 dB figure below was measured
+> on the previous radar configuration (B = 300 MHz, Tc = 32 µs, M = 128). The sensor is now
+> matched to CARRADA (M = 64), which drops the coherent gain by 3.01 dB —
+> `10log10(512×128) = 48.16 dB` → `10log10(512×64) = 45.15 dB` — so the post-window figure should
+> land near **40.4 dB**. `calibration.py` derives the gain analytically from the windows, so the
+> cell-SNR calibration self-corrects; but **do not carry the old number into the report.**
+> See `docs/radar_config_carrada.md`.
+>
+> *Superseded on the old configuration:* measured processing gain 43.38 dB (on-bin error 0.02 dB,
+> noise model within 1.1%); acceptance check passed with Pd rising 0.00 → 1.00 across the sweep,
+> transition ~9–12 dB. Both need re-running.
 
 ### The problem this solved
 

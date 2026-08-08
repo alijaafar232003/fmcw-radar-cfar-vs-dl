@@ -3,8 +3,14 @@
 A simulation-based study comparing classical **CFAR** detectors against a **deep-learning**
 detector for finding targets on FMCW **Range–Doppler (RD) maps**. Final-year project.
 
-The radar is a medium-range **77 GHz automotive FMCW** profile
-(B = 300 MHz, Tc = 32 µs, N = 512, M = 128 → 256 × 128 RD maps, 0.5 m / 0.48 m·s⁻¹ resolution).
+The radar is a short-range **77 GHz automotive FMCW** profile
+(B = 768 MHz, Tc = 72.4 µs, N = 512, M = 64 → 256 × 64 RD maps, 0.195 m / 0.42 m·s⁻¹ per bin,
+50 m and ±13.4 m·s⁻¹ span).
+
+These parameters reproduce the **CARRADA** dataset's range-Doppler bin geometry, so simulated and
+real maps are directly comparable and a simulation-trained detector can be evaluated on real
+measurements. Derivation, and why the dataset's quoted 4 GHz bandwidth was not used, in
+[`docs/radar_config_carrada.md`](docs/radar_config_carrada.md).
 
 ## Status
 

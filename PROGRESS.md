@@ -420,6 +420,53 @@ loss ≈ **0.05 dB**; using our empirically calibrated α = 9.74 (which absorbs 
 order as the 1.3-point isolated-target gap. So H2 is **live, not dismissible**, and needs the
 clairvoyant bound rather than a hand-wave.
 
+## Milestone 19 — Radar re-specified to match CARRADA  🔄 STEP 1 OF 7 DONE
+Full derivation: `docs/radar_config_carrada.md`.
+
+**Why:** access to CARRADA (real 77 GHz automotive RD maps with per-cell annotations, recorded on
+a closed test track) makes an external-validity chapter possible — but only if a target *looks the
+same* in simulation and in the real data. At the old settings it would not: 0.50 m vs 0.195 m range
+bins means a target spreads over a different number of cells, so any transfer failure would be a
+trivial scale artifact rather than a finding.
+
+| | Old | **New** |
+|---|---|---|
+| Bandwidth B | 300 MHz | **768 MHz** |
+| Chirp time Tc | 32 µs | **72.4 µs** |
+| Chirps M | 128 | **64** |
+| Samples N | 512 | 512 |
+| RD map | 256 × 128 | **256 × 64** |
+| Range/bin, span | 0.50 m, 128 m | **0.195 m, 50 m** |
+| Velocity/bin, span | 0.475 m/s, ±30.4 m/s | **0.420 m/s, ±13.44 m/s** |
+
+Verified against `derive_radar_params`: every derived quantity matches CARRADA to 3 decimal places.
+
+**⚠️ Finding — CARRADA's published parameter table is internally inconsistent.** Its quoted 4 GHz
+sweep bandwidth contradicts its own stated 0.20 m range resolution under the range-resolution
+formula the same paper gives (`c/2B` → 0.0375 m), and would imply a 9.6 m maximum range against the
+stated 50 m — while their own Fig. 1 shows a car at 33 m. The angle entry proves the pattern: the
+quoted "FFT resolutions" are **bin spacings** (180°/256 = 0.70°, against ~14° physical for an
+8-element array). B was therefore derived from the *bin geometry*: 768 MHz reproduces 0.195 m bins
+across 50 m in 256 bins. The velocity side is fully self-consistent and cross-validates the rest.
+
+**Consequences logged, not yet actioned:**
+- **Processing gain drops 3.01 dB** (coherent 48.16 → 45.15 dB; post-window ≈ 40.4 dB expected).
+  `calibration.py` derives it analytically so cell SNR self-corrects — but the old 43.38 dB figure
+  must not be carried forward.
+- **CFAR window must be re-tuned.** Doppler axis halves; a 21×21 window would cover 33% of it and
+  leave only 44 of 64 Doppler bins testable. A non-square window may be needed, which `CfarConfig`
+  does not yet support.
+- **CNN dilations follow the window**, not the reverse — the 21×21 receptive-field match is the
+  basis of the controlled experiment, so it is re-derived *after* the geometry sweep.
+- **Scenarios must be re-specified in metres**, not bins: 5 bins was 2.5 m, it is now 0.98 m.
+
+**Superseded, kept as record:** `docs/results_model0.md` and `docs/results_stratified.md` are
+banner-marked — their measurements are from the old sensor. The *methods* carry over unchanged;
+only the numbers are re-run.
+
+**Planned order (7 steps):** 1 ✅ radar params → 2 scenarios → 3 small debug dataset → 4 CFAR
+debug → 5 CFAR calibration → 6 window/geometry decision → 7 full generation.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,

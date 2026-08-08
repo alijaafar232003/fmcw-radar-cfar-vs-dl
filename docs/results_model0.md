@@ -1,5 +1,17 @@
 # Results — Model 0 (Tiny CNN) vs CFAR
 
+> ## ⚠️ SUPERSEDED — obtained on the previous radar configuration
+> Every number in this document was measured with **B = 300 MHz, Tc = 32 µs, M = 128
+> → 256 × 128 RD map, 0.50 m / 0.475 m/s per bin, 128 m range**.
+>
+> On 4 August 2026 the sensor was re-specified to match the CARRADA dataset
+> (**768 MHz, 72.4 µs, M = 64 → 256 × 64, 0.195 m / 0.42 m/s, 50 m**) so that simulated and real
+> maps are directly comparable — see `docs/radar_config_carrada.md`.
+>
+> **Do not quote these figures in the report.** They are kept as the experimental record of how
+> the method was developed and verified. The *method* — matched receptive field, shared NMS and
+> matcher, matched-Pfa comparison — carries over unchanged; only the measurements are re-run.
+
 Detailed results record for the first CFAR-vs-DL comparison: setup, verification, measurements,
 per-method pros and cons, interpretation, and an explicit statement of what can and cannot be
 claimed. Reproduced by `notebooks/dl_cnn_experiment.ipynb`; design record in `docs/dl_design.md`.

@@ -6,6 +6,21 @@ its justification, the fairness requirements, and the verification plan.
 
 Written to be reusable in the report and defensible in a viva.
 
+> ## ⚠️ Map size and receptive field change (4 Aug 2026)
+> This document was written for the previous sensor, whose RD map was **256 × 128**. The radar is
+> now matched to CARRADA and the map is **256 × 64** — see `docs/radar_config_carrada.md`.
+>
+> **Every design argument below still holds** — the heatmap formulation, no downsampling, the
+> normalization choice, the loss and class-imbalance reasoning, and above all the principle that
+> the network's receptive field must equal the CFAR window so the two detectors differ *only* in
+> the decision rule.
+>
+> **What changes is the number.** The 21×21 receptive field and the dilations `(1,2,3,4)` that
+> produce it were matched to a CA-CFAR window chosen on the old radar. That window is being
+> re-measured (the Doppler axis has halved, so a 21-wide window now spans a third of it). The
+> dilations will be re-derived from whatever geometry the sweep selects. Read "21×21" below as
+> "whatever the CFAR window is", and "256 × 128" as "256 × 64".
+
 ---
 
 # 1. Problem formulation — what kind of ML problem is this?
