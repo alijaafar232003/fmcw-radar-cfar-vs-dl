@@ -697,6 +697,71 @@ produced the misleading Milestone 8 result.
   (GO < CA < OS) reproduces the old sensor's result. The earlier data already said so; I should
   have checked it before predicting.
 
+### Step 6 — CFAR window selected: **21 × 9** (guard 2/2, train 8/2)
+Selected on `bench2_tune` (400 frames, seed 91001, disjoint from every evaluation split), by Pd at
+matched **measured** Pfa = 1e-4, per condition. Scripts: `cfar_geometry_sweep.py`,
+`cfar_geometry_percondition.py`. `CfarConfig` defaults updated.
+
+**Why a tuning split at all:** it removes open asymmetry #4. The network is fitted to the data
+distribution; CFAR previously inherited a geometry chosen for a different sensor on a different
+scenario. Both sides now adapt, neither sees the test split. No paper in the 19-paper corpus
+re-tunes CFAR at all.
+
+**Pooled sweep, 10 geometries.** Pd rose monotonically as the Doppler window narrowed —
+21×21 → 0.306, 21×11 → 0.429, 29×9 → 0.444 — while range width barely mattered (21×9 0.441 vs
+29×9 0.444 vs 37×11 0.431). ⚠️ But Pd tracked *usable Doppler bins* almost perfectly, which is
+what a measurement artefact looks like, so it was not taken at face value.
+
+**Per-condition breakdown separated the two explanations.** A pooling artefact would shift every
+condition uniformly; a real clutter mechanism would concentrate the gain in clutter-bearing
+conditions. Result, 21×21 → 21×9:
+
+| condition | 21×21 | **21×9** | gain |
+|---|---|---|---|
+| clutter_edge | 0.094 | **0.390** | **+0.296** |
+| mixed | 0.196 | **0.381** | **+0.185** |
+| multi | 0.586 | 0.592 | +0.006 |
+| masking | 0.501 | 0.504 | +0.003 |
+| unresolved | 0.470 | 0.471 | +0.001 |
+| clutter | 0.170 | 0.153 | −0.016 |
+| isolated | 0.654 | 0.629 | −0.025 |
+
+Concentrated in the clutter-bearing conditions and **zero on isolated** → the mechanism is real,
+and it is the one step 4 measured: a narrow Doppler ring stays clear of the ridge.
+
+**Why 21×9 and not the pooled winner 29×9.** 29×9 scored marginally higher pooled but cost
+**−0.041 on masking**. Diagnosed as its *range* half-width widening 10 → 14, pulling more
+interferers into the ring — nothing to do with Doppler. Tested directly: 21×9 keeps the range
+half-width at 10 and recovers masking (+0.003) while retaining 98% of the clutter gain. The pooled
+metric would have chosen the worse window; the per-condition breakdown is what caught it.
+
+**Costs, accepted:** isolated −0.025 and clutter −0.016. The isolated loss is textbook CFAR loss
+from fewer reference cells (416 → 164; analytic loss 0.05 → 0.12 dB). The clutter loss is the
+mirror of the clutter_edge gain — for a target *inside* the ridge, a narrow ring sits entirely in
+clutter and over-estimates the noise, where a wide ring reaches clean cells.
+
+**Complementarity at 21×9** (Pd at matched measured Pfa):
+
+| condition | CA | GO | OS | best |
+|---|---|---|---|---|
+| masking | 0.484 | 0.494 | **0.534** | **OS** |
+| mixed | 0.390 | **0.400** | 0.354 | GO |
+| clutter | 0.145 | **0.167** | 0.147 | GO |
+| isolated | **0.632** | 0.623 | **0.632** | CA / OS |
+| multi | **0.595** | 0.590 | 0.591 | CA |
+| clutter_edge | 0.390 | 0.390 | 0.390 | 3-way tie |
+
+The ordering survives — **OS best at masking, GO best in clutter, CA best on clean** — but the
+spreads are small (0.005–0.050), so only masking (+0.050 for OS) is clearly outside sampling noise
+at 400 frames.
+
+⚠️ **Prediction scored, and it was about the wrong metric.** I predicted GO would win
+`clutter_edge`. At matched Pfa it is a **three-way tie** (spread 0.001). GO's clutter advantage is
+real but expresses itself as a *lower false-alarm rate at a fixed threshold* (step 5: GO 8.7e-3 vs
+CA 1.3e-2), and matching the measured rate neutralises exactly that by construction. **Which method
+looks best depends on the matching criterion** — a methodological point worth reporting, and a
+direct illustration of why the attribution phase exists.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,

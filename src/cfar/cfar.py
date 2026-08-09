@@ -36,14 +36,17 @@ from scipy.ndimage import uniform_filter, rank_filter, correlate
 
 @dataclass(frozen=True)
 class CfarConfig:
+    # Defaults are the 21x9 window selected in step 6 on the dedicated tuning split
+    # (bench2_tune, 400 frames, seed disjoint from every evaluation split). Chosen by Pd at
+    # matched MEASURED Pfa, per condition. See PROGRESS.md "Step 6".
     kind: str = "CA"            # "CA", "GO", "OS"
     guard: int = 2             # guard cells per side, RANGE axis (and Doppler unless overridden)
     train: int = 8             # training cells per side, RANGE axis (ditto)
     pfa: float = 1e-4          # design false-alarm rate -> alpha
     os_rank_frac: float = 0.75  # OS: rank as a fraction of the training-cell count
     go_axis: int = 1           # GO leading/lagging split axis (1 = Doppler/velocity)
-    guard_v: int | None = None  # Doppler-axis guard; None -> same as `guard`
-    train_v: int | None = None  # Doppler-axis training cells; None -> same as `train`
+    guard_v: int | None = 2     # Doppler-axis guard; None -> same as `guard`
+    train_v: int | None = 2     # Doppler-axis training cells; None -> same as `train`
 
     # Defaulting the Doppler axis to the range axis keeps every square configuration -- and every
     # existing call site -- behaving exactly as before.
