@@ -98,10 +98,18 @@ scenarios:
       mode: random
       min_targets: 1
       max_targets: 2
-      # Outside the ridge (|v| > 1.26) but inside the window's 4.2 m/s Doppler reach.
+      # Clear of the ridge, but inside the CFAR window's 4.2 m/s Doppler reach -- so the target
+      # itself sits in clean noise while the window still straddles the clutter. That is the whole
+      # point of this stratum.
+      #
+      # The lower bound is 2.5, not the nominal ridge half-width of 1.26. Measured, the Doppler
+      # window smears the ridge well past its nominal edge: still 13.6 dB at 1.68 m/s and 2.1 dB
+      # at 2.10 m/s, only reaching the noise floor by 2.5 m/s. A 1.5 m/s lower bound put a third
+      # of these targets INSIDE the clutter skirt, which just duplicates the `clutter` stratum.
+      #
       # mirror: draws |v| in that band then a random sign. A one-sided range would let a network
       # learn "positive velocity = clutter edge" instead of learning the actual geometry.
-      velocity_mps: {min: 1.5, max: 4.0, mirror: true}
+      velocity_mps: {min: 2.5, max: 4.2, mirror: true}
     scene:
       clutter:
         enabled: true
