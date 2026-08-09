@@ -1,0 +1,57 @@
+# SNR SWEEP — a controlled diagnostic, NOT part of the benchmark
+#
+# PURPOSE: one figure. Pd against cell SNR, measured, overlaid on the theoretical CFAR curve
+#
+#     Pd = exp(-T / (1 + SNR)),   T = -ln(Pfa)
+#
+# If the measured curve sits on the theory curve, the whole detection chain is validated in one
+# plot. If it sits below by a constant, that offset IS the CFAR loss, measured directly rather
+# than argued. Neither is obtainable from the stratified splits, whose SNR coverage is random and
+# whose conditions are mixed.
+#
+# EVALUATION ONLY. Nothing trains on this. The network is trained on bench2_train and merely RUN
+# here; CFAR involves no training either. The seed is disjoint from every other split, so the
+# trained model has never seen these frames.
+#
+# ONE condition, not the eight strata. The point of a controlled experiment is to vary a single
+# quantity: everything that could confound SNR is switched off.
+#   * a single target, so no masking or mutual interference
+#   * clutter and multipath off, so the background is pure thermal noise (theory's assumption)
+#   * propagation OFF, so requested SNR equals actual and the sweep is not smeared by range
+#   * fixed amplitude, so scene SNR is the only thing moving
+#
+# The residual spread at each step is scalloping (a target between bin centres peaks lower than
+# one on a centre), which is real and is why cell_snr_db is still measured per target rather than
+# assumed from the request.
+
+dataset:
+  name: bench2_snr_sweep
+  description: "SNR sweep - single target, thermal noise only, 13 steps x 100 frames. Diagnostic."
+  output_root: data
+  num_frames: 1300          # 13 SNR steps x 100 frames
+  random_seed: 95001        # disjoint from tune/train/val/test
+
+targets:
+  mode: fixed_count
+  count: 1
+  # Inside the CFAR-testable region, same bounds as the benchmark splits.
+  range_m:      {min: 8.0,  max: 45.0}
+  velocity_mps: {min: -8.0, max: 8.0}
+  # Fixed, so scene snr_db is the only variable. min == max.
+  amplitude_db: {min: 0.0,  max: 0.0}
+
+scene:
+  # Steps cycle by frame index; 1300 frames / 13 values = exactly 100 frames per step.
+  snr_db:
+    mode: cycle
+    values: [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0]
+
+  # OFF: the radar equation would make actual SNR depend on range, smearing every step.
+  propagation: {enabled: false, ref_range_m: 25.0, exponent_db: 40.0}
+  clutter:   {enabled: false}
+  multipath: {enabled: false, delay_m: 2.0, attenuation_db: -12.0}
+
+save:
+  compact: true
+  complex: true
+  preview_png: false

@@ -1,0 +1,156 @@
+# STRATIFIED BENCHMARK v2 — DEBUG/TRIAL SPLIT (small; for steps 3-6)
+#
+# Radar re-specified to match CARRADA: 256 x 64 map, 0.195 m and 0.42 m/s per bin, 50 m and
+# +/-13.44 m/s span. See docs/radar_config_carrada.md.
+#
+# WHY STRATIFIED (unchanged reasoning, carried over from bench_*):
+# Simple random sampling under-represents rare-but-important cases -- the first dataset gave
+# 1.1% masking and 0.4% unresolvable pairs, and measured DL performance tracked that coverage
+# almost monotonically. Equal-proportion strata give reliable per-condition estimates.
+#
+# WHAT CHANGED IN v2
+#   * Separations are in METRES, not bins. A bin was 0.50 m and is now 0.195 m, so "5 bins"
+#     silently changed from 2.5 m to 0.98 m. Physical units do not rot when the sensor changes.
+#   * Separation is SWEPT rather than fixed, and recorded per frame. The resolution limit then
+#     emerges from the data instead of being asserted, and it survives the CFAR window changing
+#     in step 6. It also supplies the proposal's "close-target separation" ablation directly.
+#   * Clutter uses cnr_db (clutter-to-noise ratio) instead of the old absolute strength_db, and
+#     is heavy-tailed (Weibull texture) rather than Gaussian-like. Both cnr_db and shape are
+#     swept, so "how fast does CFAR degrade as clutter gets spikier" is measurable.
+#   * New `clutter_edge` stratum -- target in clean noise with the CFAR window reaching into the
+#     ridge. The one condition where a good CNN is known to LOSE (RadCNN's S3).
+#   * `multipath` folded into `mixed` (its own row spanned only 0.818-0.840 across all methods).
+#   * `unresolved` is TEST-ONLY: all four methods tie at the physics cap, so it teaches the
+#     network nothing, but it stays as the sanity check that caught the NMS bug.
+#   * ref_range_m 50 -> 25. At 50 m max range, referencing the radar equation to 50 m made every
+#     target closer than reference and therefore amplified.
+#
+# MEASURED CONSTRAINTS THIS CONFIG RESPECTS (scripts/measure_psf.py):
+#   mainlobe        ~2 bins  -> guard 2 still correct
+#   resolution      0.39 m equal-strength, 0.59 m for a weak partner; 1.16 m/s in Doppler
+#   usable map      border exclusion leaves ~2-48 m and -9.2..+8.8 m/s at half-width 10
+
+dataset:
+  name: bench2_test
+  description: "Stratified v2 TEST - 8 conditions x 400. The reported numbers. Touched once."
+  output_root: data
+  num_frames: 3200
+  random_seed: 94001
+
+# ---- defaults, inherited by every condition unless overridden ----
+targets:
+  mode: random
+  min_targets: 1
+  max_targets: 3
+  # Inside the CFAR-testable region, not the full 0-50 m / +/-13.44 m/s span.
+  # range_m starts at 8 m, not 0: the radar equation referenced to 25 m gives a very close target
+  # a large gain, and targets tens of dB above the detection threshold are trivially found by
+  # every method, so they consume frames without discriminating between detectors.
+  range_m:      {min: 8.0,  max: 45.0}
+  velocity_mps: {min: -8.0, max: 8.0}
+  amplitude_db: {min: 4.0,  max: 16.0}
+  min_separation: {range_bins: 12, velocity_bins: 6}
+
+scene:
+  # Tuned by measurement. The first pass sat 2 dB lower; at that floor 21% of targets were below
+  # 5 dB cell SNR (undetectable by anything) and the clutter strata bunched near Pd 0.15, where
+  # methods cannot be told apart. +2 dB keeps the median in the detection transition while
+  # lifting the clutter conditions off the floor.
+  snr_db: {mode: random_uniform, min: -4.0, max: 14.0}
+  # Radar equation ON everywhere so physics is consistent across strata.
+  propagation: {enabled: true, ref_range_m: 25.0, exponent_db: 40.0}
+  clutter:   {enabled: false}
+  multipath: {enabled: false, delay_m: 2.0, attenuation_db: -12.0}
+  min_separation: {range_bins: 12, velocity_bins: 6}
+
+# ---- the 8 strata (cycled -> exactly equal counts) ----
+scenarios:
+  - name: isolated              # control: single target, homogeneous noise
+    targets: {mode: fixed_count, count: 1}
+
+  - name: masking               # strong + weak pair, separation SWEPT across the limit
+    targets:
+      mode: close_pair
+      base_range_m:      {min: 8.0,  max: 40.0}
+      base_velocity_mps: {min: -7.0, max: 7.0}
+      # 0.40 m is just below the measured 0.59 m weak-partner limit; 2.50 m is beyond the CFAR
+      # window's 1.95 m reach. Sweeping across both boundaries makes Pd-vs-separation measurable.
+      separation:
+        range_m:      {min: 0.40, max: 2.50}
+        velocity_mps: {min: 0.0,  max: 0.80}
+      amplitude_db: {strong: {min: 14.0, max: 22.0}, weak: {min: 2.0, max: 10.0}}
+
+  - name: clutter               # target INSIDE the zero-Doppler ridge (ridge = +/-1.26 m/s)
+    targets:
+      mode: random
+      min_targets: 1
+      max_targets: 3
+      velocity_mps: {min: -1.2, max: 1.2}
+    scene:
+      clutter:
+        enabled: true
+        cnr_db: {min: 8.0, max: 25.0}
+        width_bins: 3
+        distribution: weibull
+        shape: {min: 1.1, max: 2.0}     # lower = spikier; swept
+
+  - name: clutter_edge          # target in CLEAN noise, CFAR window reaching into the ridge
+    targets:
+      mode: random
+      min_targets: 1
+      max_targets: 2
+      # Clear of the ridge, but inside the CFAR window's 4.2 m/s Doppler reach -- so the target
+      # itself sits in clean noise while the window still straddles the clutter. That is the whole
+      # point of this stratum.
+      #
+      # The lower bound is 2.5, not the nominal ridge half-width of 1.26. Measured, the Doppler
+      # window smears the ridge well past its nominal edge: still 13.6 dB at 1.68 m/s and 2.1 dB
+      # at 2.10 m/s, only reaching the noise floor by 2.5 m/s. A 1.5 m/s lower bound put a third
+      # of these targets INSIDE the clutter skirt, which just duplicates the `clutter` stratum.
+      #
+      # mirror: draws |v| in that band then a random sign. A one-sided range would let a network
+      # learn "positive velocity = clutter edge" instead of learning the actual geometry.
+      velocity_mps: {min: 2.5, max: 4.2, mirror: true}
+    scene:
+      clutter:
+        enabled: true
+        cnr_db: {min: 12.0, max: 25.0}
+        width_bins: 3
+        distribution: weibull
+        shape: {min: 1.1, max: 2.0}
+
+  - name: multi                 # dense scene, all pairs beyond the window reach
+    targets: {mode: random, min_targets: 4, max_targets: 5,
+              min_separation: {range_bins: 12, velocity_bins: 6}}
+    scene: {min_separation: {range_bins: 12, velocity_bins: 6}}
+
+  - name: noise                 # empty frames -> false-alarm measurement and calibration
+    targets: {mode: fixed_count, count: 0}
+
+  - name: mixed                 # realistic recipe; multipath lives here
+    targets: {mode: random, min_targets: 0, max_targets: 5,
+              min_separation: {range_bins: 6, velocity_bins: 3}}
+    scene:
+      clutter:
+        enabled: true
+        cnr_db: {min: 5.0, max: 22.0}
+        width_bins: 3
+        distribution: weibull
+        shape: {min: 1.1, max: 2.0}
+      multipath: {enabled: true, delay_m: 2.0, attenuation_db: -12.0}
+      min_separation: {range_bins: 6, velocity_bins: 3}
+
+  # TEST-ONLY in the full splits. Kept here so the trial exercises the code path.
+  - name: unresolved            # pair inside one mainlobe -> physics cap, sanity check
+    targets:
+      mode: close_pair
+      base_range_m:      {min: 8.0,  max: 40.0}
+      base_velocity_mps: {min: -7.0, max: 7.0}
+      separation:
+        range_m:      {min: 0.05, max: 0.35}   # below the measured 0.39 m equal-strength limit
+        velocity_mps: {min: 0.0,  max: 0.30}
+      amplitude_db: {strong: {min: 14.0, max: 22.0}, weak: {min: 6.0, max: 14.0}}
+
+save:
+  compact: true
+  preview_png: false
