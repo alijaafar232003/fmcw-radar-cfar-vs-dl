@@ -99,7 +99,9 @@ scenarios:
       min_targets: 1
       max_targets: 2
       # Outside the ridge (|v| > 1.26) but inside the window's 4.2 m/s Doppler reach.
-      velocity_mps: {min: 1.5, max: 4.0}
+      # mirror: draws |v| in that band then a random sign. A one-sided range would let a network
+      # learn "positive velocity = clutter edge" instead of learning the actual geometry.
+      velocity_mps: {min: 1.5, max: 4.0, mirror: true}
     scene:
       clutter:
         enabled: true

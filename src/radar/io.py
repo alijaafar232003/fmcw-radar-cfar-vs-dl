@@ -63,6 +63,8 @@ def save_frame(
     noise_var: float | None = None,
     snr_processing_gain_db: float | None = None,
     compact: bool = False,
+    rd_complex: np.ndarray | None = None,
+    save_complex: bool = True,
 ) -> dict:
     """Write one frame.
 
@@ -70,11 +72,24 @@ def save_frame(
       * rd_map_db.npy   — a fixed transform of rd_map_mag (20*log10, peak-normalised)
       * range/velocity axes — identical in every frame; stored once per dataset instead.
     This cuts frame size by roughly 60% with no loss of information.
+
+    save_complex writes the pre-magnitude RD map. Magnitude discards phase irreversibly, and the
+    project proposal requires an input-type ablation (magnitude vs I/Q channels), so omitting it
+    would mean regenerating the whole dataset to run an experiment that is already planned.
+    complex64 costs ~131 KB per frame at 256x64 — cheap next to a second generation run.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
     np.save(output_dir / "rd_map_mag.npy", rd_mag.astype(np.float32))
     np.save(output_dir / "label_mask.npy", label_mask.astype(np.uint8))
+
+    if save_complex and rd_complex is not None:
+        # Stored (range, velocity) to match rd_map_mag. compute_rd_map transposes the magnitude
+        # but not the complex map, so saving it raw would ship two arrays of the same frame in
+        # opposite orientations -- precisely the transpose trap the DL orientation gate exists
+        # to catch. Align them here, once, rather than in every consumer.
+        z = rd_complex.T if rd_complex.shape != rd_mag.shape else rd_complex
+        np.save(output_dir / "rd_map_complex.npy", z.astype(np.complex64))
 
     if not compact:
         np.save(output_dir / "rd_map_db.npy", rd_db.astype(np.float32))
