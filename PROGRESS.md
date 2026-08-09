@@ -464,8 +464,41 @@ across 50 m in 256 bins. The velocity side is fully self-consistent and cross-va
 banner-marked — their measurements are from the old sensor. The *methods* carry over unchanged;
 only the numbers are re-run.
 
-**Planned order (7 steps):** 1 ✅ radar params → 2 scenarios → 3 small debug dataset → 4 CFAR
-debug → 5 CFAR calibration → 6 window/geometry decision → 7 full generation.
+**Planned order:** 1 ✅ radar params → 2a ✅ PSF → 2b clutter rewrite → 2c scenario configs →
+3 small debug dataset → 4 CFAR debug → 5 CFAR calibration → 6 window/geometry decision →
+7 full generation.
+
+### Step 2a — point-spread function measured (`scripts/measure_psf.py`)
+**Claim tested and confirmed: mainlobe width *in bins* is set by the Blackman window, not by the
+radar's resolution.** Old and new sensors measure identically, so the geometry reasoning carries
+over even though every physical number changed.
+
+| Worst case (off-bin ½) | OLD | NEW |
+|---|---|---|
+| −3 dB width | 1.63 / 1.64 bins | 1.62 / 1.65 bins |
+| −30 dB half-width | 2 bins | **2 bins** |
+| −40 dB half-width | 3 bins | 3 bins |
+
+→ **guard = 2 still correct.** It covers the −30 dB spread exactly. Guard 3 would buy the −40 dB
+skirt but costs 2 more bins of the scarce Doppler axis; the old sweep already showed guard 2 vs 3
+moves Pd < 1%. Confirm in step 6.
+
+**Resolution limit measured directly** (Rayleigh-style: saddle ≥ 3 dB below the weaker peak, and
+the weak response must be a genuine local maximum):
+
+| Axis | Equal targets | Weak −6 dB | Weak −12 dB |
+|---|---|---|---|
+| Range | 2.00 bins (**0.39 m**) | 3.00 bins (**0.59 m**) | 3.00 bins (0.59 m) |
+| Doppler | 2.75 bins (**1.16 m/s**) | 2.75 bins | 2.75 bins |
+
+→ sets the scenario boundaries: `unresolved` below ~0.39 m, `masking` above ~0.59 m (where a weak
+target genuinely has its own peak). Because separation will be *swept* rather than fixed, these are
+the expected boundaries to verify from data, not assumptions baked into generation.
+
+*Two measurement bugs found and fixed while writing the script: a null-to-null search that walked
+to the map edge for off-bin targets (no exact nulls exist there), and a saddle test that was
+degenerate below 2 bins separation. Both produced physically impossible answers — 1-bin resolution —
+which is how they were caught.*
 
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
