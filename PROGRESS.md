@@ -500,6 +500,43 @@ to the map edge for off-bin targets (no exact nulls exist there), and a saddle t
 degenerate below 2 bins separation. Both produced physically impossible answers — 1-bin resolution —
 which is how they were caught.*
 
+### Step 2b — clutter rewritten: heavy-tailed + CNR-calibrated (`scripts/verify_clutter.py`)
+Closes two items that had been logged as known gaps since the data-quality audit.
+
+**1. `strength_db` → `cnr_db`.** The old field was an *absolute* amplitude scale, which is why it
+had to be raised to ~45 before forming a visible ridge — its meaning depended on the requested SNR.
+It is now a clutter-to-noise ratio, calibrated against the measured noise floor by
+`calibration.clutter_scale_for_cnr` (empirical, cached, same pattern as the cell-SNR calibration).
+Old configs raise a `ValueError` explaining the change rather than silently mis-scaling.
+
+Measured accuracy: **within 0.2–0.3 dB** for CNR ≥ 15 dB. The +1.27 dB at CNR 5 dB is not error —
+the measurement includes thermal noise, and 10·log10(1 + 10^−0.5) = +1.19 dB accounts for it.
+
+**2. Compound-Gaussian clutter.** Each RD cell is `texture × speckle`; speckle is Rayleigh for free
+(coherent sum of random-phase contributions), and `distribution` sets the *texture*:
+
+| Setting | Fitted Weibull c | p99/p50 |
+|---|---|---|
+| `rayleigh` (no texture) | **2.10** | 2.49 |
+| `weibull` shape 2.0 | 1.68 | 3.24 |
+| `weibull` shape 1.5 | 1.54 | 3.79 |
+| `weibull` shape 1.2 | **1.40** | 4.42 |
+| `k` ν = 4.0 | 1.99 | 2.67 |
+| `k` ν = 1.5 | 1.82 | 3.09 |
+
+`rayleigh` reproduces the old behaviour (audit measured 2.03), so the baseline is preserved and the
+tail is now dialable down to 1.40. Off-ridge cells sit at −0.01 dB: clutter stays in the ridge.
+
+**Three modelling errors found by the verification, each invisible without it:**
+1. Heavy tail applied per fast-time *sample*. A range bin is a tone spanning all N samples, so the
+   range FFT averaged 512 draws and Gaussianised it — every distribution fitted c ≈ 1.97. Fixed by
+   synthesising the range profile in the range-bin domain and inverse-transforming.
+2. Band-limiting leaves only 2·width+1 of M Doppler bins, so each column's surviving power was
+   itself a high-variance draw acting as a second texture. Fixed by per-column normalisation.
+3. Drawing a Rayleigh *texture* double-counted the speckle — the `rayleigh` baseline came out at
+   c = 1.62, heavier-tailed than the baseline it was meant to define. Fixed by making texture
+   constant for `rayleigh`, which is the correct compound-Gaussian formulation.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,

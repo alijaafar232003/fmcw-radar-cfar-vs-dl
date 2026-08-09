@@ -83,6 +83,75 @@ def measure_peak_cell_power(
     return float(rd_mag_clean[r0:r1, v0:v1].max() ** 2)
 
 
+@lru_cache(maxsize=None)
+def unit_clutter_cell_power(
+    cfg: RadarConfig,
+    width_bins: int,
+    distribution: str,
+    shape: float,
+    n_frames: int = 8,
+    seed: int = 0,
+) -> float:
+    """Mean RD cell power inside the clutter ridge for UNIT-scale clutter.
+
+    Measured through the real windowed FFT chain rather than derived analytically. The
+    band-limiting, the window gains and the amplitude distribution all affect the result, and
+    measuring is both simpler and less error-prone than composing three closed forms -- the same
+    reasoning used for the cell-SNR calibration.
+
+    Cached: `RadarConfig` is frozen and the rest are primitives, so a dataset run pays this once
+    rather than once per frame.
+    """
+    from radar.rd_processing import compute_rd_map
+    from radar.simulator import add_near_zero_doppler_clutter
+
+    half = width_bins
+    total = 0.0
+
+    for k in range(n_frames):
+        cpi = np.zeros((cfg.M, cfg.N), dtype=complex)
+        cpi = add_near_zero_doppler_clutter(
+            cpi,
+            scale=1.0,
+            width_bins=width_bins,
+            distribution=distribution,
+            shape=shape,
+            seed=seed + k,
+        )
+        _, mag, _, _, _ = compute_rd_map(cpi, cfg)
+
+        centre = mag.shape[1] // 2
+        lo, hi = max(0, centre - half), min(mag.shape[1], centre + half + 1)
+        total += float(np.mean(mag[:, lo:hi] ** 2))
+
+    return total / n_frames
+
+
+def clutter_scale_for_cnr(
+    cnr_db: float,
+    noise_var: float,
+    cfg: RadarConfig,
+    width_bins: int = 3,
+    distribution: str = "weibull",
+    shape: float = 1.5,
+) -> float:
+    """Amplitude scale placing the mean clutter cell `cnr_db` above the noise floor.
+
+    Cell power scales with the square of the amplitude, so once the unit-scale power is known
+    the scale follows in closed form.
+    """
+    _, g_noise = processing_gains(cfg)
+    noise_cell_power = noise_var * g_noise
+
+    target = noise_cell_power * (10.0 ** (cnr_db / 10.0))
+    unit = unit_clutter_cell_power(cfg, width_bins, distribution, shape)
+
+    if unit <= 0.0:
+        return 0.0
+
+    return float(np.sqrt(target / unit))
+
+
 def cell_snr_db(peak_cell_power: float, noise_var: float, cfg: RadarConfig) -> float:
     """Convert a measured peak-cell power + injected noise variance into cell SNR (dB)."""
     _, g_noise = processing_gains(cfg)
