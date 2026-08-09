@@ -642,6 +642,61 @@ therefore all-invalid, reporting 0×0 for a correct mask; and the first contamin
 used the profile's own median as baseline, so wider contamination dragged the baseline up and hid
 itself, producing the impossible result that the widest window had zero contamination.*
 
+### Step 5 — thresholds calibrated; clutter drift measured (`scripts/cfar_calibrate.py`)
+Geometry guard 2 / train 8 (416 reference cells). These α values are recomputed for whatever
+geometry step 6 selects — what is established here is that the *procedure* works at this sensor,
+and the shape of the clutter-drift relationship.
+
+**Calibration.** Empirical CA sits 3.6–3.7% above the closed form (9.647 vs 9.313 at Pfa 1e-4) —
+the window's inter-cell correlation, which the formula does not model, so the empirical value is
+the more accurate one here.
+
+*Internal consistency check:* OS's noise estimate is 1.396× the true level (step 4), so its α
+should be CA's ÷ 1.396 = 6.91. Calibrated: **6.977**. The two independent measurements agree.
+
+**Achieved Pfa on independent noise** (calibrated on seed 0, verified on seed 9000):
+
+| design | CA | GO | OS |
+|---|---|---|---|
+| 1e-3 | 1.00e-3 | 9.95e-4 | 1.00e-3 |
+| 1e-4 | 1.13e-4 | 1.15e-4 | 1.19e-4 |
+
+Exact at 1e-3; 13–19% high at 1e-4, which is finite-sample — 150 frames put only ~156 cells above
+the 1e-4 quantile. Harmless for the ROC-based comparison, which matches at *measured* Pfa.
+
+⚠️ **Clutter destroys the design false-alarm rate — by 60–125×.** Using the noise-calibrated α:
+
+| clutter | CA | GO | OS | CA ÷ design |
+|---|---|---|---|---|
+| none (thermal only) | 1.12e-4 | 1.25e-4 | 1.17e-4 | 1.1× |
+| rayleigh, 15 dB | 6.34e-3 | 3.57e-3 | 1.77e-2 | **63×** |
+| weibull c=2.0, 15 dB | 9.75e-3 | 6.22e-3 | 2.65e-2 | 98× |
+| weibull c=1.5, 15 dB | 1.10e-2 | 7.30e-3 | 3.06e-2 | 110× |
+| weibull c=1.1, 15 dB | 1.25e-2 | 8.67e-3 | 3.59e-2 | **125×** |
+| weibull c=1.5, 25 dB | 1.26e-2 | 8.20e-3 | 3.39e-2 | 126× |
+| k ν=1.5, 15 dB | 8.94e-3 | 5.65e-3 | 2.38e-2 | 89× |
+
+Two separable effects. **The clutter edge alone costs 63×**, before any tail — that is the window
+straddling the ridge boundary, and it happens even for Rayleigh clutter. **Heavy tails then roughly
+double it**, 63× → 125× as the Weibull texture goes 2.0 → 1.1. So spikiness matters, but the
+geometry matters more.
+
+**This is the measurement that justifies matching at measured rather than design Pfa** (attribution
+Step A1). A comparison run at "design 1e-4" would in fact be comparing CA at 1.2e-2 against GO at
+8.7e-3 against OS at 3.6e-2 — three different operating points, which is precisely the error that
+produced the misleading Milestone 8 result.
+
+**Prediction scored: half right.**
+- ✅ **GO best**, as predicted — it takes the max of two half-rings split along Doppler, so it can
+  lean on whichever half is clear of the ridge.
+- ❌ **OS worst, not best.** I predicted a rank statistic would ignore a minority ridge. Wrong, and
+  backwards: OS takes the 0.75-quantile precisely to be robust against interfering *targets*, but
+  at a clutter edge that quantile lands in the *clean* part of the ring, so it **under**-estimates
+  the noise on the clutter side and the threshold falls too low. Robust to point interferers,
+  vulnerable to clutter edges — which is exactly the complementarity story, and the ordering
+  (GO < CA < OS) reproduces the old sensor's result. The earlier data already said so; I should
+  have checked it before predicting.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,
