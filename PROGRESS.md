@@ -762,6 +762,32 @@ CA 1.3e-2), and matching the measured rate neutralises exactly that by construct
 looks best depends on the matching criterion** — a methodological point worth reporting, and a
 direct illustration of why the attribution phase exists.
 
+### Step 6c — CNN receptive field re-matched to 21 × 9
+The receptive-field match is the entire basis of the controlled experiment — identical context,
+learned vs hand-derived decision rule — so it follows the window rather than the other way round.
+
+`TinyCNN` now takes **per-axis dilations**: range `(1, 2, 3, 4)` → RF 21, Doppler `(1, 1, 1, 1)` →
+RF 9, with `padding = dilation` per axis so the output stays at full resolution.
+
+**Verified, not assumed:**
+
+| | |
+|---|---|
+| CFAR window | 21 × 9 |
+| Analytic RF | 21 × 9 |
+| **Measured RF** (backprop from one output pixel) | **21 × 9** ✅ |
+| Parameters | 5,041 — unchanged |
+| Forward | (2,1,256,64) → (2,1,256,64), finite |
+| Gradients | all 14 tensors receive gradient |
+
+Parameter count is unchanged because the kernels and channels are unchanged — only the *spacing*
+of the taps differs per axis. The range dilations still share no common factor (Hybrid-Dilated-
+Convolution guidance, avoiding gridding); the Doppler dilations are all 1, which is dense by
+construction and cannot grid.
+
+Stale references updated in `docs/dl_design.md` and two notebook cells — one of which formatted
+`receptive_field` as a scalar and would have printed incorrectly now that it returns a tuple.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,

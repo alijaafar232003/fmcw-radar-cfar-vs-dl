@@ -15,11 +15,14 @@ Written to be reusable in the report and defensible in a viva.
 > the network's receptive field must equal the CFAR window so the two detectors differ *only* in
 > the decision rule.
 >
-> **What changes is the number.** The 21×21 receptive field and the dilations `(1,2,3,4)` that
-> produce it were matched to a CA-CFAR window chosen on the old radar. That window is being
-> re-measured (the Doppler axis has halved, so a 21-wide window now spans a third of it). The
-> dilations will be re-derived from whatever geometry the sweep selects. Read "21×21" below as
-> "whatever the CFAR window is", and "256 × 128" as "256 × 64".
+> **What changed is the number — now resolved.** The CFAR window was re-selected in step 6 on a
+> dedicated tuning split and is **21 × 9** (guard 2/2, train 8/2), rectangular because the Doppler
+> axis is only 64 bins and carries the clutter ridge while range has 256 and no comparable
+> structure. TinyCNN's dilations were re-derived to match: **range (1,2,3,4) → RF 21**, **Doppler
+> (1,1,1,1) → RF 9**. Verified by backprop from a single output pixel: measured 21 × 9. Parameter
+> count is unchanged at 5,041.
+>
+> Read "21×21" below as **21 × 9**, and "256 × 128" as **256 × 64**.
 
 ---
 

@@ -1,16 +1,25 @@
 """Detector networks. Model 0 = TinyCNN with a receptive field matched to CFAR.
 
-See docs/dl_design.md §3. Key design point: CA-CFAR decides each cell from a 21x21 window
-(guard 2 + train 8 -> half-width 10 -> 2*10+1). TinyCNN is built with the SAME receptive field,
-so the two detectors see identical context and differ only in the DECISION RULE — hand-derived
-statistic vs learned function. That makes Model 0 a controlled experiment rather than scaffolding.
+See docs/dl_design.md §3. Key design point: CFAR decides each cell from a fixed window, and
+TinyCNN is built with the SAME receptive field, so the two detectors see identical context and
+differ only in the DECISION RULE — hand-derived statistic vs learned function. That is what makes
+Model 0 a controlled experiment rather than scaffolding, and it is why the receptive field is
+derived from the CFAR geometry rather than chosen for the network's own convenience.
 
-Receptive field for stacked 3x3 convs at stride 1:   RF = 1 + sum(2 * dilation_i)
-    dilations (1,2,3,4) -> RF = 1 + 2*(1+2+3+4) = 21   <- matches CFAR exactly
+The window is **21 x 9** (guard 2/2, train 8/2), selected in step 6 on a dedicated tuning split.
+It is rectangular because the two axes are not alike on this sensor: range has 256 bins and no
+large-scale structure, while Doppler has only 64 and carries the clutter ridge, so a window sized
+for range spans a third of the Doppler axis and drags ridge energy across a wide band of
+thresholds. Matching that asymmetry costs the network nothing and keeps the comparison controlled.
 
-Dilations increase smoothly and share no common factor, following Hybrid-Dilated-Convolution
-guidance: patterns with common factors (e.g. 2,4,8) never sample some input positions in
-combination, producing "gridding" artifacts where the output is computed from a sparse lattice.
+Receptive field for stacked 3x3 convs at stride 1, per axis:  RF = 1 + sum(2 * dilation_i)
+    range   dilations (1,2,3,4) -> RF = 1 + 2*(1+2+3+4) = 21
+    Doppler dilations (1,1,1,1) -> RF = 1 + 2*(1+1+1+1) =  9
+
+The range dilations increase smoothly and share no common factor, following
+Hybrid-Dilated-Convolution guidance: patterns with common factors (e.g. 2,4,8) never sample some
+input positions in combination, producing "gridding" artifacts where the output is computed from a
+sparse lattice. The Doppler dilations are all 1, which is dense by construction and cannot grid.
 """
 
 from __future__ import annotations
@@ -26,19 +35,33 @@ class TinyCNN(nn.Module):
     peak bin (a 1-bin error degrades the localization metric).
     """
 
-    def __init__(self, in_ch: int = 1, width: int = 16, dilations=(1, 2, 3, 4)):
+    def __init__(
+        self,
+        in_ch: int = 1,
+        width: int = 16,
+        dilations_r=(1, 2, 3, 4),   # range axis   -> RF 21
+        dilations_d=(1, 1, 1, 1),   # Doppler axis -> RF 9
+    ):
         super().__init__()
-        self.dilations = tuple(dilations)
+
+        if len(dilations_r) != len(dilations_d):
+            raise ValueError("dilations_r and dilations_d must have the same length")
+
+        self.dilations_r = tuple(dilations_r)
+        self.dilations_d = tuple(dilations_d)
 
         layers: list[nn.Module] = []
         c_in = in_ch
+        n = len(self.dilations_r)
 
-        for i, d in enumerate(self.dilations):
-            is_last = i == len(self.dilations) - 1
+        for i, (d_r, d_d) in enumerate(zip(self.dilations_r, self.dilations_d)):
+            is_last = i == n - 1
             c_out = 1 if is_last else width
 
-            # padding = dilation keeps the spatial size identical through every layer
-            layers.append(nn.Conv2d(c_in, c_out, kernel_size=3, padding=d, dilation=d))
+            # padding == dilation on each axis keeps the spatial size identical through every
+            # layer, so the output stays at full RD resolution and no peak is displaced.
+            layers.append(nn.Conv2d(c_in, c_out, kernel_size=3,
+                                    padding=(d_r, d_d), dilation=(d_r, d_d)))
 
             if not is_last:
                 layers.append(nn.BatchNorm2d(c_out))
@@ -53,8 +76,10 @@ class TinyCNN(nn.Module):
         return self.net(x)
 
     @property
-    def receptive_field(self) -> int:
-        return 1 + sum(2 * d for d in self.dilations)
+    def receptive_field(self) -> tuple[int, int]:
+        """(range, Doppler) receptive field in bins — should equal the CFAR window."""
+        return (1 + sum(2 * d for d in self.dilations_r),
+                1 + sum(2 * d for d in self.dilations_d))
 
 
 def count_params(model: nn.Module) -> int:
