@@ -537,6 +537,41 @@ tail is now dialable down to 1.40. Off-ridge cells sit at −0.01 dB: clutter st
    c = 1.62, heavier-tailed than the baseline it was meant to define. Fixed by making texture
    constant for `rayleigh`, which is the correct compound-Gaussian formulation.
 
+### 🔔 REMINDER FOR STEPS 4–5 (CFAR debug + calibration) — the sweep analyses
+Two quantities are now **swept per frame and recorded in metadata**, deliberately, so that two
+analyses come almost for free once CFAR runs. Do not forget to do them:
+
+1. **Pd vs target separation** (`masking` stratum, separation swept 0.40–2.50 m).
+   Gives the proposal-required *close-target separation* ablation, and lets the resolution limit
+   and the masking boundary emerge from data rather than being asserted. It is also immune to the
+   CFAR window changing in step 6 — the cut is made at analysis time, not baked into generation.
+
+2. **Measured Pfa vs clutter shape** (`clutter`, `clutter_edge`, `mixed`; Weibull shape swept
+   1.1–2.0, `cnr_db` swept too).
+   CA-CFAR's α assumes exponentially distributed cell power. Heavy tails break that assumption, so
+   this measures *how fast the false-alarm rate drifts away from design as clutter gets spikier* —
+   and whether the learned detector holds its rate better. That is the mechanism behind the whole
+   clutter result, and it doubles as the proposal's *clutter strength* ablation.
+
+⚠️ **Requested ≠ measured shape.** The chain always adds its own Rayleigh speckle, so a requested
+texture of 1.5 is observed as ≈1.54 and 1.2 as ≈1.40. Quote the **measured** value in the report;
+both are in each frame's metadata.
+
+### Step 2c — scenario configs re-specified in physical units
+`configs/bench2_debug.yaml` (80 frames, 10 per stratum) is the trial config for steps 3–6.
+
+- **Separations in metres, not bins**, and *swept*. `close_pair` no longer snaps targets to bin
+  centres either — snapping removed scalloping variation and made these targets on-grid while
+  `random` targets were off-grid, an inconsistency the data-quality audit would have flagged.
+- **Targets confined to the CFAR-testable region** (5–45 m, ±8 m/s). Border exclusion at
+  half-width 10 leaves only ~2–48 m and −9.2…+8.8 m/s; the old ±12 m/s would have placed targets
+  in the dead border where nothing is tested.
+- **`ref_range_m` 50 → 25.** At a 50 m maximum range, referencing the radar equation to 50 m made
+  every target closer than reference and therefore amplified.
+- **New `clutter_edge` stratum**; `multipath` folded into `mixed`; `unresolved` test-only.
+- Parser now rejects bin-valued separations and `strength_db` with an explanatory error rather
+  than silently mis-scaling.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,
