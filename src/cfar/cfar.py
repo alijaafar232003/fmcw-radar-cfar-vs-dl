@@ -15,9 +15,15 @@ Design notes (see docs and PROGRESS.md):
 
 Window geometry (per side, in bins):
     guard    : cells around the CUT excluded from the estimate (covers the mainlobe;
-               measured ~+/-2-3 bins on this radar).
+               measured ~+/-2 bins on this radar, see scripts/measure_psf.py).
     train    : training ring beyond the guard, used to estimate local noise.
-    window half-width = guard + train ; full window = (2*hw+1) square.
+    window half-width = guard + train.
+
+The window may be RECTANGULAR. `guard`/`train` set both axes; `guard_v`/`train_v` override the
+Doppler axis alone. That matters on this sensor: the Doppler axis is only 64 bins, so a window
+sized for the range axis spans a third of it and drags clutter-ridge energy across a wide band of
+thresholds, while also costing testable map to border exclusion. Range has 256 bins and no
+comparable structure, so the two axes do not want the same window.
 """
 
 from __future__ import annotations
@@ -31,20 +37,55 @@ from scipy.ndimage import uniform_filter, rank_filter, correlate
 @dataclass(frozen=True)
 class CfarConfig:
     kind: str = "CA"            # "CA", "GO", "OS"
-    guard: int = 2             # guard cells per side (mainlobe cover)
-    train: int = 8             # training cells per side
+    guard: int = 2             # guard cells per side, RANGE axis (and Doppler unless overridden)
+    train: int = 8             # training cells per side, RANGE axis (ditto)
     pfa: float = 1e-4          # design false-alarm rate -> alpha
     os_rank_frac: float = 0.75  # OS: rank as a fraction of the training-cell count
     go_axis: int = 1           # GO leading/lagging split axis (1 = Doppler/velocity)
+    guard_v: int | None = None  # Doppler-axis guard; None -> same as `guard`
+    train_v: int | None = None  # Doppler-axis training cells; None -> same as `train`
+
+    # Defaulting the Doppler axis to the range axis keeps every square configuration -- and every
+    # existing call site -- behaving exactly as before.
+
+    @property
+    def guard_r(self) -> int:
+        return self.guard
+
+    @property
+    def train_r(self) -> int:
+        return self.train
+
+    @property
+    def guard_d(self) -> int:
+        return self.guard if self.guard_v is None else self.guard_v
+
+    @property
+    def train_d(self) -> int:
+        return self.train if self.train_v is None else self.train_v
+
+    @property
+    def half_width_r(self) -> int:
+        return self.guard_r + self.train_r
+
+    @property
+    def half_width_d(self) -> int:
+        return self.guard_d + self.train_d
 
     @property
     def half_width(self) -> int:
-        return self.guard + self.train
+        """Kept for square configurations; raises if the window is rectangular."""
+        if self.half_width_r != self.half_width_d:
+            raise ValueError(
+                "half_width is ambiguous for a rectangular window; "
+                "use half_width_r / half_width_d."
+            )
+        return self.half_width_r
 
     @property
     def num_ref_cells(self) -> int:
-        win = (2 * self.half_width + 1) ** 2
-        guard_win = (2 * self.guard + 1) ** 2
+        win = (2 * self.half_width_r + 1) * (2 * self.half_width_d + 1)
+        guard_win = (2 * self.guard_r + 1) * (2 * self.guard_d + 1)
         return win - guard_win
 
     def alpha(self) -> float:
@@ -57,41 +98,49 @@ class CfarConfig:
 # Windowed mean over the training ring (outer window minus guard region)
 # ----------------------------------------------------------------------
 
-def _ring_mean(power: np.ndarray, half_width: int, guard: int) -> np.ndarray:
+def _ring_footprint(hw_r: int, hw_d: int, g_r: int, g_d: int) -> np.ndarray:
+    """Boolean training ring: outer rectangle minus the guard rectangle."""
+    ring = np.ones((2 * hw_r + 1, 2 * hw_d + 1), dtype=bool)
+    ring[hw_r - g_r: hw_r + g_r + 1, hw_d - g_d: hw_d + g_d + 1] = False
+    return ring
+
+
+def _ring_mean(power: np.ndarray, hw_r: int, hw_d: int, g_r: int, g_d: int) -> np.ndarray:
     """Mean of the training ring = (outer-window sum - guard-window sum) / count.
 
-    uniform_filter gives a box MEAN in O(1) per cell; convert to sums via the cell
-    counts, subtract, and divide by the ring count.
+    uniform_filter gives a box MEAN in O(1) per cell regardless of window size; convert to sums
+    via the cell counts, subtract, and divide by the ring count. Rectangular windows are handled
+    by passing a per-axis size tuple.
     """
-    outer = 2 * half_width + 1
-    inner = 2 * guard + 1
+    outer_r, outer_d = 2 * hw_r + 1, 2 * hw_d + 1
+    inner_r, inner_d = 2 * g_r + 1, 2 * g_d + 1
 
-    outer_sum = uniform_filter(power, size=outer, mode="nearest") * (outer ** 2)
-    guard_sum = uniform_filter(power, size=inner, mode="nearest") * (inner ** 2)
+    outer_sum = uniform_filter(power, size=(outer_r, outer_d), mode="nearest") * (outer_r * outer_d)
+    guard_sum = uniform_filter(power, size=(inner_r, inner_d), mode="nearest") * (inner_r * inner_d)
 
-    ring_count = outer ** 2 - inner ** 2
+    ring_count = outer_r * outer_d - inner_r * inner_d
     return (outer_sum - guard_sum) / ring_count
 
 
-def _half_ring_means(power: np.ndarray, half_width: int, guard: int, axis: int):
+def _half_ring_means(power: np.ndarray, hw_r: int, hw_d: int, g_r: int, g_d: int, axis: int):
     """Leading / lagging half-ring MEANS, split along `axis` (for GO/SO).
 
-    The training ring (outer square minus guard square) is split into the two halves on
-    either side of the CUT along `axis`; the centre line is excluded. Each half's mean is
-    computed with an explicit normalised kernel (exact — no shift tricks).
+    The training ring is split into the two halves on either side of the CUT along `axis`; the
+    centre line is excluded. Each half's mean is computed with an explicit normalised kernel
+    (exact — no shift tricks). Dividing a full-ring sum by half the cell count is what the
+    original half-ring bug did, so the kernels are built and normalised individually.
     """
-    size = 2 * half_width + 1
-    ring = np.ones((size, size), dtype=bool)
-    g0, g1 = half_width - guard, half_width + guard + 1
-    ring[g0:g1, g0:g1] = False  # blank the guard square
+    ring = _ring_footprint(hw_r, hw_d, g_r, g_d)
 
-    idx = np.arange(size) - half_width  # signed offset from centre along each axis
+    idx_r = np.arange(2 * hw_r + 1) - hw_r   # signed offset from centre, range axis
+    idx_d = np.arange(2 * hw_d + 1) - hw_d   # ... Doppler axis
+
     if axis == 0:
-        lead_fp = ring & (idx[:, None] > 0)
-        lag_fp = ring & (idx[:, None] < 0)
+        lead_fp = ring & (idx_r[:, None] > 0)
+        lag_fp = ring & (idx_r[:, None] < 0)
     else:
-        lead_fp = ring & (idx[None, :] > 0)
-        lag_fp = ring & (idx[None, :] < 0)
+        lead_fp = ring & (idx_d[None, :] > 0)
+        lag_fp = ring & (idx_d[None, :] < 0)
 
     lead_k = lead_fp / lead_fp.sum()
     lag_k = lag_fp / lag_fp.sum()
@@ -101,16 +150,10 @@ def _half_ring_means(power: np.ndarray, half_width: int, guard: int, axis: int):
     return lead, lag
 
 
-def _os_ring_statistic(power: np.ndarray, half_width: int, guard: int, rank: int) -> np.ndarray:
-    """k-th smallest training-ring value via a ring-footprint rank filter.
-
-    Footprint = outer (2*hw+1) square with the (2*guard+1) guard square blanked out.
-    """
-    outer = 2 * half_width + 1
-    footprint = np.ones((outer, outer), dtype=bool)
-    g0, g1 = half_width - guard, half_width + guard + 1
-    footprint[g0:g1, g0:g1] = False
-
+def _os_ring_statistic(power: np.ndarray, hw_r: int, hw_d: int,
+                       g_r: int, g_d: int, rank: int) -> np.ndarray:
+    """k-th smallest training-ring value via a ring-footprint rank filter."""
+    footprint = _ring_footprint(hw_r, hw_d, g_r, g_d)
     rank = int(np.clip(rank, 0, int(footprint.sum()) - 1))
     return rank_filter(power, rank=rank, footprint=footprint, mode="nearest")
 
@@ -126,14 +169,15 @@ def cfar_ratio_map(power: np.ndarray, cfg: CfarConfig):
     valid_mask : True where a full window fits (border cells excluded).
     alpha      : detect at design Pfa via  ratio_map > alpha.
     """
-    hw = cfg.half_width
+    hw_r, hw_d = cfg.half_width_r, cfg.half_width_d
+    g_r, g_d = cfg.guard_r, cfg.guard_d
 
     if cfg.kind == "CA":
-        noise = _ring_mean(power, hw, cfg.guard)
+        noise = _ring_mean(power, hw_r, hw_d, g_r, g_d)
         alpha = cfg.alpha()
 
     elif cfg.kind == "GO":
-        lead, lag = _half_ring_means(power, hw, cfg.guard, axis=cfg.go_axis)
+        lead, lag = _half_ring_means(power, hw_r, hw_d, g_r, g_d, axis=cfg.go_axis)
         noise = np.maximum(lead, lag)
         # alpha for a half-ring estimate (GO/SO use N/2 cells; GO's exact Pfa is
         # slightly conservative — documented, refined during the sensitivity sweep).
@@ -142,7 +186,7 @@ def cfar_ratio_map(power: np.ndarray, cfg: CfarConfig):
 
     elif cfg.kind == "OS":
         rank = int(round(cfg.os_rank_frac * cfg.num_ref_cells))
-        noise = _os_ring_statistic(power, hw, cfg.guard, rank)
+        noise = _os_ring_statistic(power, hw_r, hw_d, g_r, g_d, rank)
         # OS threshold multiplier is set empirically to the design Pfa during the
         # sensitivity sweep; start from the CA value as a first approximation.
         alpha = cfg.alpha()
@@ -153,7 +197,7 @@ def cfar_ratio_map(power: np.ndarray, cfg: CfarConfig):
     ratio = power / (noise + 1e-30)
 
     valid = np.zeros(power.shape, dtype=bool)
-    valid[hw:-hw, hw:-hw] = True
+    valid[hw_r:-hw_r, hw_d:-hw_d] = True
 
     ratio = np.where(valid, ratio, 0.0)
     return ratio, valid, float(alpha)
