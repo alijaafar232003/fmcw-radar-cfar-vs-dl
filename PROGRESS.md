@@ -572,6 +572,56 @@ both are in each frame's metadata.
 - Parser now rejects bin-valued separations and `strength_db` with an explanatory error rather
   than silently mis-scaling.
 
+### Steps 3–4 — debug dataset generated; CFAR verified on the new map
+`configs/bench2_debug.yaml` → 80 frames, 10 per stratum. Scripts: `scripts/preview_strata.py`,
+`scripts/cfar_sanity.py`.
+
+**Step 3 verification.** Counts exact, no non-finite values, no targets in the untested border,
+difficulty as predicted (median 13.7 dB cell SNR). Alignment 91.7% for targets ≥15 dB, and the
+breakdown explains itself: **100% on isolated / multi / mixed**, lower only on masking, unresolved,
+clutter — i.e. where interference is the point. Regenerating three failing frames with noise and
+clutter off put every label exactly on the clean-map peak, proving the labels are correct.
+
+⚠️ **The preview sheet caught what the numbers missed.** `clutter_edge` targets were sitting
+*inside* the ridge, not beside it. The nominal ridge half-width is 1.26 m/s, but measured, the
+Doppler window smears it to 13.6 dB at 1.68 m/s and 2.1 dB at 2.10, reaching the noise floor only
+by 2.5 m/s. The 1.5 m/s lower bound therefore put ~⅓ of that stratum inside the clutter skirt,
+duplicating `clutter`. Raised to **2.5–4.2 m/s**; that stratum's alignment went 72.7% → **100%**.
+
+**Step 4 — CFAR sanity.** Valid region **236 × 44** as predicted (63.4% of the map; the Doppler
+axis keeps 69%). Noise estimates match theory to under 1%:
+
+| | measured | theory |
+|---|---|---|
+| CA | 1.001 | 1.000 (unbiased ring mean) |
+| GO | 1.090 | 1.090 (max of two half-means) |
+| OS | 1.396 | 1.386 (= ln 4, the 0.75-quantile of exponential noise) |
+
+Runtime: CA 1.3 ms, GO 17.9 ms, OS 125.9 ms per frame.
+
+⚠️ **NEW FINDING — the window spreads clutter contamination ~3× wider than the clutter.**
+The ridge occupies 9 Doppler bins. Measured against a noise-only reference, the fraction of the
+testable Doppler axis whose threshold is raised >3 dB:
+
+| train | half-width | usable bins | contaminated | **clean** |
+|---|---|---|---|---|
+| 4 | 6 | 52 | 21 | 31 (60%) |
+| 6 | 8 | 48 | 23 | 25 (52%) |
+| **8 (current)** | 10 | 44 | 27 | **17 (39%)** |
+| 10 | 12 | 40 | 31 | 9 (22%) |
+
+At the current geometry a 9-bin ridge poisons 27 bins of threshold, leaving **39% of the Doppler
+axis usable**. This did not arise on the previous sensor, whose 128-bin Doppler axis absorbed it.
+It is a strong argument for a **non-square window** — training cells can stay wide in range, where
+the axis is long and unstructured, while shrinking in Doppler, where the ridge sits and the axis is
+short. `CfarConfig` uses one guard/train pair for both axes and would need extending. Decide in
+step 6 on the tuning split, not here.
+
+*Two script bugs found and fixed: the valid-region check sampled row/column 0, which is border and
+therefore all-invalid, reporting 0×0 for a correct mask; and the first contamination measurement
+used the profile's own median as baseline, so wider contamination dragged the baseline up and hid
+itself, producing the impossible result that the widest window had zero contamination.*
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,
