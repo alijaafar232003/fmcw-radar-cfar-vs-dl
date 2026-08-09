@@ -788,6 +788,48 @@ construction and cannot grid.
 Stale references updated in `docs/dl_design.md` and two notebook cells — one of which formatted
 `receptive_field` as a scalar and would have printed incorrectly now that it returns a tuple.
 
+### Step 6d — audit of steps 1–6c, and the NMS investigation
+Everything re-verified end-to-end at the new sensor; one real limitation found and documented
+rather than tuned away.
+
+**Pipeline health (all pass):** dataset returns (1, 256, 64); per-frame normalisation exact
+(median 0.0000, std-of-medians 0.0000); forward preserves shape; 5,041 params; all 14 gradient
+tensors live; `dl/infer.py` still imports CFAR's own `all_peaks`, so both detectors share one NMS.
+
+⚠️ **Class imbalance changed: 1:1563 → 1:888.** The map halved while target counts stayed similar.
+`pos_weight=200` was tuned for the old ratio. Per `dl/train.py`'s own note the exact value matters
+less than intuition suggests — the ROC sweeps the threshold, so `pos_weight` mainly governs
+trainability and where the *untuned* operating point sits — but it should be revisited at retrain.
+
+**The NMS finding.** `nms_size=5` gives an 11×11 window = **2.15 m in range**, far wider than the
+~2-bin mainlobe, and it suppresses genuinely resolvable neighbours. On clean, noiseless maps only
+**38%** of masking pairs keep both targets — **5.9%** for pairs under 1 m. That caps the masking
+stratum near Pd 0.69.
+
+**But shrinking it is worse, and I was wrong to call it a bug.** NMS is not only merging targets,
+it is also *filtering noise*. At nms=2 there are ~4× more candidate peaks per noise frame (427 vs
+113), which at matched measured Pfa forces the threshold up and costs Pd everywhere — including
+`isolated`, where nothing can be merged. Swept at 21×9, Pd at matched Pfa on `isolated`:
+
+| nms_size | 1 | 2 | 3 | 4 | **5** | 7 |
+|---|---|---|---|---|---|---|
+| window | 3×3 | 5×5 | 7×7 | 9×9 | **11×11** | 15×15 |
+| isolated Pd | 0.462 | 0.291 | 0.293 | 0.372 | **0.521** | 0.638 |
+| detections per target | **1.20** | 0.96 | 0.94 | 0.86 | 0.80 | 0.80 |
+
+`nms_size=1` scores well but is **disqualified**: 1.20 detections per target means a target gets
+several attempts and the evaluator forgives all but one inside its guard region — the same
+free-attempts failure the plateau fix removed in Milestone 16. `nms_size=7` edges out 5 but spans
+2.9 m, which would merge two adjacent vehicles.
+
+**Kept at 5.** The masking cap is recorded as a limitation, and `nms_size` is added to the
+attribution sweep because it interacts with the evaluator's guard-region forgiveness — exactly the
+kind of protocol choice that phase exists to attribute.
+
+*Two of my own errors caught here: a `replace_all` that matched only `nms_size: int = 5,` (with
+comma) and so silently missed `all_peaks`, spotted because the re-run produced byte-identical
+numbers; and calling the NMS width a bug before measuring what shrinking it cost.*
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,

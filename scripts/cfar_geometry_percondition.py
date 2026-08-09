@@ -84,7 +84,8 @@ def main() -> None:
                 if cond not in scored:
                     continue
                 ratio, valid, _ = cfar_ratio_map(power, c)
-                scored[cond].append((all_peaks(ratio, valid, nms_size=5), truths, shape, valid))
+                # nms_size now defaults to 2 (mainlobe-matched)
+                scored[cond].append((all_peaks(ratio, valid), truths, shape, valid))
 
             for cond in conds:
                 s = scored[cond]
