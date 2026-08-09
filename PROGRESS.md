@@ -599,9 +599,16 @@ axis keeps 69%). Noise estimates match theory to under 1%:
 
 Runtime: CA 1.3 ms, GO 17.9 ms, OS 125.9 ms per frame.
 
-⚠️ **NEW FINDING — the window spreads clutter contamination ~3× wider than the clutter.**
-The ridge occupies 9 Doppler bins. Measured against a noise-only reference, the fraction of the
-testable Doppler axis whose threshold is raised >3 dB:
+⚠️ **INPUT TO STEP 6 (not a result) — square windows spread clutter contamination ~3× wider than
+the clutter.** Stated carefully, because it is easy to over-read: this is a *proxy* measurement
+taken at a geometry that is about to be replaced. Contamination is not itself the quantity that
+matters — a raised threshold where there are no targets costs nothing. Pd and measured Pfa are
+what matter, and step 6 optimises those directly on the tuning split.
+
+What survives regardless of what step 6 picks is the *structural* point: the sweep covered train
+4–10, and **no square window avoids this on a 64-bin Doppler axis**. The ridge occupies 9 Doppler
+bins; measured against a noise-only reference, the fraction of the testable Doppler axis whose
+threshold is raised >3 dB:
 
 | train | half-width | usable bins | contaminated | **clean** |
 |---|---|---|---|---|
@@ -610,12 +617,25 @@ testable Doppler axis whose threshold is raised >3 dB:
 | **8 (current)** | 10 | 44 | 27 | **17 (39%)** |
 | 10 | 12 | 40 | 31 | 9 (22%) |
 
-At the current geometry a 9-bin ridge poisons 27 bins of threshold, leaving **39% of the Doppler
-axis usable**. This did not arise on the previous sensor, whose 128-bin Doppler axis absorbed it.
-It is a strong argument for a **non-square window** — training cells can stay wide in range, where
-the axis is long and unstructured, while shrinking in Doppler, where the ridge sits and the axis is
-short. `CfarConfig` uses one guard/train pair for both axes and would need extending. Decide in
-step 6 on the tuning split, not here.
+This did not arise on the previous sensor, whose 128-bin Doppler axis absorbed it.
+
+**What this changes about step 6 — it sets what to sweep, not what to choose:**
+- Include training rings **smaller than the old default**. The previous sweep bottomed out around
+  8 and found Pd flat below it; that will not hold when the axis is half as long.
+- Include **asymmetric** windows — wide in range, where the axis is long and unstructured, narrow
+  in Doppler, where the ridge sits and the axis is short. This was never previously on the table.
+  `CfarConfig` takes one guard/train pair for both axes and would need extending.
+
+Non-square is a **hypothesis to test, not a conclusion**. If a small square window wins on Pd at
+matched measured Pfa, it wins. Without this measurement the sweep would probably have covered
+6/8/10 and never questioned squareness at all — that is its whole value.
+
+**Prediction recorded before measuring** (step 6 / the CFAR-vs-CFAR check): because the ridge
+contaminates a wide Doppler band, GO — which splits its window into leading and lagging halves
+*along Doppler* and takes the max — can lean on whichever half is clean, and OS's rank statistic
+ignores a ridge occupying a minority of the ring. CA averages everything and has no defence. So
+**CA should suffer most in `clutter_edge`, with the GO/OS gap larger than on the old sensor**. If
+GO does not win there, something is wrong and it needs explaining.
 
 *Two script bugs found and fixed: the valid-region check sampled row/column 0, which is border and
 therefore all-invalid, reporting 0×0 for a correct mask; and the first contamination measurement
