@@ -30,3 +30,7 @@ results/
 # Reference papers (publisher PDFs — not ours to redistribute; ~55 MB).
 # The analysis lives in docs/literature_corpus_review.md, which cites them by DOI/arXiv.
 papers/
+
+# The retired streamlit demo is kept for the presentation, but its venv is not.
+notebooks/fmcw_python_streamlit_refactor/venv/
+notebooks/fmcw_python_streamlit_refactor/__pycache__/
