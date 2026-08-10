@@ -869,6 +869,40 @@ regeneration.
 *Note: the verifier reports `bench2_snr_sweep` as "0 strata UNEVEN" — an artefact of the check
 assuming a `scenarios:` block. The sweep is deliberately single-condition; not a failure.*
 
+### Step 7b — deeper dataset audit (`scripts/audit_datasets.py`)
+`verify_splits.py` answers *"is anything broken?"*. This answers *"is it what we asked for?"* — the
+failure mode that passes every structural check and still invalidates the study, because a
+mis-specified stratum produces perfectly valid frames of the wrong scenario.
+
+**Every stratum matches its config.** Sampled across all five splits:
+
+| stratum | targets | range (m) | \|v\| (m/s) | separation (m) | clutter | spec |
+|---|---|---|---|---|---|---|
+| isolated | 1 | 8.1–44.6 | 0.01–7.99 | — | 0% | ✅ |
+| masking | 2 | 8.0–42.3 | 0.01–7.32 | **0.41–2.49** | 0% | ✅ 0.40–2.50 |
+| unresolved | 2 | 8.4–40.0 | 0.04–6.91 | **0.05–0.35** | 0% | ✅ exact |
+| clutter | 1–3 | 8.1–45.0 | **0.01–1.20** | — | 100% | ✅ <1.2 |
+| clutter_edge | 1–2 | 8.0–45.0 | **2.50–4.20** | — | 100% | ✅ exact |
+| multi | 4–5 | 8.0–45.0 | 0.00–8.00 | — | 0% | ✅ |
+| noise | 0 | — | — | — | 0% | ✅ |
+| mixed | 0–5 | 8.1–44.9 | 0.01–8.00 | — | 100% | ✅ |
+
+**Other checks, all pass:**
+- `radar_config_used.json` in every split matches the code exactly.
+- **1047/1047 sampled labels** have `range_bin`/`velocity_bin` consistent with `range_m`/
+  `velocity_mps` — the bin indices are not drifting from the physical coordinates.
+- Complex map orientation matches magnitude in every split. The residual |‖z‖ − mag| of ~3e-2
+  looked large until checked in *relative* terms: **2.18e-07, about 2× float32 epsilon**, on values
+  reaching 13,335. Both arrays are stored at float32 precision, so this is rounding, not error.
+- All 16 metadata fields present in every split.
+
+⚠️ **Class balance is now 1:936–1:973** (was 1:1563 on the old sensor), consistent across
+train/val/test. `pos_weight=200` was tuned for the old ratio — revisit at retrain.
+
+*Note: the audit's "separation" column is meaningless for `clutter`, `clutter_edge` and `mixed`,
+which place targets randomly rather than as pairs; the figure there is just the distance between
+two arbitrary targets.*
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,
