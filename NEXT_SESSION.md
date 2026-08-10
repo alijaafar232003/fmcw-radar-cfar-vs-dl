@@ -1,11 +1,17 @@
 # Next Session — pick up here
 
-Rewritten 10 August 2026. Supersedes the previous version entirely (that one described the
-fairness audit as it stood *before* the sensor was re-specified to match CARRADA; its plan survives
-as the attribution phase below, but its numbers do not).
+Current as of 11 August 2026, and everything below is committed. `PROGRESS.md` holds the full
+record with reasoning; this file is the short version plus what happens next.
 
-**Everything below is current and committed.** `PROGRESS.md` holds the full record with reasoning;
-this file is the short version plus what happens next.
+> **If you are a session with no prior context: read this file first, then `PROGRESS.md`.**
+> Start at §2.1. Everything in §4 is settled and should not be re-derived — several of those
+> decisions cost a measurement each to establish.
+
+**What changed most recently:** the radar was re-specified to match the CARRADA dataset, and
+*everything downstream was rebuilt and re-verified at the new sensor* — clutter model, CFAR window,
+CNN receptive field, all five data splits. Results in `docs/results_model0.md` and
+`docs/results_stratified.md` predate that and are banner-marked as superseded; their **methods**
+carry over, their **numbers** do not.
 
 ---
 
@@ -57,9 +63,39 @@ Pd at matched **measured** Pfa 1e-4, at the 21×9 window:
 
 ---
 
-## 2. STEP 8 — retrain TinyCNN (next task)
+## 2. What to do next — three tasks, in this order
 
-### Four fixes to `src/dl/train.py`, all identified in the step-6d audit
+### 2.1 CFAR on `bench2_test` — the pre-registered baseline ⬅️ START HERE
+
+CFAR has been run on `bench2_tune` (to pick the window) but **never on the test split**. Do it
+*before* the network exists, for three reasons: it is then a pre-registered baseline that cannot be
+unconsciously tuned against; it exercises the evaluation pipeline end-to-end while there is no
+network to blame if something breaks; and CFAR has no learnable parameters, so touching the test
+split with it cannot contaminate anything.
+
+Produce per-condition Pd at matched **measured** Pfa for CA/GO/OS at the 21×9 window. Run once,
+record it, do not iterate.
+
+### 2.2 Data-quality re-check — three open items
+
+The framework in `docs/data_quality_criteria.md` still stands; only the measurements need redoing at
+the new sensor, and three are outstanding:
+
+| Criterion | Status |
+|---|---|
+| Clutter distribution | ✅ done — `scripts/verify_clutter.py`, now heavy-tailed |
+| Coverage | ✅ done — `notebooks/dataset_overview.ipynb` |
+| Difficulty calibration | ✅ done — measured against theory |
+| **Noise is exponential** (KS test) | ❌ not rechecked |
+| **Targets off-grid** (no bin-centre shortcut) | ❌ not rechecked — *and this code changed*, `close_pair` no longer snaps to bin centres |
+| **No learnable shortcuts** | ❌ not rechecked |
+
+This is what answers *"how do you know your synthetic data isn't rigged?"* in the viva. It is also
+what found the Gaussian-clutter gap last time, which is why it earned its place.
+
+### 2.3 Retrain TinyCNN
+
+#### Four fixes to `src/dl/train.py`, all identified in the step-6d audit
 
 The previous run stopped at a fixed 12 epochs with the validation loss **still falling**, kept
 whatever the last epoch produced, and used only half the validation set. None of that is defensible
@@ -72,21 +108,21 @@ in a report.
    Per `train.py`'s own note the exact value matters less than intuition suggests, since the ROC
    sweeps the threshold, but it should not silently inherit a value tuned for a different ratio.
 
-### Re-run the Milestone-13 gates at the new geometry
+#### Re-run the Milestone-13 gates at the new geometry
 
 - dataset shapes / finiteness / per-frame median ≈ 0 *(already confirmed in the audit)*
 - **orientation check** — no transpose bug
 - **receptive field measured 21 × 9** *(already confirmed)*
 - **overfit-one-batch** — loss must collapse and peaks land within 1 bin
 
-### Then evaluate
+#### Then evaluate
 
 - Per-condition Pd at matched **measured** Pfa on `bench2_test`
 - Pd-vs-SNR on `bench2_snr_sweep`, overlaid on theory `Pd = exp(−T/(1+SNR))`
 
 ---
 
-## 3. After step 8
+## 3. After those three
 
 **Attribution (the original fairness audit, unchanged in intent).** Six named hypotheses with
 falsifying experiments — see `PROGRESS.md` "Milestone 18". Start with H2's analytic bound, then the
@@ -139,6 +175,44 @@ Flagged as worth using — regenerate at final quality when writing.
 | **Loss curves** | *regenerate* — `scripts/plot_loss_curves.py` | Reads the training log directly so it cannot drift from the run. |
 
 All plots use the same palette and styling (`dataviz` conventions), so they will look like one set.
+
+## 4c. Verification already done — do not repeat
+
+Two scripts gate the data, and both pass. Re-run them if anything changes; there is no need to
+re-derive what they check.
+
+**`scripts/verify_splits.py`** — *is anything broken?*
+Balanced strata · **zero shared frames between any of the ten split pairs**, checked by hashing
+frame contents rather than by comparing seeds · alignment 92.3–93.6% · zero targets in the untested
+border · zero non-finite values.
+
+**`scripts/audit_datasets.py`** — *is it what we asked for?*
+Every stratum matches its config (masking separations 0.41–2.49 m against a 0.40–2.50 spec,
+`unresolved` 0.05–0.35 exactly, `clutter_edge` velocities 2.50–4.20 exactly, `clutter` below 1.2
+m/s) · `radar_config_used.json` matches the code in all five splits · 1047/1047 sampled labels have
+bin indices consistent with their physical coordinates · all 16 metadata fields present.
+
+⚠️ **Both sample frames RANDOMLY, deliberately.** The generator assigns conditions cyclically
+(frame *i* gets condition *i* % n_strata), so an evenly-spaced `linspace` sample aliases against that
+cycle and can miss whole strata — it once returned **2** `unresolved` targets against 155–576 for
+every other condition, in a table that otherwise looked entirely plausible. Do not "simplify" this
+back to `linspace`.
+
+## 4d. Repository state after cleanup
+
+Removed (all recoverable from git history): four notebooks that ran against the previous sensor
+(`cfar_comparison`, `data_quality_audit`, `dl_cnn_experiment`, `validate_rd_alignment`),
+`src/01_generate_rd_dataset.ipynb` (legacy — defined its own `RadarConfig`, so it kept the old
+radar parameters alive), the streamlit demo's 620 MB venv, `docs/RADDet.pdf`, and `results/dl/`
+(checkpoints and caches from models trained on deleted data).
+
+Kept: `notebooks/InteractivePipeline.ipynb` (the CFAR prototype the vectorised implementation was
+ported from), the streamlit demo minus its venv (wanted for the presentation), and — deliberately —
+`results/cfar_geometry_sweep.csv` and `results/cfar_geometry_percondition.csv`, which are the raw
+evidence behind the 21×9 window choice and exist nowhere else, since `results/` is gitignored.
+
+Nothing referencing the old sensor remains outside `docs/results_*.md`, which are banner-marked as
+superseded and kept as the experimental record.
 
 ## 5. Reference
 
