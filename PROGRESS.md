@@ -830,6 +830,45 @@ kind of protocol choice that phase exists to attribute.
 comma) and so silently missed `all_peaks`, spotted because the re-run produced byte-identical
 numbers; and calling the NMS width a bug before measuring what shrinking it cost.*
 
+### Step 7 — full datasets generated and verified (`scripts/verify_splits.py`)
+14,900 frames, 3.24 GB. **All gates pass.**
+
+| split | frames | strata | seed | role |
+|---|---|---|---|---|
+| `bench2_train` | 8,400 | 7 × 1200 | 92001 | network training |
+| `bench2_val` | 1,600 | 8 × 200 | 93001 | overfitting check |
+| `bench2_test` | 3,200 | 8 × 400 | 94001 | **the reported numbers** |
+| `bench2_tune` | 400 | 8 × 50 | 91001 | CFAR geometry (already used) |
+| `bench2_snr_sweep` | 1,300 | 1 condition | 95001 | Pd-vs-SNR diagnostic |
+
+**Leakage: zero shared frames across all ten split pairs.** Checked by **hashing frame contents**,
+not by comparing seeds — trusting the seeds would mean trusting the thing under test.
+
+**Alignment 92.3–93.6%**, and the per-condition breakdown is the same signature as before:
+
+| isolated | multi | clutter_edge | mixed | masking | unresolved | clutter |
+|---|---|---|---|---|---|---|
+| **100%** | **100%** | 97% | 94% | 90% | 90% | 77% |
+
+Perfect where targets are isolated; degraded only where interference is the point of the condition.
+`clutter` at 77% is the lowest, which is expected now that clutter is heavy-tailed — spikes beat
+weak targets. **`bench2_snr_sweep` is 100.0%**, which is the cleanest possible confirmation that
+the labelling is correct: single target, no clutter, nothing to interfere.
+
+**Difficulty after the +2 dB lift:** median 14.9–16.2 dB, targets below 5 dB now **13.3–16.2%**
+(was 21.1%). The sweep sits at median 11.2 dB with 25% below 5 dB, which is by design — it starts
+at 0 dB so the curve begins near Pd = 0.
+
+**Swept parameters recorded** as intended: CNR 5.0–25.0 dB, Weibull shape 1.10–2.00.
+**Zero targets in the untested border** in any split. **Zero non-finite frames.**
+
+Per frame: `rd_map_mag` 65 KB + `rd_map_complex` 131 KB + `label_mask` 16 KB + labels/metadata.
+The complex map is what makes the proposal's magnitude-vs-I/Q ablation possible without a third
+regeneration.
+
+*Note: the verifier reports `bench2_snr_sweep` as "0 strata UNEVEN" — an artefact of the check
+assuming a `scenarios:` block. The sweep is deliberately single-condition; not a failure.*
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,
