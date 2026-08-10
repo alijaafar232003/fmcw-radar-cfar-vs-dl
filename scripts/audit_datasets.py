@@ -25,10 +25,18 @@ SPLITS = ["bench2_train", "bench2_val", "bench2_test", "bench2_tune", "bench2_sn
 N_SAMPLE = 400
 
 
-def sample_frames(split: str, n: int):
+def sample_frames(split: str, n: int, seed: int = 0):
+    """Random sample, not evenly spaced.
+
+    The generator assigns conditions cyclically (frame i gets condition i % n_strata), so an
+    evenly-spaced sample aliases against that cycle and can under-represent or miss whole strata
+    depending on how the stride divides. Random sampling is stride-independent.
+    """
     fds = sorted((ROOT / "data" / split / "frames").iterdir())
-    idx = np.linspace(0, len(fds) - 1, min(n, len(fds))).astype(int)
-    return [fds[i] for i in idx]
+    if n >= len(fds):
+        return fds
+    idx = np.random.default_rng(seed).choice(len(fds), n, replace=False)
+    return [fds[i] for i in sorted(idx)]
 
 
 def main() -> None:
