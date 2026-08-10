@@ -123,6 +123,23 @@ method material already.
 
 ---
 
+## 4b. 📊 Figures earmarked for the report and presentation
+
+Flagged as worth using — regenerate at final quality when writing.
+
+| Figure | Source | Why it earns a slide |
+|---|---|---|
+| **8-panel strata sheet** | `results/bench2_debug_strata.png` (`scripts/preview_strata.py`) | Shows the whole experimental design in one image — every condition, targets ringed. Best single "here is what I built" figure. |
+| **CFAR noise estimate vs clutter ridge** | `results/cfar_sanity_threshold.png` (`scripts/cfar_sanity.py`) | Makes the window problem *visible*: the ridge is narrow, the estimate is 5× wider. This is what motivated the 21×9 window. |
+| **Difficulty vs theory** | `notebooks/dataset_overview.ipynb` §9 | Target SNR histogram against the Pd 0.1/0.5/0.9 lines — shows the data sits where detectors actually differ. |
+| **Difficulty by scenario** | `dataset_overview.ipynb` §6 | Boxplot per stratum against the same theory lines. |
+| **Split distributions overlaid** | `dataset_overview.ipynb` §5 | Evidence train/val/test are identically distributed. |
+| **Swept parameters** | `dataset_overview.ipynb` §10 | Separation and clutter-tail coverage; motivates the two sweep analyses. |
+| **Pd vs SNR against theory** | *not yet made* — `bench2_snr_sweep` | The validation figure: measured curve on the theoretical one, with the gap being CFAR loss. |
+| **Loss curves** | *regenerate* — `scripts/plot_loss_curves.py` | Reads the training log directly so it cannot drift from the run. |
+
+All plots use the same palette and styling (`dataviz` conventions), so they will look like one set.
+
 ## 5. Reference
 
 | | |
