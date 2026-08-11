@@ -161,9 +161,41 @@ sit in the detectable band — not hand-picked to flatter anyone.""")
 code('''DATA = ROOT / "data" / "bench2_test" / "frames"
 THR = {(r.condition, r.method): r.threshold for _, r in summary.iterrows()}
 
+FOUND, MISSED, FALSE = "#00e07a", "#ffb03a", "#ff1e3c"
 
-def pick_frame(cond, n_targets=None, snr=(10, 22)):
-    """Median-difficulty frame of a condition, chosen by rule rather than by eye."""
+
+def detections(i, cond, m):
+    pk = PEAKS[m].get(int(i), np.zeros((0, 3)))
+    thr = THR[(cond, m)]
+    return pk[pk[:, 2] >= thr][:, :2] if (len(pk) and thr == thr) else np.zeros((0, 2))
+
+
+def frame_outcome(i, cond):
+    """Per-method (detections, hit-set) plus a score for how much the methods DISAGREE."""
+    tru = TRUTH_BY_FRAME[i][["range_bin", "velocity_bin"]].to_numpy(float)
+    out, sets = {}, {}
+    for m in METHODS:
+        det = detections(i, cond, m)
+        ev = evaluate_frame(det, tru, SHAPE, MatchConfig(1, 1), valid_mask=VALID)
+        out[m] = (det, set(ev.matched_truth_idx), ev)
+        sets[m] = {(int(d[0]), int(d[1])) for d in det}
+
+    # Disagreement that MEANS something: a target one method found and another missed, which is
+    # the point of the figure. Differing false alarms are worth less, so they count for less.
+    hits = [out[m][1] for m in METHODS]
+    split_targets = len(set.union(*hits) - set.intersection(*hits))
+    union, inter = set.union(*sets.values()), set.intersection(*sets.values())
+    return out, tru, 10 * split_targets + len(union - inter)
+
+
+def pick_frame(cond, n_targets=None, snr=(8, 26), disagreement=True):
+    """Frame chosen by rule, not by eye.
+
+    For presentation the useful frames are the ones where the methods DISAGREE -- a frame where
+    all three do the same thing shows nothing about their differences. The rule is stated so the
+    selection is auditable: among frames whose targets sit in the detectable band, take the one
+    where the methods differ most, preferring disagreements about TARGETS over false alarms.
+    """
     t = truths[truths.condition == cond]
     g = t.groupby("frame").agg(n=("target", "size"), lo=("cell_snr_db", "min"),
                                hi=("cell_snr_db", "max"))
@@ -171,51 +203,64 @@ def pick_frame(cond, n_targets=None, snr=(10, 22)):
         g = g[g.n == n_targets]
     sel = g[(g.lo >= snr[0]) & (g.hi <= snr[1])]
     g = sel if len(sel) else g
-    return int(g.sort_values("lo").index[len(g) // 2])
+
+    if not disagreement:
+        return int(g.sort_values("lo").index[len(g) // 2])
+
+    cands = list(g.index)[:220]                      # cap the scan; plenty to choose from
+    scored = [(frame_outcome(int(i), cond)[2], int(i)) for i in cands]
+    return max(scored)[1]
 
 
-def show_frame(i, cond):
-    """Full map, not a crop: WHERE the false alarms land relative to the ridge is the point."""
+def rd_db(i):
     mag = np.load(DATA / f"frame_{i:06d}" / "rd_map_mag.npy").astype(float)
-    dbm = 20 * np.log10(mag / np.median(mag) + 1e-12)
-    tru = TRUTH_BY_FRAME[i][["range_bin", "velocity_bin"]].to_numpy(float)
+    return 20 * np.log10(mag / np.median(mag) + 1e-12)
 
-    fig, axes = plt.subplots(1, 4, figsize=(12, 6.2), sharey=True)
+
+def mark_false(ax, x, y):
+    """A red x with a dark halo, so it survives being drawn on a bright clutter ridge."""
+    ax.plot(x, y, "x", color="black", ms=11, mew=4.0, alpha=0.55, zorder=6)
+    ax.plot(x, y, "x", color=FALSE, ms=10, mew=2.4, zorder=7)
+
+
+def mark_ring(ax, x, y, color):
+    ax.plot(x, y, "o", mfc="none", mec="black", ms=15, mew=3.2, alpha=0.55, zorder=6)
+    ax.plot(x, y, "o", mfc="none", mec=color, ms=15, mew=2.0, zorder=7)
+
+
+# ---------------------------------------------------------------- LAYOUT A: transposed, stacked
+def layout_stacked(i, cond):
+    """Doppler vertical, range horizontal -> wide strips stacked as rows."""
+    dbm, (out, tru, _) = rd_db(i), frame_outcome(i, cond)
+    fig, axes = plt.subplots(4, 1, figsize=(13, 8.2), sharex=True)
+
     for ax in axes:
-        ax.imshow(dbm, aspect="auto", origin="lower", cmap="magma", vmin=-3, vmax=45,
-                  extent=[0, SHAPE[1], 0, SHAPE[0]])
-        # Explicit limits: markers plotted outside the image must not stretch the axes.
-        ax.set_xlim(0, SHAPE[1]); ax.set_ylim(0, SHAPE[0])
-        ax.grid(False); ax.set_xlabel("Doppler bin")
+        im = ax.imshow(dbm.T, aspect="auto", origin="lower", cmap="magma", vmin=-3, vmax=45,
+                       extent=[0, SHAPE[0], 0, SHAPE[1]])
+        ax.set_xlim(0, SHAPE[0]); ax.set_ylim(0, SHAPE[1])
+        ax.grid(False); ax.set_ylabel("Doppler bin", fontsize=8)
 
-    # Rings are drawn as MARKERS, not Circle patches: a patch is a circle in data units, which
-    # aspect="auto" stretches into an ellipse on a 256x64 map.
-    axes[0].set_title(f"{cond} — frame {i}\\nRD map + truth", fontsize=9)
-    axes[0].plot(tru[:, 1], tru[:, 0], "o", mfc="none", mec="white", ms=13, mew=1.6)
+    axes[0].set_title(f"{cond} — frame {i}   (truth)", fontsize=10, loc="left")
+    for rb, vb in tru:
+        mark_ring(axes[0], rb, vb, "white")
 
     for ax, m in zip(axes[1:], METHODS):
-        thr = THR[(cond, m)]
-        pk = PEAKS[m].get(i, np.zeros((0, 3)))
-        det = pk[pk[:, 2] >= thr][:, :2] if len(pk) else np.zeros((0, 2))
-        ev = evaluate_frame(det, tru, SHAPE, MatchConfig(1, 1), valid_mask=VALID)
-        hit = set(ev.matched_truth_idx)
-
+        det, hit, ev = out[m]
         for k, (rb, vb) in enumerate(tru):
-            ax.plot(vb, rb, "o", mfc="none", ms=13, mew=2.0,
-                    mec="#3ddc84" if k in hit else "#ff9d3d")
-
+            mark_ring(ax, rb, vb, FOUND if k in hit else MISSED)
         for d in det:
             if not any(abs(d[0] - a) <= 1 and abs(d[1] - b) <= 1 for a, b in tru):
-                ax.plot(d[1], d[0], "x", color="#ff4d4d", ms=7, mew=1.8)
+                mark_false(ax, d[0], d[1])
+        ax.set_title(f"{m}   {ev.tp}/{len(tru)} found · {ev.fp} false alarms",
+                     fontsize=10, loc="left")
 
-        ax.set_title(f"{m}   {ev.tp}/{len(tru)} found, {ev.fp} FA", fontsize=9)
-
-    axes[0].set_ylabel("range bin")
-    plt.tight_layout(); plt.show()
+    axes[-1].set_xlabel("range bin")
+    fig.colorbar(im, ax=axes, label="dB above the frame's noise floor", pad=0.01, aspect=40)
+    plt.show()
 
 
 for cond, n in [("masking", 2), ("clutter", None), ("clutter_edge", None), ("multi", None)]:
-    show_frame(pick_frame(cond, n), cond)''')
+    layout_stacked(pick_frame(cond, n), cond)''')
 
 md("""**What to look for.** In `masking`, whether the weak partner survives beside the strong one —
 this is where OS is built to win. In `clutter`, the red crosses cluster along the zero-Doppler ridge
@@ -392,7 +437,10 @@ for cond in CONDS:
 # calibration curve instead, which is what that stratum is FOR.
 CONDS_PD = [c for c in CONDS if c != "noise"]
 
-fig, axes = plt.subplots(2, 4, figsize=(15, 7), sharey=True)
+# NOT sharey: the eighth panel is a log-scale false-alarm plot, and on a shared axis its
+# `loglog` call silently switched every ROC panel to log too, squashing all seven 0-1 curves
+# into the top edge.
+fig, axes = plt.subplots(2, 4, figsize=(15, 7))
 for ax, cond in zip(axes.ravel(), CONDS_PD):
     for m in METHODS:
         r = ROCS[(cond, m)]
@@ -405,11 +453,11 @@ for ax, cond in zip(axes.ravel(), CONDS_PD):
                     mec="white", mew=0.8, zorder=5)
     ax.axvline(TARGET_PFA, color=MUTED, ls=":", lw=1)
     ax.set_title(cond, fontsize=10)
+    ax.set_xscale("log")
     ax.set_xlim(1e-7, 3e-2); ax.set_ylim(0, 1)
     ax.set_xlabel("measured Pfa per cell")
-axes[0, 0].legend(frameon=False, fontsize=9)
-for ax in axes[:, 0]:
     ax.set_ylabel("Pd")
+axes[0, 0].legend(frameon=False, fontsize=9)
 
 # Eighth panel: what the `noise` stratum measures -- false alarms vs threshold, no targets involved.
 ax = axes[1, 3]
