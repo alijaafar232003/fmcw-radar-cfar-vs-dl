@@ -174,24 +174,24 @@ def pick_frame(cond, n_targets=None, snr=(10, 22)):
     return int(g.sort_values("lo").index[len(g) // 2])
 
 
-def show_frame(i, cond, pad=38):
+def show_frame(i, cond):
+    """Full map, not a crop: WHERE the false alarms land relative to the ridge is the point."""
     mag = np.load(DATA / f"frame_{i:06d}" / "rd_map_mag.npy").astype(float)
     dbm = 20 * np.log10(mag / np.median(mag) + 1e-12)
-    t = TRUTH_BY_FRAME[i]
-    tru = t[["range_bin", "velocity_bin"]].to_numpy(float)
+    tru = TRUTH_BY_FRAME[i][["range_bin", "velocity_bin"]].to_numpy(float)
 
-    r0 = max(0, int(tru[:, 0].min()) - pad)
-    r1 = min(SHAPE[0], int(tru[:, 0].max()) + pad + 1)
-
-    fig, axes = plt.subplots(1, 4, figsize=(13, 6.4), sharey=True)
+    fig, axes = plt.subplots(1, 4, figsize=(12, 6.2), sharey=True)
     for ax in axes:
-        ax.imshow(dbm[r0:r1], aspect="auto", origin="lower", cmap="magma",
-                  vmin=-3, vmax=45, extent=[0, SHAPE[1], r0, r1])
-        ax.grid(False)
+        ax.imshow(dbm, aspect="auto", origin="lower", cmap="magma", vmin=-3, vmax=45,
+                  extent=[0, SHAPE[1], 0, SHAPE[0]])
+        # Explicit limits: markers plotted outside the image must not stretch the axes.
+        ax.set_xlim(0, SHAPE[1]); ax.set_ylim(0, SHAPE[0])
+        ax.grid(False); ax.set_xlabel("Doppler bin")
 
+    # Rings are drawn as MARKERS, not Circle patches: a patch is a circle in data units, which
+    # aspect="auto" stretches into an ellipse on a 256x64 map.
     axes[0].set_title(f"{cond} — frame {i}\\nRD map + truth", fontsize=9)
-    for rb, vb in tru:
-        axes[0].add_patch(plt.Circle((vb, rb), 3.0, fill=False, color="white", lw=1.4))
+    axes[0].plot(tru[:, 1], tru[:, 0], "o", mfc="none", mec="white", ms=13, mew=1.6)
 
     for ax, m in zip(axes[1:], METHODS):
         thr = THR[(cond, m)]
@@ -201,16 +201,14 @@ def show_frame(i, cond, pad=38):
         hit = set(ev.matched_truth_idx)
 
         for k, (rb, vb) in enumerate(tru):
-            c = "#3ddc84" if k in hit else "#ff9d3d"
-            ax.add_patch(plt.Circle((vb, rb), 3.0, fill=False, color=c, lw=1.8))
+            ax.plot(vb, rb, "o", mfc="none", ms=13, mew=2.0,
+                    mec="#3ddc84" if k in hit else "#ff9d3d")
 
         for d in det:
-            near = any(abs(d[0] - a) <= 1 and abs(d[1] - b) <= 1 for a, b in tru)
-            if not near:
-                ax.plot(d[1], d[0], "x", color="#ff4d4d", ms=6, mew=1.6)
+            if not any(abs(d[0] - a) <= 1 and abs(d[1] - b) <= 1 for a, b in tru):
+                ax.plot(d[1], d[0], "x", color="#ff4d4d", ms=7, mew=1.8)
 
         ax.set_title(f"{m}   {ev.tp}/{len(tru)} found, {ev.fp} FA", fontsize=9)
-        ax.set_xlabel("Doppler bin")
 
     axes[0].set_ylabel("range bin")
     plt.tight_layout(); plt.show()
@@ -221,8 +219,13 @@ for cond, n in [("masking", 2), ("clutter", None), ("clutter_edge", None), ("mul
 
 md("""**What to look for.** In `masking`, whether the weak partner survives beside the strong one —
 this is where OS is built to win. In `clutter`, the red crosses cluster along the zero-Doppler ridge
-for every method. In `clutter_edge`, the target sits *beside* the ridge while the window reaches
-into it. In `multi`, the detectors are unstressed and mostly agree, which is the control.""")
+for every method, which is the failure mode the whole project is about. In `clutter_edge`, the
+target sits *beside* the ridge while the window reaches into it. In `multi`, the detectors are
+unstressed and largely agree — the control.
+
+**A `clutter` frame where every method scores 0 is the normal case, not a broken figure**: Pd there
+is ~0.17, so most targets in the ridge are missed by everything. The frame is chosen by rule, and
+the rule does not select for a happy outcome.""")
 
 # --------------------------------------------------- 2c. the mechanism: the noise estimate, mapped
 md("""## 2c. Why the three disagree — the noise estimate, mapped
@@ -310,22 +313,52 @@ for cond in CONDS:
         pool = np.concatenate([f[0][:, 2] for f in fr if len(f[0])])
         ROCS[(cond, m)] = roc_curve(fr, np.unique(np.quantile(pool, QUANTILES)), MatchConfig(1, 1))
 
-fig, axes = plt.subplots(2, 4, figsize=(15, 7), sharex=True, sharey=True)
-for ax, cond in zip(axes.ravel(), CONDS):
+# `noise` has no targets, so it has no ROC -- its panel would be blank. The slot is given to the
+# calibration curve instead, which is what that stratum is FOR.
+CONDS_PD = [c for c in CONDS if c != "noise"]
+
+fig, axes = plt.subplots(2, 4, figsize=(15, 7), sharey=True)
+for ax, cond in zip(axes.ravel(), CONDS_PD):
     for m in METHODS:
         r = ROCS[(cond, m)]
         r = r[r.pfa_per_cell > 0]
         ax.semilogx(r.pfa_per_cell, r.pd, color=COLOR[m], label=m, lw=1.6)
+        # The reported operating point, marked on the curve it was read from.
+        row = summary[(summary.condition == cond) & (summary.method == m)]
+        if len(row) and row.pd.notna().all():
+            ax.plot(row.measured_pfa.iloc[0], row.pd.iloc[0], "o", color=COLOR[m], ms=5,
+                    mec="white", mew=0.8, zorder=5)
     ax.axvline(TARGET_PFA, color=MUTED, ls=":", lw=1)
     ax.set_title(cond, fontsize=10)
-    ax.set_ylim(0, 1)
-axes[0, 0].legend(frameon=False, fontsize=9)
-for ax in axes[1]:
+    ax.set_xlim(1e-7, 3e-2); ax.set_ylim(0, 1)
     ax.set_xlabel("measured Pfa per cell")
+axes[0, 0].legend(frameon=False, fontsize=9)
 for ax in axes[:, 0]:
     ax.set_ylabel("Pd")
-fig.suptitle("ROC per condition (dotted line = the 1e-4 operating point)", y=1.0)
-plt.tight_layout(); plt.show()''')
+
+# Eighth panel: what the `noise` stratum measures -- false alarms vs threshold, no targets involved.
+ax = axes[1, 3]
+ax.clear()
+for m in METHODS:
+    r = ROCS[("noise", m)]
+    r = r[r.fa_per_frame > 0]
+    ax.loglog(r.threshold, r.fa_per_frame, color=COLOR[m], lw=1.6, label=m)
+    a = summary[(summary.condition == "noise") & (summary.method == m)].design_alpha.iloc[0]
+    ax.axvline(a, color=COLOR[m], ls=":", lw=1)
+ax.set_title("noise — calibration (no targets)", fontsize=10)
+ax.set_xlabel("threshold"); ax.set_ylabel("false alarms / frame")
+ax.legend(frameon=False, fontsize=8)
+ax.grid(True, which="both", alpha=0.4)
+
+fig.suptitle("ROC per condition — dot = the reported operating point, dotted line = Pfa 1e-4",
+             y=1.0)
+plt.tight_layout(); plt.show()
+
+print("Curves stop where the sweep does. On `multi` the curve begins at ~1e-4 because with 4-5")
+print("strong targets per frame the highest-scoring peaks are ALL targets: above that level")
+print("there are no false alarms at all, so Pfa steps from 0 straight to ~1e-4. That is a real")
+print("gap in the score distribution, not a truncated sweep -- and it is why the operating point")
+print("for `multi` sits at the very left end of its curve.")''')
 
 # ------------------------------------------------------------------ 3b. clutter_edge, undiluted
 md("""## 3b. `clutter_edge`, undiluted — the condition does not mean what it says
@@ -632,7 +665,8 @@ cl = cl.assign(sbin=pd.cut(cl["shape"], np.arange(1.0, 2.2, 0.2)),
 fig, axes = plt.subplots(1, 2, figsize=(13, 4.6))
 
 for m in METHODS:
-    alpha = CfarConfig(kind=m).alpha()          # the DESIGN threshold, deliberately
+    # The DESIGN threshold, deliberately -- the drift is only visible at a fixed operating point.
+    alpha = CfarConfig(kind=m).alpha_go() if m == "GO" else CfarConfig(kind=m).alpha()
     rows = []
     for key, g in cl.groupby("sbin", observed=True):
         evs = []
