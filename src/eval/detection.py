@@ -195,6 +195,62 @@ def aggregate(frame_evals: list[FrameEval], range_res_m=None, vel_res_mps=None) 
 # Curves
 # ----------------------------------------------------------------------
 
+def roc_thresholds(frames, cfg: MatchConfig = MatchConfig(), n_fa: int = 60,
+                   n_quantile: int = 40) -> np.ndarray:
+    """Threshold grid that resolves the FALSE-ALARM axis, where the operating point lives.
+
+    A grid built from quantiles of the whole score pool samples the wrong place. On dense strata
+    the top few percent of peaks are all genuine targets — above some threshold there are no false
+    alarms at all — so a tail-dense quantile grid spends most of its points in a region where Pfa
+    is exactly 0, and leaves the interesting span unsampled. On `multi` that produced a ROC whose
+    smallest non-zero false-alarm count was 371: nothing between 1 and 370 was ever measured, and
+    the curve appeared to start abruptly at Pfa 7e-5.
+
+    So the grid is anchored to the false alarms themselves. Scores of peaks that are NOT within the
+    gate of any truth are pooled and sorted, and thresholds are taken at geometrically spaced
+    ranks — giving roughly equal resolution per decade of Pfa, from a single false alarm upward.
+    A coarse quantile grid is unioned in to keep the high-Pfa end covered.
+
+    Using ground truth to CHOOSE where to sample is not using it to score: every point on the
+    resulting curve is still measured by `evaluate_frame` in the ordinary way.
+    """
+    fa_scores, all_scores = [], []
+
+    for frame in frames:
+        det = np.asarray(frame[0], dtype=float)
+        truths = _as_points(frame[1])
+
+        if not det.size or det.ndim != 2 or det.shape[1] < 3:
+            continue
+
+        all_scores.append(det[:, 2])
+
+        if len(truths):
+            dr = np.abs(det[:, 0][:, None] - truths[:, 0][None, :])
+            dv = np.abs(det[:, 1][:, None] - truths[:, 1][None, :])
+            near = ((dr <= cfg.tol_r) & (dv <= cfg.tol_v)).any(axis=1)
+        else:
+            near = np.zeros(len(det), dtype=bool)
+
+        fa_scores.append(det[~near, 2])
+
+    if not all_scores:
+        return np.array([0.0])
+
+    pool = np.concatenate(all_scores)
+    grid = list(np.quantile(pool, np.linspace(0.0, 0.99, n_quantile)))
+
+    fa = np.concatenate(fa_scores) if fa_scores else np.array([])
+    if fa.size:
+        fa = np.sort(fa)[::-1]                     # strongest false alarm first
+        ranks = np.unique(np.round(
+            np.geomspace(1, fa.size, min(n_fa, fa.size))).astype(int)) - 1
+        # Step just below each chosen false alarm so that it is actually included.
+        grid.extend(fa[ranks] * (1 - 1e-9))
+
+    return np.unique(np.asarray(grid, dtype=float))
+
+
 def roc_curve(frames, thresholds, cfg: MatchConfig = MatchConfig()) -> pd.DataFrame:
     """Sweep a detection-score threshold and trace (Pfa, Pd).
 

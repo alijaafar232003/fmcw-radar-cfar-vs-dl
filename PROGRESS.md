@@ -1011,13 +1011,16 @@ against. All 3,200 frames, 6,163 targets, 21×9 window from `CfarConfig` default
 
 | condition | CA | GO | OS | best | spread |
 |---|---|---|---|---|---|
-| multi | **0.687** | 0.680 | 0.681 | CA | 0.007 |
+| multi | **0.687** | 0.680 | 0.682 | CA | 0.007 |
 | isolated | **0.675** | 0.662 | 0.662 | CA | 0.013 |
-| masking | 0.535 | 0.529 | **0.621** | **OS** | **0.092** |
+| masking | 0.535 | 0.529 | **0.622** | **OS** | **0.093** |
 | unresolved | 0.464 | 0.462 | 0.462 | — | 0.002 |
-| clutter_edge | 0.395 | 0.408 | **0.447** | **OS** | **0.052** |
-| mixed | 0.404 | **0.416** | 0.376 | GO | 0.040 |
-| clutter | 0.164 | **0.169** | 0.161 | GO | 0.008 |
+| clutter_edge | 0.397 | 0.415 | **0.449** | **OS** | **0.052** |
+| mixed | 0.408 | **0.426** | 0.388 | GO | 0.038 |
+| clutter | 0.166 | **0.171** | 0.163 | GO | 0.008 |
+
+*(Final values, on the false-alarm-anchored threshold grid — see Milestone 21b. Measured Pfa is
+9.81e-5–1.02e-4 on every row, so "matched at 1e-4" is literally true rather than approximately.)*
 
 Runtime: CA 2.3 ms, GO 6.6 ms, **OS 57.8 ms** per frame. Localisation ~0.21 range bins / 0.10
 Doppler bins for all three (bounded by the ±1 gate, so this says *where inside* the gate).
@@ -1085,6 +1088,38 @@ difference is location: in `clutter`, `clutter_edge` and `mixed`, **~100% of eve
 alarms fall in the zero-Doppler ridge** (±8 bins ≈ 26% of the testable axis). On clean conditions it
 is 28–31%, i.e. chance. That is the classical failure mode stated quantitatively, and it is the
 specific thing a learned detector is expected to improve on.
+
+### Milestone 21b — the ROC threshold grid was sampling the wrong place
+
+Found by the user asking why the `multi` and `unresolved` ROC curves looked truncated.
+
+**`unresolved` being flat is physics** — two targets in one mainlobe, one detection can match only
+one truth, so Pd is capped near 0.5 whatever the threshold (0.45 → 0.49 across two decades). That
+is the sanity check working.
+
+**`multi` stopping at Pfa 7e-5 was real too**: with 4–5 strong targets per frame, above a ratio of
+~175 *every* surviving peak is a genuine target — 455 detections, **zero** false alarms — and zero
+cannot be drawn on a log axis.
+
+**But the grid underneath was wrong.** It was built from quantiles of the whole score pool, dense in
+the upper tail; on `multi` the top few percent of scores are all targets, so 40 of 79 grid points
+landed where Pfa is identically 0 while the informative span went unsampled. The smallest non-zero
+false-alarm count ever measured was **371** — nothing between 1 and 370 was evaluated, and the
+operating point was interpolated across that hole.
+
+`eval.detection.roc_thresholds()` now anchors the grid to the false alarms themselves: pool the
+scores of peaks *not* within the gate of any truth, sort them, and place thresholds at geometrically
+spaced ranks — one false alarm, two, three, five, … Using ground truth to choose *where to sample*
+is not using it to score; every point is still measured by `evaluate_frame` in the ordinary way.
+
+**Effect: Pd shifted by ≤0.010 and no conclusion changed**, which is itself reassuring about the
+earlier numbers. What improved is the operating point — measured Pfa is now **9.81e-5–1.02e-4** on
+all 24 rows, against a 7.9e-5–1.23e-4 spread before.
+
+*Correction logged:* mid-investigation I claimed the top-scoring `multi` peaks were not all targets,
+from a diagnostic that built a near-truth mask in regrouped frame order and indexed scores in the
+original order. The two were misaligned; the claim was wrong, and a direct threshold test disproved
+it.
 
 ## Milestone 22 — Why GO loses `clutter_edge`, and what it exposed about the window choice  ⚠️
 

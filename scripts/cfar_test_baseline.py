@@ -34,7 +34,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from cfar.cfar import CfarConfig, cfar_ratio_map          # noqa: E402
 from cfar.detect import all_peaks                          # noqa: E402
 from dl.stratified_eval import NMS, _at_measured_pfa       # noqa: E402
-from eval import MatchConfig, aggregate, evaluate_frame, roc_curve   # noqa: E402
+from eval import (MatchConfig, aggregate, evaluate_frame,          # noqa: E402
+                  roc_curve, roc_thresholds)
 
 SPLIT = "bench2_test"
 METHODS = ("CA", "GO", "OS")
@@ -128,8 +129,7 @@ def score(frames_meta: pd.DataFrame, truths: pd.DataFrame) -> pd.DataFrame:
                    tru_by_frame.get(i, np.zeros((0, 2))), shape, valid)
                   for i in g.frame]
 
-            pool = np.concatenate([f[0][:, 2] for f in fr if len(f[0])])
-            roc = roc_curve(fr, np.unique(np.quantile(pool, QUANTILES)), mc)
+            roc = roc_curve(fr, roc_thresholds(fr, mc), mc)
             pd_interp, thr = _at_measured_pfa(roc, TARGET_PFA)
 
             # Interpolation's job is to FIND the threshold; Pd is then measured AT it. Reporting

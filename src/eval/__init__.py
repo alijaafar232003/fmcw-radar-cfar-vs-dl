@@ -6,6 +6,7 @@ from eval.detection import (
     evaluate_frame,
     aggregate,
     roc_curve,
+    roc_thresholds,
     pd_vs_snr,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "evaluate_frame",
     "aggregate",
     "roc_curve",
+    "roc_thresholds",
     "pd_vs_snr",
 ]

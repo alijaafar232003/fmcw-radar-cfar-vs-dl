@@ -50,7 +50,7 @@ ROOT = Path.cwd().parent if Path.cwd().name == "notebooks" else Path.cwd()
 sys.path.insert(0, str(ROOT / "src"))
 
 from cfar.cfar import CfarConfig
-from eval import MatchConfig, aggregate, evaluate_frame, roc_curve
+from eval import MatchConfig, aggregate, evaluate_frame, roc_curve, roc_thresholds
 from dl.stratified_eval import _at_measured_pfa
 from radar.config import RadarConfig
 from radar.simulator import make_axes
@@ -410,12 +410,7 @@ The single Pd number above is one point on each of these curves. Plotting the wh
 whether the ranking is a property of the detector or an artefact of the operating point — if curves
 cross, "which method is best" has no answer without naming a Pfa.""")
 
-code('''QUANTILES = np.clip(np.concatenate([
-    np.linspace(0.0, 0.99, 40),
-    1.0 - np.logspace(np.log10(0.01), np.log10(2e-5), 40)]), 0.0, 1.0)
-
-
-def frames_for(cond, method):
+code('''def frames_for(cond, method):
     ids = frames.loc[frames.condition == cond, "frame"].to_numpy()
     out = []
     for i in ids:
@@ -430,8 +425,8 @@ ROCS = {}
 for cond in CONDS:
     for m in METHODS:
         fr = frames_for(cond, m)
-        pool = np.concatenate([f[0][:, 2] for f in fr if len(f[0])])
-        ROCS[(cond, m)] = roc_curve(fr, np.unique(np.quantile(pool, QUANTILES)), MatchConfig(1, 1))
+        # Grid anchored to the false alarms, not to score quantiles -- see src/eval/detection.py.
+        ROCS[(cond, m)] = roc_curve(fr, roc_thresholds(fr, MatchConfig(1, 1)), MatchConfig(1, 1))
 
 # `noise` has no targets, so it has no ROC -- its panel would be blank. The slot is given to the
 # calibration curve instead, which is what that stratum is FOR.
@@ -517,8 +512,7 @@ def score_subset(subset):
             tru = (t[["range_bin", "velocity_bin"]].to_numpy(float)
                    if t is not None else np.zeros((0, 2)))
             fr.append((PEAKS[m].get(int(i), np.zeros((0, 3))), tru, SHAPE, VALID))
-        pool = np.concatenate([f[0][:, 2] for f in fr if len(f[0])])
-        roc = roc_curve(fr, np.unique(np.quantile(pool, QUANTILES)), MatchConfig(1, 1))
+        roc = roc_curve(fr, roc_thresholds(fr, MatchConfig(1, 1)), MatchConfig(1, 1))
         _, thr = _at_measured_pfa(roc, TARGET_PFA)
         evs = [evaluate_frame(f[0][f[0][:, 2] >= thr][:, :2] if (len(f[0]) and thr == thr)
                               else np.zeros((0, 2)), f[1], f[2], MatchConfig(1, 1), valid_mask=f[3])
