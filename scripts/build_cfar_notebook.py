@@ -52,6 +52,11 @@ sys.path.insert(0, str(ROOT / "src"))
 from cfar.cfar import CfarConfig
 from eval import MatchConfig, aggregate, evaluate_frame, roc_curve
 from dl.stratified_eval import _at_measured_pfa
+from radar.config import RadarConfig
+from radar.simulator import make_axes
+
+_, _, RANGE_AXIS, vax = make_axes(RadarConfig())
+v0 = int(np.argmin(np.abs(vax)))          # the zero-Doppler bin: where the clutter ridge sits
 
 RES = ROOT / "results" / "cfar_test"
 METHODS = ["CA", "GO", "OS"]
@@ -136,6 +141,145 @@ print(piv["spread"].round(3).sort_values(ascending=False).to_string())
 print("\\nA spread of ~0.01 at 400 frames/condition is inside sampling noise;")
 print("only clearly separated rows support a claim about which method is better.")''')
 
+# ------------------------------------------------------------- 2b. detections vs truth, on a frame
+md("""## 2b. What the detectors actually did — truth vs detections, same frame
+
+The tables say *how many*. This says *what happened*. Each row is one frame; the first panel is the
+range-Doppler map with the true targets ringed, and the next three are what CA, GO and OS reported
+at their matched operating points.
+
+| marker | meaning |
+|---|---|
+| white ring | a true target |
+| green ring | that target was **found** |
+| orange ring | that target was **missed** |
+| red × | a **false alarm** |
+
+Frames are chosen deterministically — the median-difficulty frame of each condition whose targets
+sit in the detectable band — not hand-picked to flatter anyone.""")
+
+code('''DATA = ROOT / "data" / "bench2_test" / "frames"
+THR = {(r.condition, r.method): r.threshold for _, r in summary.iterrows()}
+
+
+def pick_frame(cond, n_targets=None, snr=(10, 22)):
+    """Median-difficulty frame of a condition, chosen by rule rather than by eye."""
+    t = truths[truths.condition == cond]
+    g = t.groupby("frame").agg(n=("target", "size"), lo=("cell_snr_db", "min"),
+                               hi=("cell_snr_db", "max"))
+    if n_targets is not None:
+        g = g[g.n == n_targets]
+    sel = g[(g.lo >= snr[0]) & (g.hi <= snr[1])]
+    g = sel if len(sel) else g
+    return int(g.sort_values("lo").index[len(g) // 2])
+
+
+def show_frame(i, cond, pad=38):
+    mag = np.load(DATA / f"frame_{i:06d}" / "rd_map_mag.npy").astype(float)
+    dbm = 20 * np.log10(mag / np.median(mag) + 1e-12)
+    t = TRUTH_BY_FRAME[i]
+    tru = t[["range_bin", "velocity_bin"]].to_numpy(float)
+
+    r0 = max(0, int(tru[:, 0].min()) - pad)
+    r1 = min(SHAPE[0], int(tru[:, 0].max()) + pad + 1)
+
+    fig, axes = plt.subplots(1, 4, figsize=(13, 6.4), sharey=True)
+    for ax in axes:
+        ax.imshow(dbm[r0:r1], aspect="auto", origin="lower", cmap="magma",
+                  vmin=-3, vmax=45, extent=[0, SHAPE[1], r0, r1])
+        ax.grid(False)
+
+    axes[0].set_title(f"{cond} — frame {i}\\nRD map + truth", fontsize=9)
+    for rb, vb in tru:
+        axes[0].add_patch(plt.Circle((vb, rb), 3.0, fill=False, color="white", lw=1.4))
+
+    for ax, m in zip(axes[1:], METHODS):
+        thr = THR[(cond, m)]
+        pk = PEAKS[m].get(i, np.zeros((0, 3)))
+        det = pk[pk[:, 2] >= thr][:, :2] if len(pk) else np.zeros((0, 2))
+        ev = evaluate_frame(det, tru, SHAPE, MatchConfig(1, 1), valid_mask=VALID)
+        hit = set(ev.matched_truth_idx)
+
+        for k, (rb, vb) in enumerate(tru):
+            c = "#3ddc84" if k in hit else "#ff9d3d"
+            ax.add_patch(plt.Circle((vb, rb), 3.0, fill=False, color=c, lw=1.8))
+
+        for d in det:
+            near = any(abs(d[0] - a) <= 1 and abs(d[1] - b) <= 1 for a, b in tru)
+            if not near:
+                ax.plot(d[1], d[0], "x", color="#ff4d4d", ms=6, mew=1.6)
+
+        ax.set_title(f"{m}   {ev.tp}/{len(tru)} found, {ev.fp} FA", fontsize=9)
+        ax.set_xlabel("Doppler bin")
+
+    axes[0].set_ylabel("range bin")
+    plt.tight_layout(); plt.show()
+
+
+for cond, n in [("masking", 2), ("clutter", None), ("clutter_edge", None), ("multi", None)]:
+    show_frame(pick_frame(cond, n), cond)''')
+
+md("""**What to look for.** In `masking`, whether the weak partner survives beside the strong one —
+this is where OS is built to win. In `clutter`, the red crosses cluster along the zero-Doppler ridge
+for every method. In `clutter_edge`, the target sits *beside* the ridge while the window reaches
+into it. In `multi`, the detectors are unstressed and mostly agree, which is the control.""")
+
+# --------------------------------------------------- 2c. the mechanism: the noise estimate, mapped
+md("""## 2c. Why the three disagree — the noise estimate, mapped
+
+Every CFAR method is one decision: *what is the noise level here?* Everything else is identical.
+So the differences reduce to three pictures of the same quantity, plus a slice through them.
+
+At a clutter edge the slice is the whole story: CA averages the ridge into its estimate, GO takes
+the **greatest** of the two half-windows and so deliberately picks the contaminated side, and OS
+takes the 0.75-quantile, which — with only a quarter of the ring in the ridge — lands in the *clean*
+part. GO's threshold goes up, OS's goes down.""")
+
+code('''from cfar.cfar import _ring_mean, _half_ring_means, _os_ring_statistic
+
+i = pick_frame("clutter_edge")
+mag = np.load(DATA / f"frame_{i:06d}" / "rd_map_mag.npy").astype(float)
+power = mag ** 2
+t = TRUTH_BY_FRAME[i]
+rb, vb = int(t.range_bin.iloc[0]), int(t.velocity_bin.iloc[0])
+
+hw_r, hw_d, g_r, g_d = CFG.half_width_r, CFG.half_width_d, CFG.guard_r, CFG.guard_d
+ca = _ring_mean(power, hw_r, hw_d, g_r, g_d)
+lead, lag = _half_ring_means(power, hw_r, hw_d, g_r, g_d, axis=CFG.go_axis)
+go = np.maximum(lead, lag)
+os_ = _os_ring_statistic(power, hw_r, hw_d, g_r, g_d, int(round(CFG.os_rank_frac * CFG.num_ref_cells)))
+
+floor = np.median(power)
+r0, r1 = max(0, rb - 40), min(SHAPE[0], rb + 41)
+
+fig, axes = plt.subplots(1, 4, figsize=(13, 5.6), sharey=True)
+for ax, (arr, name) in zip(axes, [(power, "|RD|² (the data)"), (ca, "CA estimate"),
+                                  (go, "GO estimate"), (os_, "OS estimate")]):
+    ax.imshow(10 * np.log10(arr[r0:r1] / floor + 1e-12), aspect="auto", origin="lower",
+              cmap="magma", vmin=-3, vmax=35, extent=[0, SHAPE[1], r0, r1])
+    ax.axhline(rb, color="white", lw=0.6, ls=":")
+    ax.plot(vb, rb, "o", mfc="none", mec="white", ms=11, mew=1.5)
+    ax.set_title(name, fontsize=9); ax.grid(False); ax.set_xlabel("Doppler bin")
+axes[0].set_ylabel("range bin")
+fig.suptitle(f"clutter_edge frame {i}: the target (ringed) sits beside the ridge", y=1.0)
+plt.tight_layout(); plt.show()
+
+fig, ax = plt.subplots(figsize=(10, 4.4))
+v = np.arange(SHAPE[1])
+ax.plot(v, 10 * np.log10(power[rb] / floor + 1e-12), color=MUTED, lw=1, label="|RD|² at this range")
+for arr, m in [(ca, "CA"), (go, "GO"), (os_, "OS")]:
+    ax.plot(v, 10 * np.log10(arr[rb] / floor + 1e-12), color=COLOR[m], lw=1.8, label=f"{m} estimate")
+ax.axvline(vb, color=INK, ls="--", lw=1.2)
+ax.text(vb + 0.6, ax.get_ylim()[1] - 4, "target", fontsize=8, color=INK)
+ax.set_xlabel("Doppler bin"); ax.set_ylabel("dB above the frame's noise floor")
+ax.set_title("Slice through the target's range bin — the ridge and the three estimates")
+ax.legend(frameon=False, fontsize=9)
+plt.tight_layout(); plt.show()
+
+print(f"At the target cell:  CA {ca[rb, vb] / floor:6.2f}   GO {go[rb, vb] / floor:6.2f}   "
+      f"OS {os_[rb, vb] / floor:6.2f}   (x the frame noise floor)")
+print("Higher estimate -> higher threshold -> fewer false alarms and lower Pd.")''')
+
 # ------------------------------------------------------------------------------------- 3. ROC
 md("""## 3. ROC per condition
 
@@ -182,6 +326,73 @@ for ax in axes[:, 0]:
     ax.set_ylabel("Pd")
 fig.suptitle("ROC per condition (dotted line = the 1e-4 operating point)", y=1.0)
 plt.tight_layout(); plt.show()''')
+
+# ------------------------------------------------------------------ 3b. clutter_edge, undiluted
+md("""## 3b. `clutter_edge`, undiluted — the condition does not mean what it says
+
+The ridge measures **±4 Doppler bins**. `clutter_edge` targets sit at offsets 6–10 bins, and the
+21×9 window's training columns reach only ±3–4 bins from the cell under test. So for the *far*
+targets the window never touches the ridge at all: those frames are ordinary noise frames carrying
+the label.
+
+The band was set (2.5–4.2 m/s) when the window was 21×21 and reached 4.2 m/s, where every frame
+straddled. Narrowing the window in step 6 silently broke that.
+
+Splitting on it changes the answer, so the pooled row should not be the one reported.""")
+
+code('''RIDGE_HALF = 4                       # measured; see PROGRESS.md Milestone 22
+
+ids = frames.loc[frames.condition == "clutter_edge", "frame"].to_numpy()
+true_edge, no_edge = [], []
+for i in ids:
+    t = TRUTH_BY_FRAME.get(i)
+    ov = sum(1 for vb in t.velocity_bin
+             for c in range(int(vb) - CFG.half_width_d, int(vb) + CFG.half_width_d + 1)
+             if abs(c - int(vb)) > CFG.guard_d and abs(c - v0) <= RIDGE_HALF)
+    (true_edge if ov else no_edge).append(i)
+
+
+def score_subset(subset):
+    out = {}
+    for m in METHODS:
+        fr = []
+        for i in subset:
+            t = TRUTH_BY_FRAME.get(i)
+            tru = (t[["range_bin", "velocity_bin"]].to_numpy(float)
+                   if t is not None else np.zeros((0, 2)))
+            fr.append((PEAKS[m].get(int(i), np.zeros((0, 3))), tru, SHAPE, VALID))
+        pool = np.concatenate([f[0][:, 2] for f in fr if len(f[0])])
+        roc = roc_curve(fr, np.unique(np.quantile(pool, QUANTILES)), MatchConfig(1, 1))
+        _, thr = _at_measured_pfa(roc, TARGET_PFA)
+        evs = [evaluate_frame(f[0][f[0][:, 2] >= thr][:, :2] if (len(f[0]) and thr == thr)
+                              else np.zeros((0, 2)), f[1], f[2], MatchConfig(1, 1), valid_mask=f[3])
+               for f in fr]
+        out[m] = aggregate(evs)["pd"]
+    return out
+
+
+split = pd.DataFrame({
+    "true edge (window straddles ridge)": score_subset(true_edge),
+    "no edge (label is wrong)": score_subset(no_edge),
+    "pooled — as reported in §2": summary[summary.condition == "clutter_edge"]
+                                  .set_index("method").pd.to_dict(),
+}).T[METHODS]
+split.insert(0, "frames", [len(true_edge), len(no_edge), len(ids)])
+display(split.round(3))
+
+fig, ax = plt.subplots(figsize=(8.5, 4.2))
+x = np.arange(len(split))
+for k, m in enumerate(METHODS):
+    ax.bar(x + (k - 1) * 0.26, split[m].to_numpy(), 0.26, label=m, color=COLOR[m])
+ax.set_xticks(x); ax.set_xticklabels(split.index, rotation=12, ha="right", fontsize=9)
+ax.set_ylabel("Pd at matched measured Pfa")
+ax.set_title("clutter_edge: the pooled row averages two different experiments")
+ax.legend(frameon=False)
+plt.tight_layout(); plt.show()
+
+print(f"{100 * len(no_edge) / len(ids):.0f}% of the stratum is not actually an edge.")
+print("GO wins ONLY those frames. At a true edge OS leads, and by more than the pooled")
+print("row suggests -- the dilution was hiding OS's advantage, not creating it.")''')
 
 # ------------------------------------------------------------------------- 4. design vs measured
 md("""## 4. Design Pfa is not measured Pfa — the reason this protocol exists
@@ -461,12 +672,7 @@ Pd is only half the story. At matched Pfa the *rate* is equal by construction, s
 **where** the false alarms fall. Concentration in the zero-Doppler clutter ridge is the classical
 failure mode, and it is the thing a learned detector is expected to improve on.""")
 
-code('''from radar.config import RadarConfig
-from radar.simulator import make_axes
-
-_, _, _, vax = make_axes(RadarConfig())
-v0 = int(np.argmin(np.abs(vax)))
-BAND = set(range(v0 - 8, v0 + 9))
+code('''BAND = set(range(v0 - 8, v0 + 9))
 
 rows = []
 for m in METHODS:
