@@ -28,11 +28,20 @@ from eval import MatchConfig, aggregate, evaluate_frame, roc_curve
 NMS_SIZE = 5  # must match the value used for CFAR
 
 
-def cfar_valid_mask(shape: tuple[int, int], guard: int = 2, train: int = 8) -> np.ndarray:
-    """The region CFAR can actually test — used for the network too, for a like-for-like Pfa."""
-    hw = CfarConfig(guard=guard, train=train).half_width
+def cfar_valid_mask(shape: tuple[int, int], cfg: CfarConfig | None = None) -> np.ndarray:
+    """The region CFAR can actually test — used for the network too, for a like-for-like Pfa.
+
+    The border is RECTANGULAR, because the selected window is: 21 in range, 9 in Doppler, so the
+    excluded margin is 10 bins on the range axis and 4 on Doppler. This previously assumed a square
+    window and asked `CfarConfig.half_width`, which raises for the current defaults — a square mask
+    would have scored the network on 20 Doppler bins that CFAR never tests, breaking the
+    like-for-like Pfa denominator that is the whole point of sharing this mask.
+    """
+    cfg = cfg or CfarConfig()
+    hw_r, hw_d = cfg.half_width_r, cfg.half_width_d
+
     valid = np.zeros(shape, dtype=bool)
-    valid[hw:-hw, hw:-hw] = True
+    valid[hw_r:-hw_r, hw_d:-hw_d] = True
     return valid
 
 

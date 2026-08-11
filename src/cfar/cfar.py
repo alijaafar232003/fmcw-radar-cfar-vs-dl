@@ -91,9 +91,35 @@ class CfarConfig:
         guard_win = (2 * self.guard_r + 1) * (2 * self.guard_d + 1)
         return win - guard_win
 
+    @property
+    def num_half_ring_cells(self) -> int:
+        """Cells in ONE half-ring, for GO/SO — counted, not halved.
+
+        The split excludes the centre line along `go_axis`, so a half-ring is NOT
+        `num_ref_cells // 2`. On the 21x9 window each half holds 74 cells, not 82: the 16 cells
+        of the centre Doppler column belong to neither half. Halving overstates the sample size
+        and so understates the threshold GO needs for its design Pfa.
+        """
+        hw_r, hw_d = self.half_width_r, self.half_width_d
+        ring = np.ones((2 * hw_r + 1, 2 * hw_d + 1), dtype=bool)
+        ring[hw_r - self.guard_r: hw_r + self.guard_r + 1,
+             hw_d - self.guard_d: hw_d + self.guard_d + 1] = False
+
+        if self.go_axis == 0:
+            side = np.arange(2 * hw_r + 1)[:, None] - hw_r > 0
+        else:
+            side = np.arange(2 * hw_d + 1)[None, :] - hw_d > 0
+
+        return int((ring & side).sum())
+
     def alpha(self) -> float:
-        """CA/GO threshold multiplier for the design Pfa (mean-of-N-exponentials)."""
+        """CA/OS threshold multiplier for the design Pfa (mean-of-N-exponentials)."""
         n = self.num_ref_cells
+        return n * (self.pfa ** (-1.0 / n) - 1.0)
+
+    def alpha_go(self) -> float:
+        """GO threshold multiplier — same form, but over one half-ring's cells."""
+        n = self.num_half_ring_cells
         return n * (self.pfa ** (-1.0 / n) - 1.0)
 
 
@@ -182,10 +208,10 @@ def cfar_ratio_map(power: np.ndarray, cfg: CfarConfig):
     elif cfg.kind == "GO":
         lead, lag = _half_ring_means(power, hw_r, hw_d, g_r, g_d, axis=cfg.go_axis)
         noise = np.maximum(lead, lag)
-        # alpha for a half-ring estimate (GO/SO use N/2 cells; GO's exact Pfa is
-        # slightly conservative — documented, refined during the sensitivity sweep).
-        n_half = cfg.num_ref_cells // 2
-        alpha = n_half * (cfg.pfa ** (-1.0 / n_half) - 1.0)
+        # alpha over the cells one half-ring actually holds. GO's exact Pfa is still slightly
+        # conservative (taking a maximum biases the estimate up) — documented, and irrelevant to
+        # any comparison made at matched MEASURED Pfa.
+        alpha = cfg.alpha_go()
 
     elif cfg.kind == "OS":
         rank = int(round(cfg.os_rank_frac * cfg.num_ref_cells))

@@ -226,17 +226,41 @@ def roc_curve(frames, thresholds, cfg: MatchConfig = MatchConfig()) -> pd.DataFr
     return pd.DataFrame(rows)[cols]
 
 
-def pd_vs_snr(frames, snr_edges, cfg: MatchConfig = MatchConfig()) -> pd.DataFrame:
-    """Pd binned by each target's own cell SNR.
+def pd_vs_snr(frames, snr_edges, *, threshold: float,
+              cfg: MatchConfig = MatchConfig()) -> pd.DataFrame:
+    """Pd binned by each target's own cell SNR, at ONE fixed operating point.
 
-    frames : list of (detections, truths, shape, truth_snr_db), where truth_snr_db
+    frames : list of (detections, truths, shape, truth_snr_db[, valid_mask]), where
+             detections is (N, 3) — (range_bin, velocity_bin, score) — and truth_snr_db
              holds one cell-SNR value per truth row.
+    threshold : score threshold defining the operating point. **Required, and keyword-only.**
+
+    Why the threshold is not optional: every producer in this project (`all_peaks`, and both
+    detectors through it) returns EVERY local maximum, unthresholded, so the caller can sweep.
+    Scoring that list directly would count a target as detected whenever any local maximum lands
+    within the gate — i.e. Pd measured at "detect everything", which rises towards 1 regardless of
+    detector quality. A Pd-vs-SNR curve is only meaningful at a fixed operating point (see
+    docs/benchmarking_conventions.md, "Aggregation for curves"), normally the threshold that puts
+    the detector at the matched measured Pfa.
     """
     snr_all: list[float] = []
     hit_all: list[bool] = []
 
-    for detections, truths, shape, truth_snr in frames:
-        ev = evaluate_frame(detections, truths, shape, cfg)
+    for frame in frames:
+        detections, truths, shape, truth_snr = frame[0], frame[1], frame[2], frame[3]
+        valid_mask = frame[4] if len(frame) > 4 else None
+
+        det = np.asarray(detections, dtype=float)
+
+        if det.size:
+            if det.ndim != 2 or det.shape[1] < 3:
+                raise ValueError(
+                    "pd_vs_snr needs scored detections (N, 3) so it can apply `threshold`; "
+                    f"got shape {det.shape}. Pass the unthresholded output of all_peaks()."
+                )
+            det = det[det[:, 2] >= threshold][:, :2]
+
+        ev = evaluate_frame(det, truths, shape, cfg, valid_mask=valid_mask)
         matched = set(ev.matched_truth_idx)
 
         for i, snr in enumerate(np.asarray(truth_snr, dtype=float)):
