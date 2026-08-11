@@ -135,41 +135,79 @@ That is a defensible scientific position. Claiming "my data is realistic" withou
 
 ## Audit outcome and decisions (this project)
 
-Measured against the criteria (full evidence in `notebooks/data_quality_audit.ipynb`):
+**Re-audited 11 August 2026** on the frozen `bench2_*` splits at the CARRADA-matched sensor
+(256 × 64). This supersedes the original audit, which was run on the old sensor and on datasets
+that no longer exist. Evidence is reproducible from four scripts:
 
-| Criterion | Result |
-|---|---|
-| Physical fidelity | PASS — full chirp→dechirp→FFT chain; derived quantities match theory |
-| Label correctness | PASS — RD peak = label bin = mask, verified across all scenarios |
-| Statistical realism | **PARTIAL** — noise exponential (KS 0.005) ✔; clutter Weibull c = 2.03 (Gaussian-like) ✘ |
-| Difficulty calibration | PASS — cell-SNR calibrated, Pd sweeps 0→1 |
-| Coverage | PASS — 0–5 targets, 9–100 m, ±15 m/s, cell SNR −1.5…38.5 dB |
-| No shortcuts | PASS — targets off-grid (0.13 m of a 0.50 m bin) |
-| Benchmark neutrality | ACTION — keep diagnostic sets separate from the frozen test set |
-| External validity | PARTIAL — same 77 GHz regime as CARRADA/RADDet; gaps listed below |
-| Reproducibility | PASS — fixed seeds, configs stored with the data |
+```bash
+python scripts/audit_data_quality.py    # criteria 3, 4, 5, 6, 7, 9 — statistics of the frozen data
+python scripts/verify_splits.py         # criterion 2 + leakage, on all 14,900 frames
+python scripts/audit_datasets.py        # each stratum vs its config
+python scripts/verify_clutter.py        # the clutter model itself
+```
 
-**Measured vs cited — an important distinction.** The clutter shape `c = 2.03` is *measured from
-this project's data*. The heavy-tailed reference values (`c < 2`) come from the published radar
-clutter-statistics **literature**, not from distributions fitted to CARRADA/RADDet (which were
-not available). The comparison is therefore *our measurement vs literature reference models*.
+| Criterion | Result | Key evidence |
+|---|---|---|
+| 1 Physical fidelity | **PASS** | λ, slope, fs, ΔR, R_max, Δv, v_max all match closed form to 5 s.f. |
+| 2 Label correctness | **PASS** (with a documented 7%) | 100% of `isolated`/`multi` peaks on the label bin; 93% overall — the shortfall is confined to the strata where interference *is* the condition |
+| 3 Statistical realism | **PASS** (was PARTIAL) | noise KS 0.006 vs exponential; clutter now Weibull **c = 1.51–1.56** (was 2.03); 1/R⁴ exponent fits at **−1.003** |
+| 4 Difficulty calibration | **PASS** | ~48–50% of targets sit in the theory Pd 0.1–0.9 band; 13–16% below, 35–39% above |
+| 5 Coverage | **PASS** | 0–5 targets, 8–45 m, ±8 m/s, cell SNR −10…+50 dB, no empty range decile |
+| 6 No shortcuts | **PASS** | off-grid placement uniform (std 0.290 vs 0.289 ideal, KS 0.007); no frame statistic predicts the label; 8,400/8,400 unique seeds |
+| 7 Benchmark neutrality | **ACTION** | the frozen test set is 8 **equal** strata, 37.5% of it deliberately adversarial — report per-condition, never a bare overall Pd |
+| 8 External validity | **PARTIAL** | bin geometry matches CARRADA exactly; point targets and single-channel RD remain gaps |
+| 9 Reproducibility | **PASS** | config + radar config + axes stored with every split; master seeds 91001–95001, all frame seeds unique |
 
-**Closed gap — range-dependent amplitude (the radar equation).** The audit found that target
-amplitude and range were *independent*: a target at 100 m could be as strong as one at 10 m,
-which is physically impossible. Received power obeys `P_r ∝ σ/R⁴`, so the frozen datasets now
-apply a `40·log10(R/R_ref)` loss (`src/radar/propagation.py`), referenced to 50 m. Verified:
-doubling the range costs **12.04 dB** (the 1/R⁴ law), and in generated data the correlation
-between range and measured cell SNR is **−0.77** (mean cell SNR falls 42.5 → 10.2 dB from the
-0–30 m to the 90–120 m band). This makes difficulty *physically* motivated — distant targets are
-hard because they are distant — and matches the systematic range-dependence seen in real
-recordings.
+### What changed since the first audit
 
-**Decision — Gaussian clutter retained; heavy-tailed clutter deferred to future work.** The
-present CFAR results are valid for homogeneous Gaussian clutter, the classical regime CFAR was
-derived for. Changing the model would require regenerating every dataset and repeating the CFAR
-study. The gap is **conservative**: real, spikier clutter would make CA-CFAR perform *worse*, so
-it does not threaten the conclusions — and adding K/Weibull clutter later would strengthen them,
-since that is where OS-CFAR and a learned detector gain most.
+**Clutter is now heavy-tailed — the one previously-failing criterion.** The old model measured
+Weibull `c = 2.03`, i.e. Rayleigh, which *understates* the false-alarm problem in exactly the
+regime the project exists to study. The compound-Gaussian model (Weibull texture × Rayleigh
+speckle) measures `c = 1.51` on `bench2_test` and `1.56` on `bench2_train`, with p99/p50 ≈ 3.8.
+CNR calibration is accurate to +0.16…+0.27 dB above 10 dB (+1.27 dB at 5 dB, where the ridge is
+barely above noise), and off-ridge cells sit at −0.01 dB — the clutter stays where it is supposed
+to be.
+
+*Caveat (already recorded in `PROGRESS.md` step 2b — repeated here because it belongs with the
+measurement):* the config's `shape` is the **texture** parameter, not the shape of the resulting
+amplitude distribution. Requesting `shape = 2.0` measures back as `c ≈ 1.68`, because the chain
+always adds its own Rayleigh speckle. The swept range 1.1–2.0 delivers measured `c` roughly
+1.4–1.7. **Quote the measured value in the report**; both are in each frame's metadata.
+
+**The radar equation is verified, not just applied.** Regressing the stored post-propagation
+`amplitude_db` on `40·log10(R/25)` gives slope **−1.003** (r = −0.92), and the residual spans
+exactly **4.0–16.0 dB**, the config's drawn-amplitude window. So the loss is applied once, at the
+right exponent, with nothing else contaminating it. Mean cell SNR falls **26.1 → 5.4 dB** from the
+8–18 m band to the 38–46 m band, and corr(range, cell SNR) = **−0.77**.
+
+### Two correlations that look like faults and are not
+
+1. **corr(range, amplitude_db) = −0.90.** Criterion 5 asks for no accidental correlation between
+   sampled factors; this one is not accidental, it *is* the radar equation. Range and the *drawn*
+   amplitude are independent; the stored amplitude is post-loss.
+2. **Velocity is not uniform.** The `clutter` stratum confines targets to |v| < 1.2 m/s and
+   `clutter_edge` to 2.5–4.2 m/s, so the pooled Doppler histogram is peaked. That is the
+   stratification doing its job, not a sampler defect.
+
+### Open items from this audit
+
+- **Criterion 7 is the live one.** `bench2_test` is 12.5% each of eight conditions, three of which
+  (`masking`, `unresolved`, `clutter_edge`) are built to break a specific detector. An unweighted
+  mean over that mixture is not a "typical scene" number and must not be presented as one. The
+  per-condition table is the headline; any pooled figure needs its composition printed beside it.
+- **Class balance measures 1:943–1:1027** here (200-frame sample per split) against 1:888 in
+  step 6d. Both are samples of the same quantity, so this is agreement, not a correction — the
+  point for `pos_weight` is simply that the ratio is now ~1:900–1000, not the 1:1563 that
+  `dl/train.py`'s docstring still quotes from the old sensor.
+- **Alignment is 93%, and 77% on `clutter`.** Already the documented position — a clutter spike can
+  outrank the target within the ±2-bin search window. It is a property of the scenario, not a
+  labelling error, and the ≥15 dB gate is what makes the number interpretable at all.
+
+**Measured vs cited — keep the distinction in the write-up.** The shape `c = 1.51` is *measured
+from this project's data*. The reference values that make `c < 2` "realistic" come from the
+published radar clutter-statistics **literature**, not from distributions fitted to CARRADA or
+RADDet (neither was available for fitting). The claim is therefore *our measurement sits in the
+regime the literature reports*, not *our clutter matches dataset X*.
 
 **Where real radar data fits.** Not usable for Pd/Pfa scoring (no bin-level ground truth, and no
 truth for false alarms). Usable for statistical validation (fit real clutter, compare
