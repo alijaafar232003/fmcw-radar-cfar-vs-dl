@@ -112,34 +112,43 @@ tied region — but the duplicate-detection failure it used to cause was closed 
 this is root-cause tidying, not a fix. It belongs with the attribution-phase `nms_size` sweep, since
 the two interact through the evaluator's guard-region forgiveness.
 
-### 2.1b ⬅️ OPEN — GO and the clutter edge, unresolved
+### 2.1b GO and the clutter edge — ✅ INVESTIGATED (11 August), answer is "no"
 
-**Flagged by the user, 11 August. Pick this up first.**
+Full record in `PROGRESS.md` Milestone 22. Short version:
 
-GO is *designed* for the clutter edge, and at a fixed threshold it behaves exactly as designed —
-2× fewer false alarms than CA on every clutter condition. At matched measured Pfa it loses
-`clutter_edge` to OS (0.408 vs 0.447). The current explanation is that matching the false-alarm rate
-neutralises GO's advantage by construction, leaving only its Pd cost.
+**GO genuinely loses `clutter_edge` on Pd at matched measured Pfa, and the margin grows once the
+data is cleaned up.** The stratum turned out to be **34% diluted** — the ridge is ±4 Doppler bins,
+targets sit at offsets 6–10, and the 21×9 window reaches only ±4, so a third of the frames are
+ordinary noise frames wearing the label. Split by whether the window actually straddles: at a **true
+edge OS leads GO by +0.068** (0.439 vs 0.372); GO wins only the *non*-edge frames (0.555 vs 0.487).
 
-That explanation is consistent with the data but has **not been proven** — it is an argument, not an
-experiment. Things worth testing before it goes in the report:
+GO is working as designed — it takes the greatest half-ring, so at an edge its noise estimate is
+**2.1× CA's** while OS's is **0.51×**. GO's purpose is false-alarm control (2× better than CA at a
+fixed threshold), and matching the measured Pfa cancels that by construction.
 
-- **Is GO's `go_axis=1` split the right one here?** The ridge runs along Doppler, so splitting along
-  Doppler means one half is clutter and one is clean, which is the intended geometry. Test the
-  range-axis split as a control — it should be clearly worse if the reasoning holds.
-- **GO's estimate is biased high even in homogeneous noise** (max of two estimates > either), so its
-  matched-Pfa threshold is doing more work than CA's. Quantify that bias and subtract it: does
-  GO's `clutter_edge` deficit survive?
-- **The 21×9 window may be too narrow in Doppler for GO specifically.** With `train_v=2` each half
-  ring is only 2 Doppler columns deep, so the "clean half" is barely sampled — 74 cells, but spread
-  over a 21-bin range span that is mostly *not* where the clutter structure is. GO may want a
-  different window from CA/OS, which the step-6 sweep never considered (it tuned one geometry for
-  all three).
-- **Check the `clutter_edge` stratum is actually straddling.** Targets sit at |v| 2.5–4.2 m/s and the
-  Doppler half-width is 4 bins = 1.68 m/s, so the window reaches 0.8–2.5 m/s — which may leave some
-  frames not touching the ridge at all. If so, the stratum is diluted and the effect is understated.
+⚠️ **Do not "fix" this by switching to 21×7.** Pooled, 21×7 hands GO the `clutter_edge` win — but
+restricted to targets that genuinely sit at an edge, OS still leads at every window and GO never
+beats CA by more than 0.023. 21×7 straddles only 41.5% of the stratum against 21×9's 65.6%, so it
+was winning the frames that had stopped being edges.
 
-The last one is cheap and would change the interpretation most, so start there.
+✅ **The step-6 window choice is vindicated** (this reverses an earlier suspicion in this file).
+Stratifying by target clearance from the ridge — which no window can change — Pd at the hardest
+band runs 0.065 → 0.276 from 21×21 to 21×9, a 4× gain at *fixed* physical difficulty, where dilution
+cannot explain anything. Narrowing the Doppler window genuinely helps.
+`results/cfar_window_true_edge_sweep.csv`, `scripts/cfar_window_true_edge_sweep.py`.
+
+**21×9 is kept** — not because 21×7 is artefactual, but because across all seven conditions 21×7 is
+a wash: +0.039 `clutter_edge` and +0.010 `mixed` against −0.020 `clutter`, −0.010 `masking`,
+−0.010 `multi`, mean **+0.004**, inside noise. No overall gain, so the incumbent stands and the test
+baseline needs no re-run.
+
+**Deferred, cheap, would remove the problem at the source:** tighten the `clutter_edge` velocity band
+from 2.5–4.2 m/s to ~2.5–3.4 m/s so every frame straddles the 21×9 window. Needs regeneration of
+that stratum, so not on the critical path.
+
+**Not yet tested** (dropped when the dilution explained the result, but still valid controls):
+GO with `go_axis=0` as a negative control, and quantifying GO's homogeneous-noise bias
+(max-of-two-estimates) separately from its edge behaviour.
 
 ### 2.2 Data-quality re-check — ✅ DONE (11 August)
 

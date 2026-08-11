@@ -1086,6 +1086,122 @@ alarms fall in the zero-Doppler ridge** (±8 bins ≈ 26% of the testable axis).
 is 28–31%, i.e. chance. That is the classical failure mode stated quantitatively, and it is the
 specific thing a learned detector is expected to improve on.
 
+## Milestone 22 — Why GO loses `clutter_edge`, and what it exposed about the window choice  ⚠️
+
+Raised by the user: GO is *designed* for the clutter edge, so losing it at matched measured Pfa
+looked wrong. Investigated on `bench2_tune` + `bench2_val` (never on test, so nothing here could
+become a test-set fit). Scripts: `diagnose_go_clutter_edge.py`, `cfar_window_resweep.py`,
+`cfar_true_edge_analysis.py`, `cfar_window_true_edge_sweep.py`.
+
+**The answer: GO genuinely loses on Pd, and the margin GROWS once the data is cleaned up.**
+
+### 1. The `clutter_edge` stratum is diluted, and the dilution depends on the window
+
+The ridge measures **±4 Doppler bins** (>3 dB above floor: 20.5 dB at centre, 14.0 at offset 4,
+2.4 at offset 5, gone by 6). `clutter_edge` targets sit at offsets **6–10 bins**, and the 21×9
+window's training columns reach only ±3–4 bins from the cell under test. So a target at offset 6
+is straddled and one at offset 10 is not:
+
+| window | Doppler reach | targets genuinely at an edge |
+|---|---|---|
+| 21×7 | ±3 | **41.5%** |
+| **21×9 (current)** | ±4 | **65.6%** |
+| 21×11 | ±5 | 87.6% |
+
+**A third of the condition is an ordinary noise frame wearing the stratum's label.** The 2.5–4.2 m/s
+velocity band was set in step 2c when the window was 21×21 (reach ±10 bins = 4.2 m/s), where every
+frame straddled. Step 6 narrowed the window and silently broke that design assumption.
+
+### 2. Split by whether the window actually reaches the ridge, OS wins by more
+
+Re-analysis of the already-run test experiment, sliced by a geometric covariate — no re-tuning:
+
+| `clutter_edge` subset | frames | CA | GO | OS |
+|---|---|---|---|---|
+| **true edge** (window straddles) | 302 | 0.367 | 0.372 | **0.439** |
+| no edge (mislabelled) | 98 | 0.504 | **0.555** | 0.487 |
+| pooled — *what Milestone 21 reports* | 400 | 0.401 | 0.416 | 0.451 |
+
+**GO wins only the frames that are not edges.** At a true edge OS leads by **+0.068**, nearly double
+the pooled margin. The dilution was masking OS's advantage, not creating it.
+
+### 3. The mechanism, measured at the target cell
+
+Noise estimate relative to CA, by how many training columns fall in the ridge:
+
+| ridge overlap | GO/CA | OS/CA |
+|---|---|---|
+| 0 columns | 1.15 | 1.39 |
+| 1 column | 1.85 | 0.60 |
+| 2 columns | 2.12 | 0.51 |
+
+At zero overlap both sit at their homogeneous-noise values (1.09 and 1.40). At a real edge GO
+becomes **2× more conservative** and OS **2× less**. GO takes the *greatest* half-ring, so it
+deliberately picks the contaminated side; OS's 0.75-quantile, with only 25% of cells contaminated,
+lands in the clean part. GO raises its threshold, OS lowers it, and matching the measured Pfa leaves
+only the Pd consequence. **This is GO working exactly as designed** — its purpose is false-alarm
+control at edges (2× fewer than CA at a fixed threshold, Milestone 21), and matched-Pfa scoring
+neutralises that by construction.
+
+### 4. The decisive control: stratify by target clearance from the ridge
+
+Clearance — the target's distance in Doppler bins from the ridge *edge* — is fixed by the data and
+cannot be changed by the window, so every geometry is scored on the same physical frames. Pd at
+matched measured Pfa, mean over CA/GO/OS, on 250 frames (tune + val):
+
+| clearance | 21×7 | **21×9** | 21×11 | 21×13 | 21×21 |
+|---|---|---|---|---|---|
+| **2 bins** (hardest) | 0.337 | 0.276 | 0.207 | 0.142 | 0.065 |
+| 3 bins | 0.422 | 0.315 | 0.237 | 0.174 | 0.070 |
+| 4 bins | 0.545 | 0.490 | 0.365 | 0.247 | 0.090 |
+| 5–6 bins (easiest) | 0.574 | 0.557 | 0.479 | 0.365 | 0.156 |
+
+**Two conclusions, and the first corrects what I wrote above before this ran.**
+
+**(a) The narrow-window gain is REAL, not dilution.** At clearance 2 — where every geometry in the
+table straddles the ridge, so dilution cannot be the explanation — Pd runs 0.065 → 0.276 from 21×21
+to 21×9, a 4× improvement at fixed physical difficulty. Step 6's selection is therefore
+**vindicated**: narrowing the Doppler window genuinely helps at a clutter edge. The earlier
+suspicion that the +0.296 gain was largely an artefact of the condition changing meaning is **wrong**
+and is retracted.
+
+**(b) GO's win at 21×7 IS dilution.** Pooled, 21×7 showed GO leading `clutter_edge` (GO 0.455 vs CA
+0.403, OS 0.429). Restricted to clearance 2, where the frames really are edges:
+
+| clearance 2 | 21×7 | 21×9 | 21×11 | 21×21 |
+|---|---|---|---|---|
+| CA | 0.310 | 0.241 | 0.184 | 0.069 |
+| GO | 0.310 | 0.264 | 0.184 | 0.057 |
+| OS | **0.391** | **0.322** | **0.253** | 0.069 |
+
+**OS wins at every window once difficulty is held fixed, and GO never beats CA by more than 0.023.**
+GO's apparent 21×7 victory came from that window straddling only 41.5% of the stratum versus 21×9's
+65.6% — it was winning the frames that had stopped being edges.
+
+### 5. So why keep 21×9?
+
+Not because 21×7 is artefactual — on `clutter_edge` at fixed difficulty it is genuinely better. But
+the window has to serve all seven conditions, and across them 21×7 is a wash: `clutter_edge` +0.039
+and `mixed` +0.010 against `clutter` −0.020, `masking` −0.010 and `multi` −0.010, for a mean of
+**+0.004** — inside sampling noise at 400 tuning frames. With no overall gain, the incumbent stands
+and the test baseline does not need re-running.
+
+(`21×5` scores higher still on the pooled mean and is rejected on principle: `guard_v=1` is below the
+measured 2-bin mainlobe half-width, so the target's own mainlobe leaks into the training ring.)
+
+**Worth revisiting if `clutter_edge` is ever regenerated undiluted** — a clean stratum would give the
+Doppler-width choice a much sharper test than a 34%-diluted one can.
+
+### What is being reported
+
+- **Keep 21×9.** No window change.
+- **Report the true-edge / no-edge split**, not just the pooled `clutter_edge` row. It is a stronger
+  result and it makes the mechanism visible.
+- **GO's win stays where it is real**: false alarms at a fixed threshold, 2× better than CA on every
+  clutter condition.
+- **Limitation to record**: the `clutter_edge` velocity band should be tightened to ~2.5–3.4 m/s so
+  every frame straddles the 21×9 window. Needs regeneration; not on the critical path.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,
