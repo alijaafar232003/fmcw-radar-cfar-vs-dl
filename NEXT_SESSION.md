@@ -65,7 +65,20 @@ Pd at matched **measured** Pfa 1e-4, at the 21×9 window:
 
 ## 2. What to do next — three tasks, in this order
 
-### 2.1 CFAR on `bench2_test` — the pre-registered baseline ⬅️ START HERE
+### 2.1 CFAR on `bench2_test` — ✅ DONE (11 August)
+
+All 3,200 frames. `scripts/cfar_test_baseline.py` → `results/cfar_test/` (detections cached, so any
+operating point can be re-derived without re-running CFAR); presented end-to-end in
+`notebooks/cfar_baseline.ipynb`. Numbers and analysis in `PROGRESS.md` Milestone 21.
+
+**This is now the number the network has to beat.** Do not re-run it, and do not touch
+`bench2_test` again until the network is final.
+
+Headline: OS wins masking (0.623 vs 0.533) and clutter_edge (0.465 vs 0.407); everything else is a
+tie within sampling noise. In clutter, ~100% of every method's false alarms land in the
+zero-Doppler ridge — the specific weakness a learned detector should attack.
+
+<details><summary>Original brief (kept for the reasoning)</summary>
 
 CFAR has been run on `bench2_tune` (to pick the window) but **never on the test split**. Do it
 *before* the network exists, for three reasons: it is then a pre-registered baseline that cannot be
@@ -76,22 +89,79 @@ split with it cannot contaminate anything.
 Produce per-condition Pd at matched **measured** Pfa for CA/GO/OS at the 21×9 window. Run once,
 record it, do not iterate.
 
-### 2.2 Data-quality re-check — three open items
+✅ **The evaluator was fixed first (11 August) — use `src/dl/stratified_eval.py`.** It now matches
+at **measured** Pfa per condition, closing Milestone 16's asymmetry #3, and is the single path for
+both halves of the comparison. Set `METHODS = ("CA", "GO", "OS")` to run it CFAR-only.
 
-The framework in `docs/data_quality_criteria.md` still stands; only the measurements need redoing at
-the new sensor, and three are outstanding:
+Validation: on the `noise` stratum the swept threshold lands at CA **10.173** against the
+independently Monte-Carlo-calibrated **10.163**, and it reproduces the step-6 baseline to ≤0.017
+with every ordering intact. Three interpolation bugs were found and fixed en route — see
+`PROGRESS.md` Milestone 20b.
+
+`eval.detection.pd_vs_snr()` now requires a keyword-only `threshold` and rejects unscored
+detections, so the Pd-vs-SNR figure cannot silently be produced at "detect everything".
+
+⚠️ `scripts/cfar_geometry_percondition.py` still uses the coarse grid and linear interpolation. Its
+window decision stands (the 21×9 gains were 10× the discrepancy), but do not use it for new numbers.
+
+</details>
+
+Deferred deliberately: scoring DL on **logits** rather than sigmoid probabilities. Saturation
+compresses the ROC's low-Pfa tail and leaves `_collapse_plateaus` picking an arbitrary cell from a
+tied region — but the duplicate-detection failure it used to cause was closed in Milestone 16, so
+this is root-cause tidying, not a fix. It belongs with the attribution-phase `nms_size` sweep, since
+the two interact through the evaluator's guard-region forgiveness.
+
+### 2.1b ⬅️ OPEN — GO and the clutter edge, unresolved
+
+**Flagged by the user, 11 August. Pick this up first.**
+
+GO is *designed* for the clutter edge, and at a fixed threshold it behaves exactly as designed —
+2× fewer false alarms than CA on every clutter condition. At matched measured Pfa it loses
+`clutter_edge` to OS (0.408 vs 0.447). The current explanation is that matching the false-alarm rate
+neutralises GO's advantage by construction, leaving only its Pd cost.
+
+That explanation is consistent with the data but has **not been proven** — it is an argument, not an
+experiment. Things worth testing before it goes in the report:
+
+- **Is GO's `go_axis=1` split the right one here?** The ridge runs along Doppler, so splitting along
+  Doppler means one half is clutter and one is clean, which is the intended geometry. Test the
+  range-axis split as a control — it should be clearly worse if the reasoning holds.
+- **GO's estimate is biased high even in homogeneous noise** (max of two estimates > either), so its
+  matched-Pfa threshold is doing more work than CA's. Quantify that bias and subtract it: does
+  GO's `clutter_edge` deficit survive?
+- **The 21×9 window may be too narrow in Doppler for GO specifically.** With `train_v=2` each half
+  ring is only 2 Doppler columns deep, so the "clean half" is barely sampled — 74 cells, but spread
+  over a 21-bin range span that is mostly *not* where the clutter structure is. GO may want a
+  different window from CA/OS, which the step-6 sweep never considered (it tuned one geometry for
+  all three).
+- **Check the `clutter_edge` stratum is actually straddling.** Targets sit at |v| 2.5–4.2 m/s and the
+  Doppler half-width is 4 bins = 1.68 m/s, so the window reaches 0.8–2.5 m/s — which may leave some
+  frames not touching the ridge at all. If so, the stratum is diluted and the effect is understated.
+
+The last one is cheap and would change the interpretation most, so start there.
+
+### 2.2 Data-quality re-check — ✅ DONE (11 August)
+
+All nine criteria re-measured on the frozen splits by `scripts/audit_data_quality.py` (new).
+**8/9 pass**; full record in `PROGRESS.md` Milestone 20, write-up in `docs/data_quality_criteria.md`.
+The three items listed here as outstanding are now closed:
 
 | Criterion | Status |
 |---|---|
-| Clutter distribution | ✅ done — `scripts/verify_clutter.py`, now heavy-tailed |
-| Coverage | ✅ done — `notebooks/dataset_overview.ipynb` |
-| Difficulty calibration | ✅ done — measured against theory |
-| **Noise is exponential** (KS test) | ❌ not rechecked |
-| **Targets off-grid** (no bin-centre shortcut) | ❌ not rechecked — *and this code changed*, `close_pair` no longer snaps to bin centres |
-| **No learnable shortcuts** | ❌ not rechecked |
+| Clutter distribution | ✅ `c = 1.51` measured **in the frozen data**, not just the model |
+| Coverage | ✅ 0–5 targets, 8–45 m, ±8 m/s, no empty range decile |
+| Difficulty calibration | ✅ ~48–50% of targets in the theory Pd 0.1–0.9 band |
+| **Noise is exponential** (KS test) | ✅ KS **0.006** on target-free frames |
+| **Targets off-grid** | ✅ fractional offset std **0.290** vs 0.289 ideal uniform, KS 0.007 — the `close_pair` snapping removal is confirmed to have worked |
+| **No learnable shortcuts** | ✅ no frame statistic predicts the label (max \|corr\| 0.21); 8400/8400 unique seeds; per-frame median spans 945–8166, so nothing is per-frame normalised |
 
-This is what answers *"how do you know your synthetic data isn't rigged?"* in the viva. It is also
-what found the Gaussian-clutter gap last time, which is why it earned its place.
+Also verified beyond the three: the radar equation fits at exponent **−1.003** with the residual
+spanning exactly the config's 4–16 dB draw window — the loss is applied once, at the right exponent.
+
+**The one open criterion is 7 (benchmark neutrality):** `bench2_test` is eight *equal* strata,
+37.5% deliberately adversarial. Per-condition is the headline; a pooled Pd needs its composition
+printed beside it. That bears directly on 2.1 below.
 
 ### 2.3 Retrain TinyCNN
 
@@ -104,9 +174,16 @@ in a report.
 1. **Early stopping** — train until validation loss stops improving (patience ~5), not a fixed count
 2. **Save the best epoch**, not the last
 3. **Use all 1,600 validation frames** (the previous run used 800)
-4. **Revisit `pos_weight=200`** — class imbalance moved **1:1563 → 1:888** when the map halved.
-   Per `train.py`'s own note the exact value matters less than intuition suggests, since the ROC
-   sweeps the threshold, but it should not silently inherit a value tuned for a different ratio.
+4. **Revisit `pos_weight=200`** — class imbalance moved **1:1563 → ~1:900–1000** when the map
+   halved (step 6d measured 1:888; the 11 Aug audit measured 1:943–1:1027 on a different sample —
+   two samples of one quantity, not a disagreement). Per `train.py`'s own note the exact value
+   matters less than intuition suggests, since the ROC sweeps the threshold, but it should not
+   silently inherit a value tuned for a different ratio. `train.py`'s docstring still quotes 1:1563
+   and needs updating too.
+
+Note: there is **no training entry point** — the loop lived in `dl_cnn_experiment.ipynb`, deleted in
+`14b38bd`. `scripts/plot_loss_curves.py` reads `results/dl/train_bench.log` and parses
+`epoch N train X val Y`, so whatever replaces it must write that format.
 
 #### Re-run the Milestone-13 gates at the new geometry
 

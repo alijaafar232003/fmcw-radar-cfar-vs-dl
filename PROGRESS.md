@@ -903,6 +903,189 @@ train/val/test. `pos_weight=200` was tuned for the old ratio — revisit at retr
 which place targets randomly rather than as pairs; the figure there is just the distance between
 two arbitrary targets.*
 
+## Milestone 20 — Data-quality re-audit at the new sensor  ✅
+
+Run 11 Aug 2026, before retraining, because the original audit (Milestone 11) was measured on the
+old sensor and on datasets that have since been deleted. Nine criteria from
+`docs/data_quality_criteria.md`, measured on the frozen `bench2_*` splits; new script
+`scripts/audit_data_quality.py` covers the statistical criteria the existing scripts did not.
+
+**Eight of nine PASS. The one that previously failed now passes.**
+
+| Criterion | Then (M11) | Now | Evidence |
+|---|---|---|---|
+| 3 statistical realism | PARTIAL — clutter c = 2.03 | **PASS** | noise KS 0.006 vs exponential; clutter Weibull **c = 1.51 / 1.56** (test/train), p99/p50 ≈ 3.8 |
+| 3 radar equation | applied | **verified** | `amplitude_db` on 40log10(R/25): slope **−1.003**, r −0.92; residual exactly 4.0–16.0 dB = the config window |
+| 4 difficulty | PASS | **PASS** | 48–51% of targets in theory Pd 0.1–0.9; 13–16% below, 33–39% above |
+| 6 shortcuts | PASS | **PASS** | off-grid std 0.290 (0.289 ideal), KS 0.007; corr(frame stat, num_targets) ≤ 0.21; 8400/8400 unique seeds |
+| 2 labels + leakage | — | **PASS** | 0 shared frame hashes between any split pair; 0 non-finite frames; 0 targets in the untested border |
+
+**One thing to carry forward:** **criterion 7 (benchmark neutrality) is the live action.**
+`bench2_test` is eight *equal* strata, 37.5% of which are deliberately adversarial. Per-condition is
+the headline; a pooled Pd needs its composition printed beside it.
+
+Class balance measures 1:943–1:1027 (200-frame sample per split) against step 6d's 1:888 — two
+samples of one quantity, i.e. agreement. What matters for `pos_weight` is that it is ~1:900–1000,
+not the 1:1563 still quoted in `dl/train.py`'s docstring.
+
+Two flagged correlations were checked and are **by design**: corr(range, amplitude_db) = −0.90 is
+the radar equation, and the peaked Doppler histogram is the `clutter` / `clutter_edge` strata.
+The `bench2_snr_sweep` "0 strata" report is the known step-7 checker artefact, not a new finding.
+Full write-up in `docs/data_quality_criteria.md`.
+
+### Evaluation-protocol review (same session, before retraining)
+Read the whole scoring path — `src/eval/detection.py`, `src/cfar/detect.py`, `src/dl/infer.py`,
+`src/dl/stratified_eval.py`, `docs/benchmarking_conventions.md`. The architecture holds: both
+detectors go through the same `all_peaks`, the same `valid` mask, the same Hungarian matching in the
+same ±1 gate. Three items, only one of them new:
+
+1. **`stratified_eval.evaluate_stratified()` still matches Pfa by *design*, not by measurement** —
+   it Monte-Carlo calibrates each method's threshold on pure noise and reports whatever measured Pfa
+   results. This is Milestone 16's open asymmetry #3, still open in this one file. The CFAR side was
+   fixed (`cfar_geometry_percondition.py` does per-condition ROC + interpolation at matched measured
+   Pfa), so the DL numbers would otherwise be produced by a *different protocol* from the CFAR
+   baseline they are placed beside. Step 5 measured why this matters: clutter moves the achieved rate
+   60–125× off design, by different factors per method.
+2. **`pd_vs_snr()` takes no score threshold** and drops the score column via `_as_points`. Fed
+   `all_peaks` output — which is what every other call site produces — it scores at "detect
+   everything". Pd-vs-SNR-against-theory is an earmarked report figure, so the threshold should be a
+   required argument. *(New; no prior record of it.)*
+3. **Sigmoid saturation** compresses the ROC's low-Pfa tail and leaves `_collapse_plateaus` picking
+   an arbitrary cell from a tied region. Scoring on **logits** (a monotone transform — Pd and Pfa
+   unchanged) removes the cause rather than the symptom. Deferred to the attribution phase, where
+   `nms_size` is already slated for a sweep and the two interact. *Not urgent: the duplicate-detection
+   failure this used to cause was closed in Milestone 16.*
+
+`docs/benchmarking_conventions.md` is stale in three places and is the document earmarked for the
+report: Part 1's processing-gain warning (now measured — frame metadata records 40.33 dB, against
+the ~40.4 dB predicted in Milestone 19), Part 2's "fixed Pfa (e.g. 1e-3)" rule (contradicts the
+matched-**measured**-Pfa practice established in step 5), and Part 3's review of the seven deleted
+`*_debug` configs.
+
+### Milestone 20b — both evaluator fixes applied and verified
+
+**`pd_vs_snr()` now takes a keyword-only, required `threshold`**, applies it, and raises if handed
+unscored `(N, 2)` detections. Verified: threshold above the target's score → Pd 0.00, below → 1.00.
+
+**`evaluate_stratified()` now matches at measured Pfa**, per condition: run each detector once,
+sweep its own score distribution on the condition being scored, interpolate Pd where the achieved
+per-cell rate equals the target. Closes asymmetry #3. The noise-calibrated thresholds are still
+returned under a `"design"` key, since design-vs-measured is itself a reported finding.
+
+**Three bugs found while validating it, none of which a "does it run" check would have caught.**
+Each was exposed by a physical cross-check, not by the code failing:
+
+1. **Tied Pfa.** On clean strata a whole span of thresholds gives the same measured Pfa (often
+   exactly 0), and `np.interp` on duplicated x picks an arbitrary partner. Collapse ties to their
+   lowest threshold / highest Pd first.
+2. **Grid too coarse in the tail.** 60 uniform quantiles put ~2 points in the top 1%, and the
+   operating point lives there — the sweep stepped straight over Pfa 1e-4 and the recovered
+   threshold landed in the gap, 4× too high on `isolated` (40.3 against a design 10.2). Pd
+   tolerates that gap; a threshold does not, and the false-alarm columns are evaluated *at* it.
+   Grid is now dense in the upper tail.
+3. **Linear interpolation on an exponential curve.** Pfa falls roughly exponentially with the
+   threshold, so linear bracketing overshot and parked the operating point at 3.5–8.7e-5 against a
+   1e-4 target. Interpolate against log Pfa. Zero-Pfa rows then need the **half-count floor**
+   (0 false alarms over N cells means "below 0.5/N", not "zero") — dropping them made all of
+   `multi` unscoreable, because with 4–5 targets per frame every surviving peak sits inside a guard
+   region and Pfa steps from 1.2e-4 straight to 0.
+
+**Independent validation: the recovered threshold reproduces the calibration it never saw.** On the
+`noise` stratum the swept threshold lands at **CA 10.173** against the Monte-Carlo design value
+**10.163** — 0.1%, from a completely separate route. In clutter it is forced up to 22.4, which is
+the 60–125× drift step 5 measured, seen from the other side.
+
+**Reproduces the step-6 baseline to ≤0.017**, with every ordering intact — OS best at masking
+(0.539), GO best in clutter (0.184), CA/OS best on isolated. The residual differences are the
+grid and interpolation improvements above; `scripts/cfar_geometry_percondition.py` still uses the
+coarse grid and linear interpolation. Its **window decision stands** — the 21×9 gains were +0.185
+to +0.296, an order of magnitude above this discrepancy — but `evaluate_stratified` is now the
+better implementation and should be the single path for 2.1.
+
+## Milestone 21 — CFAR baseline on the FULL test split (task 2.1)  ✅
+`scripts/cfar_test_baseline.py` → `results/cfar_test/`; presented in `notebooks/cfar_baseline.ipynb`.
+
+**Pre-registered.** Measured before the network exists, so it cannot be unconsciously tuned
+against. All 3,200 frames, 6,163 targets, 21×9 window from `CfarConfig` defaults, matched
+**measured** Pfa 1e-4 per condition. Run once, not iterated.
+
+| condition | CA | GO | OS | best | spread |
+|---|---|---|---|---|---|
+| multi | **0.687** | 0.680 | 0.681 | CA | 0.007 |
+| isolated | **0.675** | 0.662 | 0.662 | CA | 0.013 |
+| masking | 0.535 | 0.529 | **0.621** | **OS** | **0.092** |
+| unresolved | 0.464 | 0.462 | 0.462 | — | 0.002 |
+| clutter_edge | 0.395 | 0.408 | **0.447** | **OS** | **0.052** |
+| mixed | 0.404 | **0.416** | 0.376 | GO | 0.040 |
+| clutter | 0.164 | **0.169** | 0.161 | GO | 0.008 |
+
+Runtime: CA 2.3 ms, GO 6.6 ms, **OS 57.8 ms** per frame. Localisation ~0.21 range bins / 0.10
+Doppler bins for all three (bounded by the ±1 gate, so this says *where inside* the gate).
+
+**Only two rows separate beyond sampling noise**, and both are OS: masking **+0.086** and
+clutter_edge **+0.039**. isolated / multi / unresolved / clutter are ties at 400 frames each. GO
+takes clutter and mixed by small margins, reproducing the step-6 ordering on the tuning split.
+
+### Audited after the fact — three defects found, all now fixed
+
+The `clutter_edge` result looked wrong (GO is *designed* for clutter edges), so the whole thing was
+re-audited rather than accepted. The result stands, but the audit found three real defects:
+
+1. **GO's threshold used the wrong cell count.** `alpha` was derived from `num_ref_cells // 2` = 82,
+   but a half-ring holds **74** cells on the 21×9 window — the 16 cells of the centre Doppler
+   column belong to neither half. Halving overstates the sample size and understates the threshold
+   GO needs. Fixed with a counted `num_half_ring_cells` and an explicit `alpha_go()`. This only
+   moves fixed-threshold results (matched-Pfa comparisons are immune by construction), but the
+   fixed-threshold table is reported, and GO's false-alarm rate is the number most affected.
+2. **The headline Pd was the interpolated value, not the measured one.** Interpolation's job is to
+   locate the threshold; Pd should then be *measured* there. The two differed by up to 0.017,
+   biased optimistic on the clutter strata where the ROC is steepest. Now measured at the threshold.
+3. **Verified the operating point is real**, not just interpolated to: at each recovered threshold
+   the achieved Pfa is 7.8e-5–1.06e-4 against the 1e-4 target, across all 21 rows.
+
+### The `clutter_edge` question: GO does win it — on the metric GO exists for
+
+Checked directly on a synthetic edge (unit noise, ridge 20 dB up). Three bins outside the ridge the
+noise estimates are **CA 26.1, GO 56.7, OS 4.8**: GO is twice as conservative as CA, OS five times
+less. That conservatism is GO's entire design goal — it stops the false-alarm rate exploding at an
+edge — and it is paid for in detections.
+
+False alarms per frame at the design threshold (**GO's metric**):
+
+| condition | CA | GO | OS |
+|---|---|---|---|
+| clutter_edge | 11.25 | **5.26** | 7.00 |
+| clutter | 10.52 | **4.88** | 6.41 |
+| mixed | 10.30 | **4.95** | 6.75 |
+
+**GO wins every clutter condition, by better than 2×.** And matching the measured Pfa erases exactly
+that advantage by construction: forcing all methods to one false-alarm rate means GO's caution buys
+nothing it is not already handed, leaving only its Pd cost. So OS leads the matched-Pfa table and GO
+leads the fixed-threshold one — same detectors, same data, opposite rankings.
+
+This restates step 6's finding on a full test split: **which method looks best depends on the
+matching criterion**, which is a methodological result to report, not an inconsistency to resolve.
+Both tables are now in the notebook, each labelled with the question it answers.
+
+**The protocol validated itself.** The threshold each method needed, against its design α:
+
+| | isolated / multi / noise / masking / unresolved | clutter / clutter_edge / mixed |
+|---|---|---|
+| CA | **1.05–1.07×** | **2.25–2.46×** |
+| GO | 0.93–0.95× | 1.59–1.70× |
+| OS | 0.76–0.78× | 1.97–2.26× |
+
+On clean conditions CA lands within 7% of homogeneous-noise theory — theory works where its
+assumptions hold. In clutter the same method needs **2.3× the threshold** to hit the same measured
+rate. OS's steady 0.77× is the documented consequence of its α still being CA's first
+approximation (its noise estimate is 1.396× the true level, so 1/1.396 = 0.72 — measured 0.77).
+
+**Where the false alarms land.** At matched rate the *count* is equal by construction, so the
+difference is location: in `clutter`, `clutter_edge` and `mixed`, **~100% of every method's false
+alarms fall in the zero-Doppler ridge** (±8 bins ≈ 26% of the testable axis). On clean conditions it
+is 28–31%, i.e. chance. That is the classical failure mode stated quantitatively, and it is the
+specific thing a learned detector is expected to improve on.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,
