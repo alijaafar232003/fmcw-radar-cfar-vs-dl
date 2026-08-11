@@ -283,6 +283,81 @@ print(f"At the target cell:  CA {ca[rb, vb] / floor:6.2f}   GO {go[rb, vb] / flo
       f"OS {os_[rb, vb] / floor:6.2f}   (x the frame noise floor)")
 print("Higher estimate -> higher threshold -> fewer false alarms and lower Pd.")''')
 
+# ----------------------------------------------------- 2d. how different are these methods really?
+md("""## 2d. How different are the three methods, really?
+
+Looking at the frames above, CA and OS often report *exactly* the same points. That is worth
+checking rather than assuming, because if OS silently collapsed to CA the whole comparison would be
+meaningless.
+
+It does not: the per-cell ratio between the OS and CA maps has a spread (std 0.06–0.61), so OS is a
+genuinely different statistic, not a rescaled CA. But the two maps **correlate at ~0.995** on clean
+conditions. All three methods are statistics of the *same 164 reference cells* — a mean, a
+half-window maximum and a 0.75-quantile of one sample — so they mostly move together, and diverge
+only when that sample stops being homogeneous.
+
+Measured as the overlap of the actual detection sets (intersection ÷ union, at each method's matched
+operating point):""")
+
+code('''from itertools import combinations
+
+rows = []
+for cond in CONDS:
+    ids = frames.loc[frames.condition == cond, "frame"]
+    acc = {f"{a}={b}": [] for a, b in combinations(METHODS, 2)}
+    acc["all three"] = []
+    identical, ndet = [], []
+
+    for i in ids:
+        det = {}
+        for m in METHODS:
+            pk = PEAKS[m].get(int(i), np.zeros((0, 3)))
+            thr = THR[(cond, m)]
+            det[m] = {(int(p[0]), int(p[1])) for p in (pk[pk[:, 2] >= thr] if len(pk) else [])}
+        for a, b in combinations(METHODS, 2):
+            u = det[a] | det[b]
+            acc[f"{a}={b}"].append(len(det[a] & det[b]) / len(u) if u else 1.0)
+        u = set().union(*det.values())
+        acc["all three"].append(len(set.intersection(*det.values())) / len(u) if u else 1.0)
+        identical.append(det["CA"] == det["GO"] == det["OS"])
+        ndet.append(np.mean([len(v) for v in det.values()]))
+
+    rows.append({"condition": cond, **{k: 100 * np.mean(v) for k, v in acc.items()},
+                 "identical %": 100 * np.mean(identical), "det/frame": np.mean(ndet)})
+
+ag = pd.DataFrame(rows).set_index("condition")
+display(ag.round(1))
+
+print("`identical %` is how often ALL THREE return exactly the same point list. It is low")
+print("(22-36%) -- the methods are not the same code path, and their thresholds differ")
+print("(e.g. clutter_edge: CA 23.3, GO 16.5, OS 20.3).")
+print()
+print("Where it DOES happen it is usually arithmetic, not a bug: at Pfa 1e-4 a frame carries")
+print("only ~1.3-2.4 detections, and 48% of clutter_edge frames have at most ONE. Three")
+print("highly-correlated maps asked for their single strongest peak will normally name the")
+print("same cell. Disagreement needs several detections to show up in, which is why `multi`")
+print("(4.4 per frame) has the lowest identical rate despite the highest pairwise agreement.")
+
+cols = [f"{a}={b}" for a, b in combinations(METHODS, 2)] + ["all three"]
+fig, ax = plt.subplots(figsize=(9, 4.2))
+x = np.arange(len(ag))
+for k, col in enumerate(cols):
+    ax.bar(x + (k - 1.5) * 0.2, ag[col].to_numpy(), 0.2, label=col)
+ax.set_xticks(x); ax.set_xticklabels(ag.index, rotation=25, ha="right")
+ax.set_ylabel("detection-set agreement (%)")
+ax.set_title("The three methods mostly report the SAME points")
+ax.legend(frameon=False, fontsize=8, ncol=4)
+plt.tight_layout(); plt.show()
+
+print("Agreement is highest where the reference window is homogeneous (multi, isolated)")
+print("and lowest where it is not (mixed, clutter). That is the whole complementarity")
+print("story in one table -- and it is why the Pd spreads in section 2 are 0.003-0.013 on")
+print("clean conditions but 0.05-0.09 where interference exists.")
+print()
+print("It is also the strongest motivation for the DL comparison: three textbook variants")
+print("of one decision rule are largely interchangeable, so the headroom is not in picking")
+print("a better CFAR -- it is in a different decision rule.")''')
+
 # ------------------------------------------------------------------------------------- 3. ROC
 md("""## 3. ROC per condition
 
