@@ -1237,6 +1237,239 @@ Doppler-width choice a much sharper test than a 34%-diluted one can.
 - **Limitation to record**: the `clutter_edge` velocity band should be tightened to ~2.5–3.4 m/s so
   every frame straddles the 21×9 window. Needs regeneration; not on the critical path.
 
+## Milestone 23 — DL retrain: experiment log  🔄 IN PROGRESS
+
+A dated entry per run from here on: the question it was meant to answer, what was run, the numbers,
+what it showed **including negative and ambiguous results**, and what it changed about the plan.
+Decisions are recorded with their reasons, not just their outcomes.
+
+### Standing decisions
+
+**All comparisons use `bench2_val` while choices are still open.** `bench2_test` was measured once
+for the pre-registered CFAR baseline (Milestone 21) and is not touched again until the network is
+final. Every checkpoint comparison, ablation and stopping-epoch decision is made on `bench2_val`
+(1,600 frames, 200/condition). The cost is a noise floor ~1.4× wider than test's 400/condition, and
+that is the right trade for keeping the reported numbers uncontaminated.
+
+**Validation loss is no longer trusted as a stopping signal.** The 50-epoch run's val loss is
+statistically flat from ~epoch 26 (trend p = 0.17) while Pd on the clutter-bearing conditions kept
+climbing to epoch 50. Loss is a proxy; Pd at matched measured Pfa is what gets reported, and the two
+disagreed. Stopping decisions are made on Pd.
+
+**`pos_weight` ablation deferred until the noise floor is known.** The effect it would try to detect
+is the same size as the drift already visible between checkpoints of a *single* run (0.02–0.05 Pd on
+clutter conditions). Single-seed, it would produce a number indistinguishable from chance.
+
+### 2026-07-30 — Model 0 baseline *(backfilled)*
+**Question:** does the pipeline work end to end, and does a receptive-field-matched CNN beat CFAR at
+all? **Run:** TinyCNN 5,041 params from `dl_cnn_experiment.ipynb` (deleted in `14b38bd`), old
+256×128 sensor, 3,000 of 10,000 `frozen_train` frames, 8 epochs. **Result:** DL 0.784 vs CA 0.752 at
+Pfa 1e-4. **Showed:** pipeline works, margin modest as predicted for matched context. **Limitation
+recorded at the time:** 30% of the data, 8 epochs — a floor, not a ceiling.
+
+### 2026-07-31 — Stratified retrain *(backfilled)*
+**Question:** does DL still win once rare conditions are properly represented? **Run:** `bench_train`
+9,600 frames, 12 epochs, old sensor, `pos_weight=200`; train 0.119→0.066, val 0.096→0.0755.
+**Result:** DL highest Pd in 6 of 7 conditions, tied on the 7th. **What was wrong with it:** stopped
+at a fixed 12 epochs with val loss *still falling*, kept the last epoch rather than the best, and
+used only 800 of 1,600 val frames. All three fixed below. Old-sensor numbers do not carry over.
+
+### 2026-08-11 — Class ratio remeasured; `pos_weight` 200 → 974
+**Question:** is `pos_weight=200` justified by the actual class balance? **Run:** exact count over
+every cell of the cached labels, not sampled.
+
+| split | positive | total | rate | ratio |
+|---|---|---|---|---|
+| `bench2_train` | 144,996 | 137,625,600 | 0.001054 | **1:949** |
+| `bench2_val` | 26,943 | 26,214,400 | 0.001028 | **1:973** |
+
+Per-frame counts land on exact multiples of 9, confirming the 3×3 label blob.
+
+**Showed:** the imbalance is real, and **`pos_weight=200` was never justified by anything** — on the
+old sensor the ratio was 1:1563, so 200 sat ~8× below the inverse frequency, and it then survived a
+sensor change that moved the ratio to ~1:950. A guess that outlived its premise.
+
+**Decision:** set `pos_weight` to the measured inverse frequency (974) as a principled default —
+recording that this is *also* an assumption, since exact class balancing is a choice, not a
+derivation. Ablation over {100, 200, 974} queued but deferred.
+
+**Consequence for every loss number:** the scale is set by `pos_weight × positive_rate` — old
+200/1563 = 0.128, now 974/973 = 1.000, a **7.8×** difference. Verified directly: the *same* model on
+the *same* val set scores 0.276 at `pos_weight=200` and 0.515 at 974. **Loss is not comparable across
+runs with different `pos_weight` or class ratio.** Only the curve's shape is, and ultimately only Pd.
+
+### 2026-08-11 — Training rebuilt: reproducible, all data, 50 epochs
+**Question:** where does val loss stop improving, and what is the right stopping epoch?
+
+    python scripts/train_tinycnn.py --epochs 50 --tag bench
+
+**Config:** TinyCNN width 16, RF measured 21×9, Adam lr 1e-3, batch 32, `pos_weight=974`, seed 0, no
+early stopping, **all 8,400 train and all 1,600 val frames** (asserted at startup — the previous run
+silently used a third). 92 min.
+
+**Infrastructure, and why:** no training entry point existed (it died with the deleted notebook), so
+a run is now a command with a recorded config · reading 8,400 `.npy` files cost 325 s/epoch against
+89 s of compute, so the split is pre-normalised once into a cache, with a gate proving the cache is
+byte-identical to reading frames individually · one `--seed` fixes init and batch order, **verified**
+by a later 30-epoch re-run reproducing epochs 27–30 to all five decimals · every run writes its own
+config/log/history/checkpoints so experiments cannot overwrite each other.
+
+**Gates:** shapes OK · cache == raw OK · orientation +11.7 dB · RF **(21, 9)** · overfit-one-batch
+**1370×**, 17/17 peaks within 1 bin.
+
+**Result:** best val 0.51529 @ 43, last 0.51971 @ 50.
+
+| | |
+|---|---|
+| val trend, ep 26–50 | +0.0002/epoch, **p = 0.17** — indistinguishable from zero |
+| train trend, ep 26–50 | −0.0007/epoch, **p = 1.3e-21** |
+| val noise (std, last 25) | 0.0055 |
+| train−val gap | +0.009 @26 → +0.021 @43 → +0.030 @50 |
+
+**Showed:** val plateaus ~epoch 26 while train keeps falling — mild overfitting, no upward turn.
+Extrapolated over another 50 epochs the val trend predicts 0.011 against a 0.0055 noise floor, so
+**running to 100 would not have resolved the stopping question on loss**. With 5,041 params against
+8,400 frames the classic U-shaped val curve should not be expected at all.
+
+### 2026-08-11 — Checkpoints 30 / 43 / 50 on the reported metric
+**Question:** do checkpoints across the loss plateau differ in Pd at matched measured Pfa? Coincide →
+question closed; scatter → the evaluation is noisier than the loss curve suggests.
+
+    python scripts/compare_checkpoints.py --checkpoints ep030 best last
+
+Epoch 30 recovered by re-running 30 epochs at the same seed. `--save-every` added so this cannot
+recur. **Split:** `bench2_val`, per-condition sweep to matched measured Pfa 1e-4.
+
+| condition | ep 30 | ep 43 | ep 50 | spread |
+|---|---|---|---|---|
+| unresolved | 0.488 | 0.488 | 0.488 | **0.000** |
+| masking | 0.705 | 0.702 | 0.702 | **0.002** |
+| isolated | 0.720 | 0.730 | 0.725 | 0.010 |
+| multi | 0.708 | 0.718 | 0.715 | 0.010 |
+| clutter | 0.132 | 0.112 | 0.127 | 0.020 |
+| mixed | 0.489 | 0.497 | **0.515** | 0.025 |
+| clutter_edge | 0.664 | 0.705 | **0.711** | **0.047** |
+
+**Showed — ambiguous, and split by condition.** Clean and interference conditions are settled
+(0.000–0.010); the stopping epoch does not matter there. Clutter-bearing conditions are not, and two
+move **monotonically upward**: clutter_edge 0.664 → 0.705 → 0.711, mixed 0.489 → 0.497 → 0.515. That
+is the shape of continued improvement, in the epochs where val loss says nothing is happening.
+
+**The flaw in this experiment, stated plainly:** the three checkpoints are the *same trajectory*, so
+their spread confounds genuine model change with evaluation noise and cannot separate them. A
+monotone trend hints at the former; three correlated points cannot establish it. **The noise floor
+needs different seeds, not different epochs.**
+
+**Changed the plan:** (1) early stopping on val loss is not used — `--patience 8` would have stopped
+~epoch 34 and cost ~0.04 Pd on clutter_edge; (2) the `pos_weight` ablation waits for the noise floor;
+(3) a like-for-like CFAR run on `bench2_val` is needed, since the existing baseline is on
+`bench2_test` and the two cannot be read across.
+
+### 2026-08-12 — STEP 1: CFAR on `bench2_val`, like for like
+**Question:** the DL numbers are on `bench2_val` and the CFAR baseline is on `bench2_test`, so the
+apparent gaps cannot be read across. Does the clutter deficit survive on the same split?
+
+    python scripts/cfar_test_baseline.py --split bench2_val
+
+Same protocol as the DL evaluation: 21×9 window, per-condition threshold sweep to matched **measured**
+Pfa 1e-4. `cfar_test_baseline.py` gained a `--split` flag; `bench2_test` is untouched.
+
+| condition | CA | GO | OS | best CFAR | **DL ep 50** | DL − CFAR |
+|---|---|---|---|---|---|---|
+| clutter | 0.134 | **0.149** | 0.137 | 0.149 | 0.127 | **−0.022** |
+| unresolved | 0.485 | 0.482 | 0.485 | 0.485 | 0.488 | +0.003 |
+| isolated | **0.710** | 0.700 | **0.710** | 0.710 | 0.725 | +0.015 |
+| multi | **0.680** | 0.671 | 0.676 | 0.680 | 0.715 | +0.035 |
+| masking | 0.515 | 0.522 | **0.645** | 0.645 | 0.702 | +0.057 |
+| mixed | 0.400 | **0.426** | 0.373 | 0.426 | 0.515 | +0.089 |
+| clutter_edge | 0.419 | 0.426 | **0.443** | 0.443 | **0.711** | **+0.268** |
+
+**Showed — the clutter deficit is real but smaller, and not yet resolvable.** DL is worse on
+`clutter` (0.127 vs GO 0.149). The cross-split read overstated it roughly twofold: CFAR scores
+lower on val (0.149) than on test (0.171), so the earlier "0.127 vs 0.171" compared two different
+things. **And the surviving 0.022 deficit is the same size as the 0.020 drift measured across
+epochs 30/43/50 on that same condition** — on current evidence it cannot be separated from where
+training happened to stop.
+
+**Flagged for attribution, not reported as a result:** **+0.268 on `clutter_edge`** is enormous
+against the best classical method. Milestone 17's corpus review notes that a credible learned
+detector normally loses somewhere — this one does, on `clutter`, which is the right shape. But a
+margin that large on the condition *adjacent* to its only loss needs explaining before it is
+believed. Candidate explanations to test: the network exploits the ridge's structure as context in
+a way a local window cannot; or the `clutter_edge` stratum's 34% dilution (Milestone 22) interacts
+with a learned detector differently than with CFAR.
+
+**Changed the plan:** nothing yet — the noise floor comes first (Step 2). Attribution of the
+clutter_edge margin is queued behind it.
+
+### 2026-08-12 — STEP 2, aborted at epoch 31: the noise floor killed the plan
+**Question:** (a) what is the seed-to-seed spread at fixed epoch — our noise floor? (b) does
+clutter_edge keep climbing past epoch 50, or flatten?
+
+**Run.** 3 seeds × 100 epochs, `pos_weight=974`, checkpoints at 15/30/50/75/100, three processes in
+parallel at 5 threads each. **The laptop slept at epoch 31** and all three died. Checkpoints at
+epochs 15 and 30 survived; nothing after.
+
+**Why it could not be resumed, and what changed.** Only model weights were being checkpointed —
+optimizer moments and RNG state were not — so the run could be restarted but never *continued*.
+Training now writes a full resume state (weights + optimizer + torch/numpy/generator RNG) every 5
+epochs, to a temp file that is atomically renamed so a crash mid-write cannot corrupt it.
+`--resume` picks up where it stopped and appends to the existing log.
+
+**Result — question (a), evaluated on the 6 surviving checkpoints.** Pd at matched measured Pfa,
+`bench2_val`, by seed:
+
+| condition | seed spread @15 | **seed spread @30** | epoch 15→30 change |
+|---|---|---|---|
+| clutter_edge | 0.013 | **0.054** | +0.006 |
+| mixed | 0.021 | 0.027 | +0.010 |
+| clutter | 0.022 | 0.017 | +0.005 |
+| isolated | 0.020 | 0.020 | +0.005 |
+| multi | 0.008 | 0.009 | +0.010 |
+| masking | 0.005 | 0.005 | +0.002 |
+| unresolved | 0.003 | 0.003 | −0.001 |
+
+**THE NOISE FLOOR IS LARGER THAN THE EFFECT.** Changing the seed moves clutter_edge by up to
+**0.054** at one fixed epoch. Training from 15 to 30 epochs moves it by **0.006**.
+
+**Correction to the previous entry.** I recorded the epoch 30/43/50 climb on clutter_edge
+(0.664 → 0.705 → 0.711, spread 0.047) as *"the shape of continued improvement, not scatter"*. That
+was wrong. It sits entirely inside the seed noise: at epoch 30 alone, seeds 0 and 1 both give 0.664
+while seed 2 gives 0.718. The 50-epoch run was seed 0, so its 0.711 at epoch 50 is as well explained
+by which seed it was as by how long it trained. Three correlated points from one trajectory could
+not have distinguished these, which the entry itself flagged — I then over-read them anyway.
+
+**What it changed.**
+1. **Question (b) is unanswerable as posed** — it presumes a climb the data does not support. A
+   100-epoch run would spend six hours producing another number inside the same ±0.054 band.
+2. **The stopping-epoch question is closed.** Nothing moves more than 0.010 between epochs 15 and
+   30, well under the noise. Anything from ~15 onward is equivalent, and early stopping on val loss
+   remains unnecessary rather than harmful.
+3. **Buy seeds, not epochs.** The missing quantity is an error bar, not a longer curve. 8 seeds
+   brings the standard error on clutter_edge to ~0.011, which is what makes a 0.022 clutter gap
+   testable at all.
+4. **The `pos_weight` ablation bar is now known**: single-seed it would have to beat 0.054 on
+   clutter_edge to mean anything. It must be seed-averaged whatever it finds.
+
+### 2026-08-12 — STEP 2 (revised): 8 seeds × 50 epochs  🔄 RUNNING
+
+    for S in 0..7: python scripts/train_tinycnn.py --epochs 50 --seed $S --tag n$S \
+        --pos-weight 974 --save-at 15,30,50 --threads 2 --resume --skip-gates
+
+**Question:** what are the per-condition mean ± standard error at epoch 50, and does the DL clutter
+deficit against CFAR survive once error bars are attached?
+
+**Config:** identical to the 50-epoch baseline except the seed — TinyCNN width 16, Adam lr 1e-3,
+batch 32, `pos_weight=974` fixed (not measured per run, so it cannot drift between seeds), all 8,400
+train / 1,600 val frames. Gates skipped after the first verified run; `--resume` on, so a shutdown
+costs at most 5 epochs. Eight processes at 2 threads each.
+
+**Comparison target — CFAR on the same split** (`bench2_val`, matched measured Pfa 1e-4): clutter
+GO **0.149** · clutter_edge OS 0.443 · isolated CA/OS 0.710 · masking OS 0.645 · mixed GO 0.426 ·
+multi CA 0.680 · unresolved CA/OS 0.485.
+
+*(Results appended when the run completes.)*
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,

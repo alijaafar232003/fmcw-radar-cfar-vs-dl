@@ -50,7 +50,7 @@ def calibrate_dl_threshold(model, radar_cfg: RadarConfig, target_pfa: float,
     """Monte-Carlo threshold for the network, using the same protocol as CFAR.
 
     The dB-above-median input normalization is scale-invariant, so unit-variance noise frames are
-    representative of any noise level.
+    representative of any noise level. Works on logits, like every other scoring path here.
     """
     pool = []
     for power in make_noise_power_frames(radar_cfg, n_frames, seed=seed):

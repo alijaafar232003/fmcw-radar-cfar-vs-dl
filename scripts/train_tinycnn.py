@@ -1,0 +1,277 @@
+"""Train the detector on `bench2_train`, validating on all of `bench2_val`. Reproducible.
+
+There was no training entry point: the loop lived in `dl_cnn_experiment.ipynb`, deleted in 14b38bd.
+This replaces it as a script so a run is a command with a recorded configuration rather than a
+notebook state nobody can reconstruct.
+
+REPRODUCIBILITY. One seed fixes weight init, batch order and every other draw. The exact config,
+the git commit, the library versions and the resolved dataset sizes are written to `config.json`
+beside the checkpoints, so a run can be repeated or audited later. Re-running with the same
+arguments reproduces the same curve.
+
+ALL THE DATA, deliberately. The previous run used 3,000 of 10,000 training frames and half the
+validation set. This asserts the full 8,400 / 1,600 and refuses to start otherwise -- a quiet
+subset is exactly the kind of thing that silently invalidates a comparison.
+
+Examples
+--------
+    python scripts/train_tinycnn.py --epochs 50
+    python scripts/train_tinycnn.py --epochs 50 --optimizer adamw --lr 3e-4 --tag adamw_lr3e4
+    python scripts/train_tinycnn.py --epochs 80 --patience 8 --pos-weight 400 --tag pw400
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import platform
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import numpy as np
+import torch
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from dl.dataset import CachedRDDataset, RDDataset, build_cache      # noqa: E402
+from dl.models import TinyCNN, count_params, measure_receptive_field  # noqa: E402
+from dl.train import OPTIMIZERS, overfit_one_batch, seed_everything, train  # noqa: E402
+
+EXPECTED = {"bench2_train": 8400, "bench2_val": 1600}
+
+
+def keep_awake() -> bool:
+    """Ask Windows not to sleep while this process runs.
+
+    A 3-seed run died at epoch 31 when the laptop slept, and the 8-seed run spent ~85% of its
+    wall-clock suspended (one epoch logged 7,016 s against ~530 s of compute). This is the same
+    mechanism a video player uses: a per-process request, dropped automatically when the process
+    exits. It changes no persistent power setting.
+    """
+    if sys.platform != "win32":
+        return False
+    import ctypes
+    ES_CONTINUOUS, ES_SYSTEM_REQUIRED, ES_AWAYMODE_REQUIRED = 0x80000000, 0x00000001, 0x00000040
+    ok = ctypes.windll.kernel32.SetThreadExecutionState(
+        ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED)
+    return bool(ok)
+
+
+def git_commit() -> str:
+    try:
+        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
+                              text=True, check=True).stdout.strip()[:12]
+    except Exception:
+        return "unknown"
+
+
+def parse() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--epochs", type=int, default=50,
+                   help="run this many; with no --patience the whole curve is produced")
+    p.add_argument("--patience", type=int, default=None,
+                   help="early stop after N epochs without validation improvement (default: off, "
+                        "so the curve past the minimum is visible)")
+    p.add_argument("--batch-size", type=int, default=32)
+    p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--optimizer", choices=sorted(OPTIMIZERS), default="adam")
+    p.add_argument("--weight-decay", type=float, default=0.0)
+    p.add_argument("--pos-weight", type=float, default=None,
+                   help="BCE positive-class weight (default: the measured class ratio)")
+    p.add_argument("--width", type=int, default=16, help="TinyCNN channel width")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--tag", default="bench", help="names the output files")
+    p.add_argument("--device", default="cpu")
+    p.add_argument("--save-every", type=int, default=None,
+                   help="also checkpoint every N epochs. Without it only best and last are kept, "
+                        "which makes 'was the plateau flat in Pd too?' unanswerable without a "
+                        "re-run")
+    p.add_argument("--save-at", default=None,
+                   help="comma-separated epochs to checkpoint, e.g. 15,30,50,75,100")
+    p.add_argument("--threads", type=int, default=None,
+                   help="torch CPU threads. Lower it when running several seeds at once: three "
+                        "processes at 5 threads finish sooner in total than three at 8 fighting "
+                        "over the same cores")
+    p.add_argument("--keep-awake", action="store_true",
+                   help="ask the OS not to sleep while training (per-process; no persistent "
+                        "setting is changed)")
+    p.add_argument("--resume", action="store_true",
+                   help="write a full resume state (weights + optimizer + RNG) every few epochs "
+                        "and pick up from it if the run is interrupted")
+    p.add_argument("--skip-gates", action="store_true",
+                   help="skip the pre-flight checks (not recommended)")
+    return p.parse_args()
+
+
+def measured_pos_weight(ds) -> float:
+    """1 / positive-cell rate, measured on the actual training labels.
+
+    Reported rather than assumed: it moved 1:1563 -> ~1:950 when the map halved, and `train.py`'s
+    old default of 200 was tuned for the former.
+    """
+    pos = sum(int(np.asarray(ds.y[i]).sum()) for i in range(0, len(ds), 20))
+    tot = len(range(0, len(ds), 20)) * ds.y.shape[1] * ds.y.shape[2]
+    return tot / max(pos, 1)
+
+
+def gates(model, train_ds, val_ds, args) -> dict:
+    """Milestone-13 pre-flight, re-run at the current geometry. Cheap; catches wiring bugs."""
+    print("\nPRE-FLIGHT GATES")
+    out = {}
+
+    x, y = train_ds[0]
+    out["shapes"] = [list(x.shape), list(y.shape)]
+    ok_shape = tuple(x.shape) == (1, 256, 64) and tuple(y.shape) == (1, 256, 64)
+    print(f"  shapes            x {tuple(x.shape)}  y {tuple(y.shape)}   {'OK' if ok_shape else 'FAIL'}")
+
+    finite = bool(torch.isfinite(x).all() and torch.isfinite(y).all())
+    med = float(np.median([float(train_ds[i][0].median()) for i in range(0, 400, 20)]))
+    out["finite"], out["median"] = finite, med
+    print(f"  finite / median   {finite} / {med:+.4f}   (median should be ~0 by construction)")
+
+    # The cache must be byte-identical to reading the frames one at a time.
+    raw = RDDataset("bench2_train")
+    idx = [0, 1, len(raw) // 2, len(raw) - 1]
+    same = all(np.allclose(np.asarray(train_ds[i][0]), np.asarray(raw[i][0]), atol=0, rtol=0)
+               and np.array_equal(np.asarray(train_ds[i][1]), np.asarray(raw[i][1])) for i in idx)
+    out["cache_matches_raw"] = same
+    print(f"  cache == raw      {same}   (checked frames {idx})")
+
+    # Orientation. A transpose bug is the classic silent killer: everything runs, every number is
+    # meaningless. Test it statistically rather than on one frame -- compare the input INSIDE the
+    # label mask against outside it, over many frames. Correctly oriented, labelled cells sit well
+    # above the floor; transposed, the mask lands on arbitrary cells and the gap collapses to ~0.
+    inside, outside = [], []
+    for i in range(0, 600, 15):
+        xi, yi = train_ds[i]
+        xi, yi = np.asarray(xi[0]), np.asarray(yi[0]) > 0.5
+        if yi.any():
+            inside.append(float(xi[yi].mean()))
+            outside.append(float(xi[~yi].mean()))
+    gap = float(np.mean(inside) - np.mean(outside)) * 20.0      # undo the /20 dB scaling
+    out["orientation_gap_db"] = gap
+    ok_orient = gap > 5.0
+    print(f"  orientation       labelled cells sit {gap:+.1f} dB above the rest "
+          f"(n={len(inside)} frames)   {'OK' if ok_orient else 'FAIL — transposed?'}")
+
+    rf = measure_receptive_field(model, size=(129, 129))
+    out["receptive_field"] = list(rf)
+    print(f"  receptive field   measured {rf}   {'OK — matches the 21x9 CFAR window' if rf == (21, 9) else 'FAIL'}")
+    out["params"] = count_params(model)
+    print(f"  parameters        {out['params']:,}")
+
+    print("  overfit-one-batch (must collapse, peaks within 1 bin):")
+    r = overfit_one_batch(TinyCNN(width=args.width), train_ds, n_frames=8, steps=250,
+                          pos_weight=args.pos_weight, device=args.device, verbose=False)
+    out["overfit"] = {k: r[k] for k in ("loss_first", "loss_last", "reduction",
+                                        "n_blobs", "peaks_within_1_bin")}
+    print(f"    loss {r['loss_first']:.4f} -> {r['loss_last']:.6f}  ({r['reduction']:.0f}x)   "
+          f"peaks within 1 bin: {r['peaks_within_1_bin']}/{r['n_blobs']}")
+
+    if not (ok_shape and finite and same and ok_orient and rf == (21, 9) and r["reduction"] > 50):
+        raise SystemExit("a pre-flight gate failed — fix that before trusting any training run")
+
+    print("  all gates passed")
+    return out
+
+
+def main() -> None:
+    args = parse()
+
+    if args.threads:
+        torch.set_num_threads(args.threads)
+
+    if args.keep_awake:
+        print(f"keep-awake request: {'granted' if keep_awake() else 'REFUSED'}")
+
+    out_dir = ROOT / "results" / "dl"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    print("Building / loading the pre-normalised cache ...")
+    for split in EXPECTED:
+        build_cache(split)
+
+    train_ds = CachedRDDataset("bench2_train")
+    val_ds = CachedRDDataset("bench2_val")
+
+    # ALL of it. A silent subset is how the previous run ended up on 3,000 of 10,000 frames.
+    for name, ds in (("bench2_train", train_ds), ("bench2_val", val_ds)):
+        if len(ds) != EXPECTED[name]:
+            raise SystemExit(f"{name}: expected {EXPECTED[name]} frames, got {len(ds)}")
+    print(f"train {len(train_ds):,} frames | val {len(val_ds):,} frames  (both complete)")
+
+    if args.pos_weight is None:
+        args.pos_weight = round(measured_pos_weight(train_ds))
+        print(f"pos_weight not given -> using the measured class ratio 1:{args.pos_weight:.0f}")
+
+    seed_everything(args.seed)
+    model = TinyCNN(width=args.width)
+
+    info = {} if args.skip_gates else gates(model, train_ds, val_ds, args)
+
+    cfg = {
+        "tag": args.tag, "epochs": args.epochs, "patience": args.patience,
+        "batch_size": args.batch_size, "lr": args.lr, "optimizer": args.optimizer,
+        "weight_decay": args.weight_decay, "pos_weight": args.pos_weight,
+        "width": args.width, "seed": args.seed, "device": args.device,
+        "threads": torch.get_num_threads(),
+        "train_frames": len(train_ds), "val_frames": len(val_ds),
+        "model": "TinyCNN", "params": count_params(model),
+        "git_commit": git_commit(), "torch": torch.__version__,
+        "python": platform.python_version(), "started": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "gates": info,
+    }
+    (out_dir / f"config_{args.tag}.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+
+    log_path = out_dir / f"train_{args.tag}.log"
+    resuming = args.resume and (out_dir / f"resume_{args.tag}.pt").exists()
+    log = log_path.open("a" if resuming else "w", encoding="utf-8")
+    log.write(f"# {json.dumps(cfg)}\n")
+
+    def on_epoch(rec):
+        # `plot_loss_curves.py` parses exactly this line.
+        log.write(f"  epoch {rec['epoch']:>2}  train {rec['train_loss']:.5f}  "
+                  f"val {rec['val_loss']:.5f}  ({rec['seconds']:.1f}s)\n")
+        log.flush()
+
+        at = {int(e) for e in args.save_at.split(",")} if args.save_at else set()
+        if (args.save_every and rec["epoch"] % args.save_every == 0) or rec["epoch"] in at:
+            torch.save({"state_dict": model.state_dict(), "epoch": rec["epoch"],
+                        "val_loss": rec["val_loss"], "config": cfg},
+                       out_dir / f"tinycnn_{args.tag}_ep{rec['epoch']:03d}.pt")
+
+    print(f"\nTRAINING  {args.optimizer} lr={args.lr} bs={args.batch_size} "
+          f"pos_weight={args.pos_weight} seed={args.seed} epochs={args.epochs}"
+          f"{'' if args.patience is None else f' patience={args.patience}'}")
+
+    t0 = time.perf_counter()
+    history, best = train(
+        model, train_ds, val_ds, epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
+        pos_weight=args.pos_weight, device=args.device, optimizer=args.optimizer,
+        weight_decay=args.weight_decay, patience=args.patience, seed=args.seed, on_epoch=on_epoch,
+        resume_path=(out_dir / f"resume_{args.tag}.pt") if args.resume else None,
+    )
+    log.close()
+
+    torch.save({"state_dict": best["state"], "epoch": best["epoch"],
+                "val_loss": best["val_loss"], "config": cfg},
+               out_dir / f"tinycnn_{args.tag}_best.pt")
+    torch.save({"state_dict": model.state_dict(), "epoch": history[-1]["epoch"],
+                "val_loss": history[-1]["val_loss"], "config": cfg},
+               out_dir / f"tinycnn_{args.tag}_last.pt")
+    (out_dir / f"history_{args.tag}.json").write_text(json.dumps(history, indent=2),
+                                                      encoding="utf-8")
+
+    mins = (time.perf_counter() - t0) / 60
+    print(f"\nDONE in {mins:.1f} min")
+    print(f"  best epoch {best['epoch']} (val {best['val_loss']:.5f}) "
+          f"vs last epoch {history[-1]['epoch']} (val {history[-1]['val_loss']:.5f})")
+    print(f"  wrote {out_dir}/tinycnn_{args.tag}_best.pt, _last.pt, {log_path.name}, "
+          f"history_{args.tag}.json, config_{args.tag}.json")
+
+
+if __name__ == "__main__":
+    main()

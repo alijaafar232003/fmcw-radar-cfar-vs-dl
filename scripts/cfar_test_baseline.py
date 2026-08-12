@@ -37,9 +37,14 @@ from dl.stratified_eval import NMS, _at_measured_pfa       # noqa: E402
 from eval import (MatchConfig, aggregate, evaluate_frame,          # noqa: E402
                   roc_curve, roc_thresholds)
 
-SPLIT = "bench2_test"
+import argparse
+
 METHODS = ("CA", "GO", "OS")
 TARGET_PFA = 1e-4
+
+# Set by main(); `bench2_test` is the reported baseline, `bench2_val` is what every comparison
+# made while choices are still open must use instead.
+SPLIT = "bench2_test"
 OUT = ROOT / "results" / "cfar_test"
 
 # Dense in the upper tail: the operating point sits in the top ~1% of the score pool, and a
@@ -161,6 +166,13 @@ def score(frames_meta: pd.DataFrame, truths: pd.DataFrame) -> pd.DataFrame:
 
 
 def main() -> None:
+    global SPLIT, OUT
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--split", default="bench2_test")
+    args = ap.parse_args()
+    SPLIT = args.split
+    OUT = ROOT / "results" / f"cfar_{SPLIT.replace('bench2_', '')}"
+
     frames_meta, truths, _ = collect()
     frames_meta.to_csv(OUT / "frames.csv", index=False)
     truths.to_csv(OUT / "truths.csv", index=False)

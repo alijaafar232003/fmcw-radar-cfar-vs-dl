@@ -57,6 +57,68 @@ def normalize_rd(mag: np.ndarray) -> np.ndarray:
     return x.astype(np.float32)
 
 
+def cache_paths(split: str, root: Path | None = None) -> tuple[Path, Path]:
+    r = (Path(root) if root is not None else project_root()) / "data" / split
+    return r / "nn_cache_x.npy", r / "nn_cache_y.npy"
+
+
+def build_cache(split: str, root: Path | None = None, force: bool = False) -> tuple[Path, Path]:
+    """Pre-normalise a whole split into two flat arrays on disk.
+
+    Reading 8,400 individual .npy files costs ~325 s per epoch against ~89 s of actual compute, so
+    a 50-epoch run would spend five of its six hours in the filesystem. The normalisation is
+    deterministic (`normalize_rd` depends only on the frame), so it can be done once.
+
+    Written next to the split as `nn_cache_{x,y}.npy` and memory-mapped afterwards, which also
+    means a re-run with different hyperparameters starts instantly.
+    """
+    xp, yp = cache_paths(split, root)
+
+    if xp.exists() and yp.exists() and not force:
+        return xp, yp
+
+    ds = RDDataset(split, root=root)
+    n = len(ds)
+    x = np.lib.format.open_memmap(xp, mode="w+", dtype=np.float32, shape=(n, 256, 64))
+    y = np.lib.format.open_memmap(yp, mode="w+", dtype=np.uint8, shape=(n, 256, 64))
+
+    for i, fd in enumerate(ds.frame_dirs):
+        x[i] = normalize_rd(np.load(fd / "rd_map_mag.npy"))
+        y[i] = np.load(fd / "label_mask.npy").astype(np.uint8)
+        if (i + 1) % 2000 == 0:
+            print(f"    cached {i + 1}/{n}")
+
+    x.flush(); y.flush()
+    return xp, yp
+
+
+class CachedRDDataset(Dataset):
+    """The same (x, y) pairs as `RDDataset`, served from the pre-built cache.
+
+    Identical output — verified against `RDDataset` in the training script's gates — but without
+    per-item file access.
+    """
+
+    def __init__(self, split: str, root: Path | None = None, limit: int | None = None,
+                 in_memory: bool = True):
+        xp, yp = build_cache(split, root)
+        mode = None if in_memory else "r"
+        self.x = np.load(xp, mmap_mode=mode)
+        self.y = np.load(yp, mmap_mode=mode)
+
+        if limit is not None:
+            self.x, self.y = self.x[:limit], self.y[:limit]
+
+        self.frame_dirs = RDDataset(split, root=root, limit=limit).frame_dirs
+
+    def __len__(self) -> int:
+        return len(self.x)
+
+    def __getitem__(self, i: int):
+        return (torch.from_numpy(np.asarray(self.x[i]))[None],
+                torch.from_numpy(np.asarray(self.y[i], dtype=np.float32))[None])
+
+
 class RDDataset(Dataset):
     """Frames from one dataset split.
 

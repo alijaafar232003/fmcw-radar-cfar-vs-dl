@@ -46,11 +46,26 @@ def cfar_valid_mask(shape: tuple[int, int], cfg: CfarConfig | None = None) -> np
 
 
 @torch.no_grad()
-def predict_heatmap(model, mag: np.ndarray, device="cpu") -> np.ndarray:
-    """RD magnitude -> per-cell detection probability."""
+def predict_heatmap(model, mag: np.ndarray, device="cpu", as_logits: bool = True) -> np.ndarray:
+    """RD magnitude -> per-cell detection score.
+
+    Returns **logits** by default, not probabilities. The sigmoid is a monotone transform, so Pd,
+    Pfa and every ranking are identical either way — but in float32 it saturates to exactly 1.0
+    above a logit of ~9.7, and a confident network puts hundreds of cells there.
+
+    That costs resolution exactly where the comparison is made. `eval.roc_thresholds` places a
+    threshold at the rank of each individual false alarm, so tied top scores collapse the entire
+    low-Pfa end of the ROC to a single point; NMS's `score == maximum_filter(score)` test also
+    turns tied plateaus into multiple peaks, which is the defect `_collapse_plateaus` was added to
+    contain in Milestone 16. Logits remove the cause rather than the symptom.
+
+    Pass `as_logits=False` for a probability map to look at (a heatmap figure, say) — never for
+    scoring.
+    """
     model.eval()
     x = torch.from_numpy(normalize_rd(mag))[None, None].to(device)
-    return torch.sigmoid(model(x))[0, 0].cpu().numpy()
+    out = model(x)[0, 0]
+    return (out if as_logits else torch.sigmoid(out)).cpu().numpy()
 
 
 def predict_points(model, mag: np.ndarray, valid: np.ndarray | None = None,
@@ -104,10 +119,10 @@ def evaluate_at_threshold(frames, threshold: float, cfg: MatchConfig = MatchConf
 def dl_roc(frames, thresholds=None, cfg: MatchConfig = MatchConfig(1, 1)) -> pd.DataFrame:
     """Sweep the detection threshold -> (Pfa, Pd) curve, analogous to sweeping CFAR's alpha."""
     if thresholds is None:
-        thresholds = np.concatenate([
-            np.linspace(0.01, 0.9, 30),
-            1 - np.logspace(np.log10(0.1), np.log10(1e-4), 20),
-        ])
-        thresholds = np.unique(np.clip(thresholds, 1e-6, 1 - 1e-9))
+        # Scores are logits now, so a 0..1 probability sweep would be meaningless. Anchoring the
+        # grid to the false alarms is also strictly better than any fixed ladder -- see
+        # eval.roc_thresholds.
+        from eval import roc_thresholds
+        thresholds = roc_thresholds(frames, cfg)
 
     return roc_curve(frames, thresholds=thresholds, cfg=cfg)
