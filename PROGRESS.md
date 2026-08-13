@@ -1470,6 +1470,51 @@ multi CA 0.680 · unresolved CA/OS 0.485.
 
 *(Results appended when the run completes.)*
 
+### 2026-08-13 — `clutter_edge` +0.261 attributed: it is a reference-window effect, and it survives
+**Question.** Before reporting the DL margin on `clutter_edge`, is it an edge effect, or an artefact
+of that stratum's dilution (Milestone 22)? Script: `scripts/attribute_clutter_edge.py`, `bench2_val`,
+CFAR from cached peaks, DL averaged over all 8 seeds, matched measured Pfa 1e-4 swept **per band**.
+
+**Check 1 — against OS specifically, not "best classical".** OS is the method designed for edge
+contamination, so a shrinking margin against it would narrow the finding. It does not shrink:
+**OS *is* the best classical method here** — OS 0.443, GO 0.426, CA 0.419 — so +0.261 was always
+measured against OS. Against CA it is +0.285, against GO +0.278; OS's edge design buys it only
+0.017–0.024 over its siblings. Consistent with Milestone 22: at matched *measured* Pfa an
+edge-robust design shows up as fewer false alarms, not higher Pd, and matching the rate cancels it.
+
+**Check 2 — where the margin falls relative to the boundary.** Stratified by **target clearance
+beyond the ridge edge in Doppler bins**, which is fixed by the data and cannot be changed by any
+window or detector, so every method is scored on identical frames. Ridge ±4 bins, training ring at
+offsets ±3–4 → clearance 2–4 overlaps the ridge, clearance ≥5 never does (**28%** of frames on val,
+against Milestone 22's 24.5% frame-level on test).
+
+| clearance | true edge | CA | GO | OS | best CFAR | DL (8 seeds) | DL − best |
+|---|---|---|---|---|---|---|---|
+| 2 (closest) | ✓ | 0.215 | 0.215 | 0.292 | 0.292 | 0.619 | **+0.327** |
+| 3 | ✓ | 0.329 | 0.314 | 0.400 | 0.400 | 0.736 | **+0.336** |
+| 4 | ✓ | 0.512 | 0.512 | 0.512 | 0.512 | 0.724 | +0.212 |
+| 5–6 (farthest) | ✗ | 0.571 | 0.610 | 0.545 | 0.610 | 0.724 | +0.114 |
+
+**Verdict: H-window (reference-window contamination), supported.** CFAR collapses as the target
+approaches the ridge — OS 0.545 → **0.292**, a drop of 0.253 — while DL barely moves, 0.724 → 0.619,
+a drop of 0.105 confined to the closest band. That asymmetry *is* the signature: CFAR is handicapped
+exactly where its training ring overlaps the ridge, and a detector with no reference window is not.
+
+**Dilution cannot explain it — it works the other way.** The 28% non-edge frames carry the
+*smallest* margin (+0.114), so they drag the pooled number **down**. The reported +0.261 therefore
+**understates** the true-edge effect, which is ≈ +0.28 frame-weighted. The +0.114 on non-edge frames
+sits in the same range as DL's general advantage elsewhere (isolated +0.022, multi +0.031, masking
++0.049, mixed +0.086) — exactly what one expects on frames that are not really edges.
+
+**Strength, stated honestly.** The near-vs-far contrast is ~2.7σ allowing for CFAR's own per-band
+sampling error (~0.055 at 40–57 frames), and the two middle bands invert slightly (+0.327 vs +0.336),
+well within that. What makes it convincing is the near-monotone gradient across four bands *plus*
+the mechanism agreeing — not the endpoint contrast alone.
+
+**What it changed.** `clutter_edge` moves from "flagged, do not report" to **reportable**, with the
+mechanism stated and the per-band counts (40–57 frames) noted. Full write-up, tables and figure in
+`notebooks/cnn_development_log.ipynb` §Open/O1.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,

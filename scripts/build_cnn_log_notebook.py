@@ -483,21 +483,96 @@ md("""---
 
 Findings that exist but should **not** go in the report in their current state.
 
-### O1 — `clutter_edge` +0.261 needs attribution
-DL 0.704 ± 0.0040 against the best CFAR 0.443. Statistically overwhelming (p = 5e-11) and
-substantively suspicious: it is the condition *adjacent* to the network's only loss.
+### O1 — `clutter_edge` +0.261: ATTRIBUTED (2026-08-13), and it survives
 
-Two candidate explanations, not yet separated:
-- **Ridge structure as context.** The network may exploit large-scale structure in the clutter ridge
-  that a 21×9 local window cannot represent — the mechanism `PROGRESS.md` Milestone 22 measured for
-  CFAR's noise estimates (GO 2.12× CA, OS 0.51× CA at an edge).
-- **Stratum composition.** That stratum is **34% diluted** (Milestone 22): the ridge spans ±4 Doppler
-  bins, targets sit at 6–10, and the 21×9 window reaches only ±3–4, so a third of the frames are
-  ordinary noise frames wearing the label. A learned detector may exploit that differently from CFAR.
+**Question.** Is the margin an edge effect, or an artefact of the stratum's 34% dilution
+(`PROGRESS.md` Milestone 22)?
 
-The true-edge / no-edge split already exists for CFAR (Milestone 22) and should be re-run for DL.
+**Check 1 — against OS specifically, not just "best classical".** OS-CFAR is the method designed for
+edge contamination, so if the margin shrank against it the finding would be narrower than it looks.
+It does not: **OS *is* the best classical method on this condition** (0.443, against CA 0.419 and
+GO 0.426), so +0.261 was always measured against OS. The margin against CA is +0.285 and against GO
++0.278 — OS's edge design buys it only 0.017–0.024 over its siblings. This echoes Milestone 22: at
+matched *measured* Pfa, an edge-robust design shows up as fewer false alarms, not higher Pd, and
+matching the rate cancels precisely that.
 
-### O2 — `unresolved` +0.002 is not a win
+**Check 2 — where the margin falls relative to the clutter boundary.** Split by **target clearance
+from the ridge edge in Doppler bins** — fixed by the data, so no window or detector can shift it.
+The ridge spans ±4 bins; the 21×9 training ring sits at offsets ±3–4 from the target, so clearance
+2–4 means the ring genuinely overlaps the ridge and clearance ≥5 means it never does (**28%** of
+frames on val, consistent with Milestone 22's 24.5% frame-level figure on test).
+
+The two hypotheses predict different shapes: **H-window** (reference-window contamination) says the
+margin concentrates where the ring is contaminated; **H-dilution** says it is uniform, i.e. not an
+edge effect at all.
+
+`python scripts/attribute_clutter_edge.py` · `bench2_val` · CFAR from cached peaks, DL averaged over
+all 8 seeds · matched measured Pfa 1e-4 swept **within each band**.""")
+
+code('''att = DL / "clutter_edge_attribution.csv"
+if att.exists():
+    a = pd.read_csv(att)
+    order = ["2 (closest)", "3", "4", "5-6 (farthest)"]
+    dl = a[a.method == "DL"].groupby("band").pd.agg(["mean", "std", "count"]).reindex(order)
+    dl["se"] = dl["std"] / np.sqrt(dl["count"])
+    cf = a[a.method != "DL"].pivot_table(index="band", columns="method", values="pd").reindex(order)
+
+    t = pd.DataFrame({"n frames": a[a.method == "CA"].set_index("band").n.reindex(order),
+                      "true edge": [True, True, True, False],
+                      "CA": cf.CA, "GO": cf.GO, "OS": cf.OS,
+                      "best CFAR": cf.max(axis=1), "DL": dl["mean"], "DL SE": dl["se"]})
+    t["DL - OS"] = t.DL - t.OS
+    t["DL - best"] = t.DL - t["best CFAR"]
+    display(t.round(3))
+
+    fig, ax = plt.subplots(figsize=(9, 4.4))
+    x = np.arange(len(order))
+    ax.plot(x, t.OS, "s-", color=CFARC, lw=1.8, ms=7, label="OS-CFAR (best classical)")
+    ax.errorbar(x, t.DL, yerr=1.96 * t["DL SE"], fmt="o-", color=DLC, lw=1.8, ms=7,
+                capsize=4, label="DL (8 seeds)")
+    ax.fill_between(x, t.OS, t.DL, color=DLC, alpha=0.10)
+    ax.axvspan(-0.4, 2.5, color=MUTED, alpha=0.08)
+    ax.text(0.1, 0.30, "training ring overlaps the ridge", fontsize=8, color=MUTED)
+    ax.set_xticks(x); ax.set_xticklabels(order)
+    ax.set_xlabel("target clearance beyond the ridge edge (Doppler bins)")
+    ax.set_ylabel("Pd at matched measured Pfa 1e-4")
+    ax.set_title("Where the clutter_edge margin lives")
+    ax.legend(frameon=False)
+    plt.tight_layout(); plt.show()
+
+    print(f"DL - best CFAR:  closest {t['DL - best'].iloc[0]:+.3f}   farthest "
+          f"{t['DL - best'].iloc[-1]:+.3f}   difference {t['DL - best'].iloc[0]-t['DL - best'].iloc[-1]:+.3f}")
+    print(f"OS degrades {t.OS.iloc[-1]-t.OS.iloc[0]:+.3f} as the target approaches the ridge; "
+          f"DL degrades {t.DL.iloc[-1]-t.DL.iloc[0]:+.3f}")
+else:
+    print("run: python scripts/attribute_clutter_edge.py")''')
+
+md("""**What it showed — H-window, supported.**
+
+CFAR falls apart as the target approaches the ridge: OS goes 0.545 → 0.512 → 0.400 → **0.292**, a
+drop of 0.253. DL is nearly flat over the same span: 0.724 → 0.724 → 0.736 → 0.619, a drop of 0.105,
+and only in the closest band. That asymmetry *is* the reference-window signature — CFAR is
+handicapped exactly where its training ring overlaps the ridge, and the network, having no reference
+window, is not.
+
+The margin follows: **+0.327 / +0.336 / +0.212** on the three true-edge bands against **+0.114** on
+the non-edge band. That +0.114 is the same order as DL's general advantage elsewhere (isolated
++0.022, multi +0.031, masking +0.049, mixed +0.086) — so on frames that are not really edges, the
+network wins by roughly its usual amount, and on genuine edges by two to three times that.
+
+**Dilution cannot be the explanation — it works the other way.** The 28% non-edge frames carry the
+*smallest* margin, so they drag the pooled figure **down**. The pooled +0.261 therefore
+*understates* the true-edge effect, which is nearer +0.28 when frame-weighted.
+
+**Strength of evidence, honestly.** The near-vs-far contrast is ~2.7σ allowing for CFAR's own
+sampling error (~0.055 per band at 40–57 frames), supported by a near-monotone gradient across four
+bands. Not overwhelming on the endpoint contrast alone; the gradient and the mechanism agreeing is
+what makes it convincing. The two middle bands invert slightly (+0.327 vs +0.336), which is well
+within that error.
+
+**Reportable**, with the mechanism stated and the caveat that per-band counts are 40–57 frames.""")
+
+md("""### O2 — `unresolved` +0.002 is not a win
 p = 0.048, but both methods sit at the ~0.5 physics cap (two targets inside one mainlobe; one
 detection can match only one truth). The significance is an artefact of a very small SE (0.0008),
 not a detection advantage. **Do not report as a win.**
