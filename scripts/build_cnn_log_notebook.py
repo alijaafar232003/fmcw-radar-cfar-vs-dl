@@ -447,6 +447,125 @@ converge. So the epoch-30 noise floor overstated the floor at epoch 50.
 Gives the first DL-vs-CFAR statement with uncertainty attached, and identifies `clutter` as the
 network's genuine weakness — the anchor for the attribution work in `PROGRESS.md` Milestone 18.""")
 
+# ============================================================================== 8
+md("""---
+## 8 · `pos_weight` ablation — 100 vs 200 vs 974
+
+### Question
+Does a lower `pos_weight` recover the `clutter` deficit (DL 0.125 vs GO 0.149), and **what does it
+cost on the other six conditions?** The trade matters, not just the clutter number.
+
+### Setup
+```
+for W in 100 200; for S in 0..7:
+    python scripts/train_tinycnn.py --epochs 50 --seed $S --pos-weight $W --tag pw${W}_s$S \\
+        --save-at 50 --threads 2 --resume --keep-awake --skip-gates
+```
+8 seeds x 50 epochs at each of `pos_weight` = 100, 200, 974 — 24 runs, everything else identical.
+The 974 arm is the existing 8-seed run from §7, reused rather than repeated. Evaluated at epoch 50
+on `bench2_val`, per-condition sweep to matched measured Pfa 1e-4.
+
+Seeds are shared across arms, so the same initialisation appears at each `pos_weight` and the
+comparisons below are **paired**.
+
+> **Pd only.** Final validation losses were ~0.118 / 0.191 / 0.520 for 100 / 200 / 974 — almost
+> exactly the ratio the weights predict. That is the loss scale moving, not performance, and is why
+> standing decision 4 forbids comparing them.""")
+
+code('''import re
+h = HIST[HIST.pd.notna()].copy()
+
+def pw_of(c):
+    m = re.match(r"tinycnn_pw(\\d+)_s\\d+_ep050", c)
+    if m:
+        return int(m.group(1))
+    return 974 if re.match(r"tinycnn_n\\d+_ep050", c) else None
+
+h["pw"] = h.checkpoint.map(pw_of)
+h = h[h.pw.notna()]
+
+tab = pd.DataFrame({"CFAR best": CFAR_BEST.pd, "best method": CFAR_BEST.method})
+for p in (100, 200, 974):
+    g = h[h.pw == p].groupby("condition").pd
+    tab[f"pw{p}"] = g.mean()
+    tab[f"pw{p} SE"] = g.std(ddof=1) / np.sqrt(g.count())
+tab = tab.dropna(subset=["pw100"])
+tab["pw100 - CFAR"] = tab.pw100 - tab["CFAR best"]
+tab["pw974 - CFAR"] = tab.pw974 - tab["CFAR best"]
+display(tab.round(3))''')
+
+code('''# Paired by seed: the same initialisation at each pos_weight, so this is a within-seed contrast.
+rows = []
+for c in sorted(h.condition.unique()):
+    a = h[(h.condition == c) & (h.pw == 974)].sort_values("seed").pd.values
+    b = h[(h.condition == c) & (h.pw == 100)].sort_values("seed").pd.values
+    d = h[(h.condition == c) & (h.pw == 200)].sort_values("seed").pd.values
+    rows.append(dict(condition=c, pw974=a.mean(), pw100=b.mean(),
+                     **{"100-974": b.mean() - a.mean(), "p (paired)": stats.ttest_rel(b, a).pvalue,
+                        "100-200": b.mean() - d.mean(), "p 100v200": stats.ttest_rel(b, d).pvalue}))
+paired = pd.DataFrame(rows).set_index("condition")
+display(paired.round(4))
+
+fig, ax = plt.subplots(figsize=(10, 4.8))
+x = np.arange(len(tab))
+for p, col, mk in ((100, "#2a78d6", "o"), (200, "#7a5cd0", "^"), (974, "#eb6834", "s")):
+    ax.errorbar(x + (p == 200) * 0.12 - (p == 100) * 0.12, tab[f"pw{p}"],
+                yerr=1.96 * tab[f"pw{p} SE"], fmt=mk, color=col, capsize=3, ms=6,
+                lw=1.4, label=f"pos_weight {p}")
+ax.plot(x, tab["CFAR best"], "_", color=CFARC, ms=26, mew=2.5, label="best CFAR")
+ax.set_xticks(x); ax.set_xticklabels(tab.index, rotation=20, ha="right")
+ax.set_ylabel("Pd at matched measured Pfa 1e-4")
+ax.set_title("pos_weight ablation — 8 seeds each, bench2_val")
+ax.legend(frameon=False, fontsize=9)
+plt.tight_layout(); plt.show()
+
+cf = float(CFAR_BEST.loc["clutter", "pd"])
+print("clutter — the question:")
+for p in (100, 200, 974):
+    v = h[(h.condition == "clutter") & (h.pw == p)].pd.values
+    t, pv = stats.ttest_1samp(v, cf)
+    print(f"   pw{p:<4} {v.mean():.3f} +/- {v.std(ddof=1)/np.sqrt(len(v)):.4f}   "
+          f"vs GO {cf:.3f}   gap {v.mean()-cf:+.3f}   p={pv:.2g}")''')
+
+md("""### What it showed — **not a trade, a strict improvement**
+
+**The `clutter` deficit essentially vanishes.** At `pos_weight` 100 the gap against GO is **−0.006
+(p = 0.27)** and at 200 it is **−0.005 (p = 0.15)** — neither distinguishable from zero. At 974 it
+was **−0.025 (p = 0.00013)**. Lower weighting recovers ~0.019 of the 0.025, and what remains is
+inside the noise.
+
+**Nothing pays for it.** Paired by seed, 100 against 974:
+
+| condition | Δ Pd | p |
+|---|---|---|
+| mixed | **+0.029** | 3.2e-05 |
+| clutter_edge | **+0.026** | 0.0016 |
+| clutter | **+0.019** | 5.7e-06 |
+| multi | +0.008 | 0.019 |
+| isolated | +0.001 | 0.76 |
+| masking | +0.000 | 1.00 |
+| unresolved | −0.001 | 0.35 |
+
+Four conditions improve significantly; three are unchanged; **none degrades**. There is no trade to
+report, which is itself the finding — the expected tension between detecting rare positives and
+suppressing false alarms does not appear, because the operating point is chosen by sweeping the
+threshold afterwards and `pos_weight` only has to make the *ranking* learnable.
+
+**100 and 200 are effectively equivalent** — the only condition separating them is `mixed`
+(+0.011, p = 0.0015 in favour of 100). Everything else has p ≥ 0.2.
+
+**`pos_weight = 974` was actively wrong.** It was set in §3 as a "principled default" — the measured
+inverse class frequency, i.e. exact class balancing — and it is the worst of the three values tested,
+never better on any condition. Exact balancing was an assumption, flagged as such at the time, and
+the measurement rejects it.
+
+### What it changed
+1. **`pos_weight` moves to 100** (or 200 — pick 100 on `mixed`, the only significant separation).
+2. **The §7 headline is retracted**: "CFAR genuinely beats the network on `clutter`" was a statement
+   about a badly-chosen hyperparameter, not about the detectors. See Corrections C3.
+3. All §7 numbers are superseded and must be re-run at the chosen `pos_weight` before anything is
+   reported.""")
+
 # ============================================================================== corrections
 md("""---
 ## Corrections
@@ -475,7 +594,26 @@ substitute for the experiment that resolves it.
 **Why:** the estimate assumed seed variance is constant across training. It is not; it shrinks as
 the run converges (§7). A 3-seed spread is also a poor variance estimator in its own right. The
 prediction was conservative in the useful direction — the experiment was better powered than
-promised — but it was wrong about the mechanism.""")
+promised — but it was wrong about the mechanism.
+
+### C3 — "CFAR genuinely beats the network on `clutter`"
+**Claimed** (§7): DL 0.125 ± 0.0032 against GO 0.149, all 8 seeds below GO, p = 0.00014 — reported
+as the network's genuine weakness, and welcomed because `PROGRESS.md` Milestone 17 notes that a
+credible learned detector normally loses *somewhere*.
+
+**Retracted by** §8. At `pos_weight` 100 the same comparison is **0.144 vs 0.149, gap −0.006,
+p = 0.27** — no detectable difference. The deficit was a property of the *hyperparameter*, not of
+the detectors.
+
+**The reasoning error:** §3 set `pos_weight = 974` from the measured inverse class frequency and
+called it a principled default, while explicitly noting that exact class balancing is a choice
+rather than a derivation. §7 then drew a conclusion about the detectors from a configuration whose
+one free parameter had never been measured — and the caveat recorded in §3 is exactly the one that
+should have blocked it.
+
+**Consequence, stated plainly:** the network now ties or beats CFAR on all seven conditions, which
+revives the Milestone 17 concern that ours loses nowhere. That is a weaker position to report from,
+not a stronger one, and it is the honest state of the evidence.""")
 
 # ============================================================================== open
 md("""---
@@ -577,10 +715,14 @@ p = 0.048, but both methods sit at the ~0.5 physics cap (two targets inside one 
 detection can match only one truth). The significance is an artefact of a very small SE (0.0008),
 not a detection advantage. **Do not report as a win.**
 
-### O3 — `pos_weight` ablation pending
-{100, 200, 974}, and it **must be seed-averaged** — single-seed it would have to clear a noise floor
-of the same order as the effect. `pos_weight=974` is currently a principled default (the measured
-inverse frequency), not a measured optimum.""")
+### O3 — `pos_weight` ablation: DONE (2026-08-14), see §8
+Ran at {100, 200, 974} x 8 seeds. `pos_weight` moves to **100**; 974 was the worst of the three.
+The §7 clutter finding is retracted (Corrections C3).
+
+**What this opens instead:** every §7 number was measured at 974 and is now superseded. The
+headline DL-vs-CFAR table must be re-run at the chosen `pos_weight` before anything is reported, and
+the `clutter_edge` attribution (§Open/O1) should be re-checked there too — its +0.261 was measured
+at 974, and at 100 the same condition scores 0.731 rather than 0.704.""")
 
 # ============================================================================== next
 md("""---
@@ -589,13 +731,12 @@ md("""---
 Running to-do in the same per-experiment format, results blank. Fill in and move up into the
 chronological list once run.
 
-### N1 — `pos_weight` ablation
-- **Question:** is 974 (exact class balancing) better than 200 or 100 on Pd at matched measured Pfa?
-- **Setup:** 3–5 seeds × 50 epochs per value; `bench2_val`; everything else unchanged.
-  `python scripts/train_tinycnn.py --epochs 50 --seed $S --pos-weight $W --tag pw${W}_s$S ...`
-- **Results:** *(pending)*
-- **What it showed:** *(pending)*
-- **What it changed:** *(pending)*
+### N1 — re-run the headline comparison at `pos_weight = 100`
+- **Question:** what are the per-condition mean ± SE and the DL-vs-CFAR deltas at the chosen
+  hyperparameter? (§7's table is superseded; it was measured at 974.)
+- **Setup:** the 8 `pw100` checkpoints already exist — this is an evaluation, not a training run.
+  Re-run the `clutter_edge` attribution (§O1) at 100 as well.
+- **Results / showed / changed:** *(pending)*
 
 ### N2 — `clutter_edge` attribution: true-edge vs diluted frames
 - **Question:** does the +0.261 margin hold on frames where the window genuinely straddles the ridge,

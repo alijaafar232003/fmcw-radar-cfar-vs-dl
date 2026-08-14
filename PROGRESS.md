@@ -1515,6 +1515,58 @@ the mechanism agreeing — not the endpoint contrast alone.
 mechanism stated and the per-band counts (40–57 frames) noted. Full write-up, tables and figure in
 `notebooks/cnn_development_log.ipynb` §Open/O1.
 
+### 2026-08-14 — `pos_weight` ablation: 974 was the wrong choice, and the clutter finding retracts
+**Question.** Does a lower `pos_weight` recover the `clutter` deficit (DL 0.125 vs GO 0.149), and
+what does it cost on the other six conditions?
+
+**Setup.** 8 seeds × 50 epochs at each of `pos_weight` = 100, 200, 974 — 24 runs, everything else
+identical; the 974 arm reuses the existing 8-seed run. Evaluated at epoch 50 on `bench2_val`,
+per-condition sweep to matched measured Pfa 1e-4. Seeds shared across arms, so comparisons are
+**paired**. Pd only — final val losses were ~0.118 / 0.191 / 0.520, almost exactly the ratio the
+weights predict, which is the loss scale moving rather than performance.
+
+| condition | CFAR best | pw100 | pw200 | pw974 |
+|---|---|---|---|---|
+| clutter | **0.149** GO | 0.144 ± .005 | 0.144 ± .003 | 0.125 ± .003 |
+| clutter_edge | 0.443 OS | **0.731** ± .004 | 0.724 ± .004 | 0.704 ± .004 |
+| isolated | 0.710 CA | 0.732 ± .002 | 0.731 ± .002 | 0.732 ± .001 |
+| masking | 0.645 OS | 0.694 ± .003 | 0.698 ± .002 | 0.694 ± .004 |
+| mixed | 0.426 GO | **0.541** ± .003 | 0.530 ± .002 | 0.512 ± .002 |
+| multi | 0.680 CA | 0.719 ± .002 | 0.721 ± .002 | 0.711 ± .002 |
+| unresolved | 0.485 CA | 0.486 ± .001 | 0.487 ± .001 | 0.487 ± .001 |
+
+**Result — not a trade, a strict improvement.** The `clutter` gap against GO is **−0.006 (p = 0.27)**
+at 100 and **−0.005 (p = 0.15)** at 200, against **−0.025 (p = 0.00013)** at 974. Paired by seed,
+100 vs 974: mixed **+0.029** (p = 3e-05), clutter_edge **+0.026** (p = 0.002), clutter **+0.019**
+(p = 6e-06), multi +0.008 (p = 0.019); isolated, masking and unresolved unchanged (p ≥ 0.35).
+**Four conditions improve, three are flat, none degrades.**
+
+The absence of a trade is itself the finding: the expected tension between detecting rare positives
+and suppressing false alarms does not appear, because the operating point is chosen by sweeping the
+threshold afterwards — `pos_weight` only has to make the *ranking* learnable, which is exactly what
+`dl/train.py`'s own docstring argued and had never been tested at this sensor.
+
+100 and 200 are near-equivalent; only `mixed` separates them (+0.011, p = 0.0015 favouring 100).
+
+**⚠️ RETRACTION — the Milestone 23 headline.** "CFAR genuinely beats the network on `clutter`" was a
+statement about a badly-chosen hyperparameter, not about the detectors. `pos_weight = 974` was set
+from the measured inverse class frequency and called a principled default, while noting that exact
+balancing is a choice rather than a derivation — and that caveat is precisely the one that should
+have blocked drawing a conclusion about the detectors from it.
+
+**Consequence, stated plainly:** the network now ties or beats CFAR on all seven conditions, which
+revives Milestone 17's concern that a credible learned detector normally loses *somewhere* and ours
+loses nowhere. That is a **weaker** position to report from, not a stronger one.
+
+**What it changed.**
+1. `pos_weight` moves to **100**.
+2. Every Milestone-23 number is superseded — they were all measured at 974 and must be re-run.
+3. The `clutter_edge` attribution (2026-08-13) also needs re-checking at 100: its +0.261 was measured
+   at 974, and that condition scores 0.731 rather than 0.704 at 100.
+
+Full write-up, tables and figure in `notebooks/cnn_development_log.ipynb` §8, with the retraction as
+Correction C3.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,
