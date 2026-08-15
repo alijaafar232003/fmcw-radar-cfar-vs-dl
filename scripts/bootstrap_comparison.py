@@ -52,19 +52,19 @@ CV = ROOT / "results" / "cfar_val"
 DLR = ROOT / "results" / "dl"
 
 
-def per_frame_hits(frames, thr):
+def per_frame_hits(frames, thr, mc):
     """(hits, targets) per frame at a fixed threshold — the unit the bootstrap resamples."""
     h, n = [], []
     for pk, tru, shape, valid in frames:
         det = pk[pk[:, 2] >= thr][:, :2] if (len(pk) and thr == thr) else np.zeros((0, 2))
-        ev = evaluate_frame(det, tru, shape, MC, valid_mask=valid)
+        ev = evaluate_frame(det, tru, shape, mc, valid_mask=valid)
         h.append(ev.tp)
         n.append(len(tru))
     return np.array(h, float), np.array(n, float)
 
 
-def matched_threshold(frames):
-    roc = roc_curve(frames, roc_thresholds(frames, MC), MC)
+def matched_threshold(frames, mc):
+    roc = roc_curve(frames, roc_thresholds(frames, mc), mc)
     return _at_measured_pfa(roc, TARGET_PFA)[1]
 
 
@@ -73,7 +73,11 @@ def main() -> None:
     ap.add_argument("--pos-weight", type=int, default=100,
                     help="which DL arm to compare (default 100, the chosen value)")
     ap.add_argument("--n-boot", type=int, default=N_BOOT)
+    ap.add_argument("--tolerance", type=int, default=1,
+                    help="matching gate in bins. The tolerance sweep showed `clutter` is the one "
+                         "condition whose margin depends on it, so that claim needs its own CI.")
     args = ap.parse_args()
+    mc = MatchConfig(args.tolerance, args.tolerance)
 
     valid = cfar_valid_mask(SHAPE, CfarConfig())
     frames_meta = pd.read_csv(CV / "frames.csv")
@@ -97,6 +101,15 @@ def main() -> None:
     dl_peaks = []
     for cp in ckpts:
         ck = torch.load(cp, weights_only=False)
+        seed = ck["config"]["seed"]
+        # Peaks do not depend on the matching gate, so the cache built by tolerance_sweep.py is
+        # reusable here -- this is the expensive step (8 seeds x 1,600 frames of inference).
+        cache = DLR / f"peaks_val_pw{args.pos_weight}_s{seed}.npz"
+        if cache.exists():
+            a = np.load(cache)["peaks"]
+            dl_peaks.append({int(f): a[a[:, 0] == f][:, 1:] for f in np.unique(a[:, 0])})
+            print(f"  loaded {cache.name}")
+            continue
         model = TinyCNN(width=ck["config"].get("width", 16))
         model.load_state_dict(ck["state_dict"])
         model.eval()
@@ -120,7 +133,7 @@ def main() -> None:
         best_m, best_pd, best_hits, best_n = None, -1, None, None
         for m in ("CA", "GO", "OS", "SO"):
             f = fr_of(cfar_peaks[m])
-            h, n = per_frame_hits(f, matched_threshold(f))
+            h, n = per_frame_hits(f, matched_threshold(f, mc), mc)
             p = h.sum() / n.sum()
             if p > best_pd:
                 best_m, best_pd, best_hits, best_n = m, p, h, n
@@ -129,7 +142,7 @@ def main() -> None:
         dl_h = []
         for pk in dl_peaks:
             f = fr_of(pk)
-            h, n = per_frame_hits(f, matched_threshold(f))
+            h, n = per_frame_hits(f, matched_threshold(f, mc), mc)
             dl_h.append(h)
         dl_h = np.mean(dl_h, axis=0)
 
@@ -155,11 +168,12 @@ def main() -> None:
     df["sig (Bonf)"] = df.p_boot < alpha
     df["crosses 0"] = (df.ci_lo <= 0) & (df.ci_hi >= 0)
 
-    out = DLR / f"bootstrap_pw{args.pos_weight}.csv"
+    out = DLR / f"bootstrap_pw{args.pos_weight}_tol{args.tolerance}.csv"
     df.to_csv(out)
 
     print("\n" + "=" * 100)
-    print(f"DL (pos_weight={args.pos_weight}, {len(ckpts)} seeds) vs best CFAR, {SPLIT}")
+    print(f"DL (pos_weight={args.pos_weight}, {len(ckpts)} seeds) vs best CFAR, {SPLIT}, "
+          f"gate +/-{args.tolerance}")
     print(f"paired frame bootstrap, {args.n_boot} resamples · Bonferroni alpha = {alpha:.4f}")
     print("=" * 100)
     print(df.round(4).to_string())

@@ -639,6 +639,210 @@ literature; "wins everywhere" did not.
 3. Same defect applies to `notebooks/cfar_baseline.ipynb`, whose CFAR method-to-method comparisons
    are bare point estimates judged against a rule of thumb — corrected there too.""")
 
+# ============================================================================== 10
+md("""---
+## 10 · SO-CFAR — completing the classical baseline
+
+### Question
+`masking` is one of the surviving DL wins, and **SO-CFAR — the multiple-target specialist — was
+missing from the baseline.** Where GO takes the *greatest* half-ring to survive a clutter edge, SO
+takes the *smallest*, so an interfering target in one half cannot inflate the noise estimate and
+mask its neighbour. If SO beats OS on `masking`, that claim narrows.
+
+### Setup
+Added to `src/cfar/cfar.py` as `np.minimum` of the half-rings (GO's mirror), sharing GO's half-ring
+α. `python scripts/cfar_test_baseline.py --split bench2_val`, four classical methods.""")
+
+code('''cv = pd.read_csv(ROOT / "results" / "cfar_val" / "summary.csv").dropna(subset=["pd"])
+piv = cv.pivot_table(index="condition", columns="method", values="pd")
+order = [m for m in ("CA", "GO", "OS", "SO") if m in piv.columns]
+piv = piv[order]
+piv["best"] = piv.idxmax(axis=1)
+display(piv.round(3))
+print("SO is best on:", list(piv.index[piv.best == "SO"]) or "no condition")''')
+
+md("""### What it showed — a clean negative result
+**SO does not beat OS on `masking`** (0.638 vs 0.645) — a hair behind, so OS was already the right
+champion and the DL margin there is unchanged.
+
+SO is severely worse wherever clutter appears: 0.065 on `clutter` against GO's 0.149, 0.205 on
+`clutter_edge`, 0.213 on `mixed`. That is the exact mirror of GO — taking the *smallest* half-ring
+**under**estimates noise at an edge, so matching the measured false-alarm rate forces SO's threshold
+up and its Pd collapses. GO 0.149 vs SO 0.065 on `clutter` is the sharpest statement of GO/SO
+complementarity in the project, and worth a sentence in the report.
+
+### What it changed
+Nothing in the conclusions — **SO is never the best classical method on any condition**, so
+"best CFAR" per condition is unchanged and every DL comparison stands. The baseline is now four
+variants including both half-ring designs, which is what makes it defensible rather than convenient.""")
+
+# ============================================================================== 11
+md("""---
+## 11 · Tolerance sweep — is the ±1 gate doing the work?
+
+### Question
+The evaluator credits a detection within ±1 bin, and the label mask is a **3×3 block** — so the CNN
+is trained to fire on exactly the region the evaluator rewards. CFAR gets no such instruction; it
+responds wherever the physical peak lands. That is `PROGRESS.md` Milestone 16's open asymmetry #5,
+recorded and never tested: *"±1-bin gate may measure localisation rather than detection."*
+
+### Setup
+`python scripts/tolerance_sweep.py --pos-weight 100` · gates of ±1, ±2, ±3 · `bench2_val` · 8 seeds.
+Each gate gets its **own** threshold sweep, because the gate also sets the guard region excluded
+from the false-alarm denominator. Absolute Pd therefore rises for everyone as the gate widens; only
+the DL-minus-CFAR *difference* is comparable across gates.""")
+
+code('''ts = DL / "tolerance_sweep_pw100.csv"
+if ts.exists():
+    t = pd.read_csv(ts)
+    d = t.pivot_table(index="condition", columns="tol", values="diff")
+    d["change 1->3"] = d[3] - d[1]
+    display(d.round(3).sort_values("change 1->3"))
+
+    fig, ax = plt.subplots(figsize=(9, 4.4))
+    for c in d.index:
+        style = dict(lw=2.4, color="#c0392b") if c == "clutter" else dict(lw=1.4, color=MUTED)
+        ax.plot([1, 2, 3], d.loc[c, [1, 2, 3]], "o-", **style)
+        ax.annotate(c, (3.04, d.loc[c, 3]), fontsize=8, va="center",
+                    color="#c0392b" if c == "clutter" else MUTED)
+    ax.axhline(0, color=INK, lw=1)
+    ax.set_xticks([1, 2, 3]); ax.set_xlim(0.9, 3.9)
+    ax.set_xlabel("matching gate (bins)"); ax.set_ylabel("Pd difference, DL - best CFAR")
+    ax.set_title("Margins hold as the gate widens — except clutter, which moves against DL")
+    plt.tight_layout(); plt.show()
+else:
+    print("run: python scripts/tolerance_sweep.py --pos-weight 100")''')
+
+md("""### What it showed — falsified, except on `clutter`
+**Six of seven margins hold**, every change ≤0.013 and inside the noise. Widening the gate removes
+the localisation requirement altogether, and DL's advantage survives it. The objection is
+**falsified** for every condition where we claim a win: this is detection, not peak placement.
+
+⚠️ **`clutter` is the exception, and it moves against DL** — the deficit triples, −0.006 → −0.038.
+The mechanism is asymmetry #5 pointing the *other* way: on `clutter` the RD peak lies within 1 bin
+of the label only **77%** of the time (Milestone 22), so CFAR — which detects the physical peak —
+was being denied credit at ±1, while DL, trained on label positions, already sat inside the tight
+gate. Widening the gate hands CFAR back detections it was already making.
+
+### What it changed
+**At ±1 the `clutter` comparison is biased in DL's favour**, so "clutter is a tie" (§9) may
+understate CFAR. The ±1 CI was [−0.030, +0.017] and −0.038 sits at its edge, so this needs its own
+bootstrap before being claimed either way — run at ±3 in §12.""")
+
+# ============================================================================== 12
+md("""---
+## 12 · NMS sweep — is `unresolved` capped by physics or by suppression?
+
+### Question
+`unresolved` sits at Pd ≈ 0.5 and we attribute it to physics: two targets inside one mainlobe, one
+detection can match only one truth. But NMS suppresses local maxima within (2·nms+1) bins, and
+`nms_size=5` is an 11×11 window — 2.15 m in range, far wider than the ~2-bin mainlobe. **If NMS is
+what merges the pair, the cap is a post-processing artefact, not a property of the radar.**
+`masking` is included because step 6d documents the same setting capping it near Pd 0.69.
+
+### Setup
+`python scripts/nms_sweep.py` · nms_size ∈ {1, 2, 3, 5} · `bench2_val`, 4 DL seeds. Score maps are
+computed once per frame and NMS applied afterwards at each width, so only the suppression changes.""")
+
+code('''ns = DL / "nms_sweep.csv"
+if ns.exists():
+    n = pd.read_csv(ns)
+    for cond in n.condition.unique():
+        d = n[n.condition == cond]
+        print(f"{cond} — Pd at matched measured Pfa 1e-4")
+        display(d.pivot_table(index="method", columns="nms", values="pd").round(3))
+    print("detections per target (dominated by false alarms at ~1.3/frame, so only a rise")
+    print("ABOVE the other methods is interpretable as duplication):")
+    display(n[n.condition == "unresolved"].pivot_table(index="method", columns="nms",
+                                                       values="det_per_target").round(2))
+else:
+    print("run: python scripts/nms_sweep.py")''')
+
+md("""### What it showed — physics on `unresolved`, and a conservative choice on `masking`
+**`unresolved` is flat from nms 2 to 5 for every method** (0.482–0.485). Shrinking the window from
+11×11 to 5×5 changes nothing, because the pairs are 0.26–1.79 range bins apart — below the measured
+0.39 m equal-strength limit, so no suppression width can separate them. Only the disqualified
+`nms_size=1` lifts anything, and it lifts **DL most** (0.554) while raising DL's
+detections-per-target to 1.22 against 1.16 for the others: the free-attempts regime step 6d rejected,
+where the evaluator forgives duplicates inside a truth's guard region. **The 0.5 cap is physics.**
+
+**On `masking` the width matters, and our choice costs us.** DL−OS is **+0.052 at nms 5** against
+**+0.079 at nms 1** — `nms_size=5` suppresses genuinely resolvable neighbours and **shrinks** the
+claimed DL advantage rather than manufacturing it. CA and GO are flat throughout because they cannot
+resolve these pairs at any width.
+
+*Caveat on our own metric:* detections-per-target is dominated by false alarms (~1.3/frame at
+Pfa 1e-4), so only the nms=1 rise above the other methods reads as duplication.
+
+### What it changed
+Both objections resolved in the project's favour, and neither claim moves. `nms_size=5` stays.""")
+
+# ============================================================================== 13
+md("""---
+## 13 · The `clutter` claim at ±3 — CFAR does win there
+
+### Question
+§11 showed `clutter` is the one condition whose margin depends on the matching gate, moving
+**against** DL as the gate widens. §9's "clutter is a tie" was measured at ±1, the gate that
+penalises CFAR for detecting the physical peak rather than the labelled bin. What is the claim at
+±3, where that penalty is removed?
+
+### Setup
+`python scripts/bootstrap_comparison.py --pos-weight 100 --tolerance 3` · same paired frame
+bootstrap, 2,000 resamples, Bonferroni α = 0.0071 · DL peaks reused from the cache, since peaks do
+not depend on the gate.""")
+
+code('''rows = []
+for tol in (1, 3):
+    f = DL / f"bootstrap_pw100_tol{tol}.csv"
+    f = f if f.exists() else (DL / "bootstrap_pw100.csv" if tol == 1 else None)
+    if f is None or not f.exists():
+        continue
+    d = pd.read_csv(f).set_index("condition")
+    d["tol"] = tol
+    rows.append(d.reset_index())
+
+if rows:
+    b = pd.concat(rows)
+    view = b.pivot_table(index="condition", columns="tol",
+                         values=["cfar_pd", "dl_pd", "diff", "p_boot"])
+    display(view.round(4))
+
+    c = b[b.condition == "clutter"].set_index("tol")
+    print("clutter, the condition in question:")
+    for tol in c.index:
+        r = c.loc[tol]
+        print(f"   gate +/-{tol}:  CFAR {r.cfar_pd:.4f} ({r.cfar_method})   DL {r.dl_pd:.4f}   "
+              f"diff {r['diff']:+.4f}   CI [{r.ci_lo:+.4f}, {r.ci_hi:+.4f}]   p={r.p_boot:.3f}")
+    print("\\nCFAR gains far more from widening the gate than DL does -- which is the")
+    print("77% label-to-peak alignment on this condition (Milestone 22) being paid back.")
+else:
+    print("run: python scripts/bootstrap_comparison.py --pos-weight 100 --tolerance 3")''')
+
+md("""### What it showed — DL does lose somewhere
+At ±3, **CFAR beats DL on `clutter` by 0.038**, CI [−0.069, −0.007] **excluding zero**, p = 0.013.
+GO rises 0.149 → **0.192** while DL moves only 0.144 → 0.153: CFAR gains three times as much from
+the wider gate, which is exactly the 77% alignment on this condition being paid back.
+
+**Honest verdict:** nominally a CFAR win, but p = 0.013 does **not** survive the Bonferroni
+threshold of 0.0071. Report it as *"CFAR is better on targets inside the clutter ridge; the effect
+is at the edge of significance once corrected for seven comparisons."*
+
+This partly restores what `PROGRESS.md` Milestone 17 says a credible learned detector should show —
+a condition where it loses. Once CFAR is not penalised for detecting the physical peak rather than
+the labelled bin, the clutter ridge is that condition.
+
+### ⚠️ `isolated` is borderline, and no claim should rest on it
+p = 0.031 at ±1 and p = 0.001 at ±3, while the estimate barely moves (+0.022 → +0.026). A 30× swing
+in p from a 0.004 shift in the difference is **tail sensitivity, not evidence** — the estimate sits
+right at the significance boundary at both gates. State it as *"small positive, borderline"*, and do
+not let a conclusion turn on which side of 0.0071 a bootstrap tail probability happens to land.
+
+### What it changed
+The pre-registered ±1 gate stays the headline, with ±3 reported as the robustness check beside it.
+Two claims are now gate-qualified rather than flat: `clutter` (CFAR better at ±3) and `isolated`
+(borderline at both).""")
+
 # ============================================================================== corrections
 md("""---
 ## Corrections

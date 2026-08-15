@@ -1687,6 +1687,33 @@ SO in `cfar/cfar.py`. Conclusions changed: the `isolated` win withdrawn (see the
 the `clutter` tie flagged as gate-sensitive, and the `masking`/`unresolved` objections resolved in
 our favour. Nothing else moved.
 
+### 2026-08-15 — The `clutter` claim at ±3: CFAR does win there
+**Question.** §11's tolerance sweep showed `clutter` is the one condition whose margin depends on
+the matching gate, and it moves *against* DL. "Clutter is a tie" was measured at ±1 — the gate that
+penalises CFAR for detecting the physical peak rather than the labelled bin. What is the claim at
+±3? `scripts/bootstrap_comparison.py --tolerance 3`, same paired bootstrap, Bonferroni α = 0.0071.
+
+| gate | CFAR (GO) | DL | diff | 95% CI | p |
+|---|---|---|---|---|---|
+| ±1 | 0.149 | 0.144 | −0.006 | [−0.030, +0.017] | 0.688 |
+| **±3** | **0.192** | 0.153 | **−0.038** | **[−0.069, −0.007]** | 0.013 |
+
+**CFAR gains three times as much from the wider gate** (0.149 → 0.192 against DL's 0.144 → 0.153) —
+the 77% label-to-peak alignment on this condition (Milestone 22) being paid back. The CI now
+excludes zero, but p = 0.013 does **not** survive correction.
+
+**Report as:** *"CFAR is better on targets inside the clutter ridge; the effect is at the edge of
+significance once corrected for seven comparisons."* This partly restores what Milestone 17 says a
+credible learned detector should show — a condition where it loses. Once CFAR is not penalised for
+detecting the physical peak, the clutter ridge is that condition.
+
+**⚠️ `isolated` is borderline and no claim should rest on it.** p = 0.031 at ±1, p = 0.001 at ±3,
+while the estimate moves only +0.022 → +0.026. A 30× swing in p from a 0.004 shift is tail
+sensitivity, not evidence. State it as "small positive, borderline".
+
+**Decision:** the pre-registered **±1 gate remains the headline**, with ±3 reported beside it as the
+robustness check. Two claims are gate-qualified rather than flat: `clutter` and `isolated`.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,
