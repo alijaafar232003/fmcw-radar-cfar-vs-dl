@@ -566,6 +566,79 @@ the measurement rejects it.
 3. All §7 numbers are superseded and must be re-run at the chosen `pos_weight` before anything is
    reported.""")
 
+# ============================================================================== 9
+md("""---
+## 9 · Error bars on both sides — and a multiplicity correction
+
+### Question
+Every DL-vs-CFAR p-value so far used `ttest_1samp(dl_seeds, cfar_value)`, which treats CFAR's Pd as
+an **exact constant**. It is not — it is one draw over 200 frames per condition, carrying sampling
+error of the same order as the effects being claimed. What survives when CFAR gets error bars too,
+and when the 7 simultaneous comparisons are corrected for?
+
+### Setup
+`python scripts/bootstrap_comparison.py --pos-weight 100` · `bench2_val` · cached CFAR peaks, 8 DL
+checkpoints, **no retraining**.
+
+**Paired frame bootstrap.** Resample frames with replacement; within each resample recompute Pd for
+CFAR and for every DL seed *on the same frames*, and take the difference — so frame difficulty
+cancels instead of adding noise. 2,000 resamples, percentile CI, bootstrap p-value.
+**Bonferroni** across the 7 scored conditions: α = 0.05 → **0.0071**.
+
+*Stated limitation:* detections are taken at each method's matched-Pfa threshold computed once on
+the full condition, so the interval covers sampling error in Pd at a fixed operating point but not
+the variability of *choosing* that threshold. Redoing the sweep per resample would cost ~200× the
+compute. The intervals are therefore mildly optimistic.""")
+
+code('''bs = DL / "bootstrap_pw100.csv"
+if bs.exists():
+    b = pd.read_csv(bs).set_index("condition").sort_values("diff", ascending=False)
+    display(b.round(4))
+
+    fig, ax = plt.subplots(figsize=(9.5, 4.6))
+    y = np.arange(len(b))
+    # One errorbar call per row: `ecolor` takes a single colour, not a per-point list.
+    for i, (c, r) in enumerate(b.iterrows()):
+        col = "#2a78d6" if r["sig (Bonf)"] else "#b9b7b0"
+        ax.errorbar(r["diff"], i, xerr=[[r["diff"] - r.ci_lo], [r.ci_hi - r["diff"]]],
+                    fmt="o", ms=8, capsize=4, lw=1.6, color=col, ecolor=col)
+    ax.axvline(0, color=INK, lw=1.2)
+    ax.set_yticks(y); ax.set_yticklabels(b.index)
+    ax.set_xlabel("Pd difference, DL - best CFAR  (95% bootstrap CI)")
+    ax.set_title("Blue = survives Bonferroni correction; grey = does not")
+    plt.tight_layout(); plt.show()
+
+    print(f"survives correction: {int(b['sig (Bonf)'].sum())} of {len(b)}")
+    print("ties (CI crosses zero):", list(b.index[b['crosses 0']]))
+else:
+    print("run: python scripts/bootstrap_comparison.py --pos-weight 100")''')
+
+md("""### What it showed — the headline shrinks, and that is good news
+
+**Four of seven survive** correction: clutter_edge (+0.288), mixed (+0.116), masking (+0.049),
+multi (+0.038). **Three are ties:** clutter (−0.006, p = 0.69), unresolved (+0.001, p = 0.91), and —
+the one that changed — **`isolated` (+0.023, p = 0.031)**, which fails the corrected threshold.
+
+`isolated` had been reported at **p = 6.9e-07** from the seed-only t-test. Giving CFAR its own
+sampling error and correcting for 7 comparisons removed the claim entirely. The nominal 95% CI
+[0.002, 0.046] still excludes zero, so the honest phrasing is *positive but not significant after
+correction* — not *"DL beats CFAR on clean noise"*.
+
+**Why this strengthens the project.** `PROGRESS.md` Milestone 17 records that a well-built CNN is
+expected to **tie** CFAR in homogeneous noise (RadCNN S4, Gusland), and flagged our win there as
+*"the strongest single indication that something still favours the network."* With correct
+statistics it **is** a tie. The anomaly was a statistical artefact, not an unfair advantage.
+
+The result now reads: **DL wins decisively where interference or clutter is present, and ties CFAR
+on clean noise, on unresolvable pairs, and inside the clutter ridge.** That shape matches the
+literature; "wins everywhere" did not.
+
+### What it changed
+1. Every previously reported DL-vs-CFAR p-value is superseded by this table.
+2. The `isolated` win is withdrawn (Corrections C4).
+3. Same defect applies to `notebooks/cfar_baseline.ipynb`, whose CFAR method-to-method comparisons
+   are bare point estimates judged against a rule of thumb — corrected there too.""")
+
 # ============================================================================== corrections
 md("""---
 ## Corrections
@@ -613,7 +686,27 @@ should have blocked it.
 
 **Consequence, stated plainly:** the network now ties or beats CFAR on all seven conditions, which
 revives the Milestone 17 concern that ours loses nowhere. That is a weaker position to report from,
-not a stronger one, and it is the honest state of the evidence.""")
+not a stronger one, and it is the honest state of the evidence.
+
+*(Partly resolved by §9: with error bars on both sides, three of the seven are ties rather than
+wins, which is the shape the literature predicts. `clutter` remains a tie, not a loss.)*
+
+### C4 — "DL beats CFAR on `isolated`" (p = 6.9e-07)
+**Claimed** (§7, and repeated in §8): DL 0.732 ± 0.001 against CA 0.710, reported as a significant
+win on the clean, homogeneous-noise condition.
+
+**Retracted by** §9. The p-value came from `ttest_1samp(dl_seeds, cfar_value)`, which treats CFAR's
+Pd as exact. It is one draw over 200 frames. With a paired frame bootstrap giving CFAR its own
+sampling error, and Bonferroni across 7 conditions, the same comparison is **+0.023, p = 0.031** —
+short of the corrected threshold of 0.0071.
+
+**The reasoning error:** the DL side had 8 seeds and visible scatter, so it *looked* like the
+uncertainty had been accounted for. All the uncertainty on the *other* side of the comparison was
+silently set to zero. Eight seeds of precision on one arm does not license a point estimate on the
+other.
+
+**Consequence:** the `isolated` claim is withdrawn, and — usefully — its withdrawal removes the
+Milestone 17 anomaly, since a tie in homogeneous noise is exactly what the corpus predicts.""")
 
 # ============================================================================== open
 md("""---

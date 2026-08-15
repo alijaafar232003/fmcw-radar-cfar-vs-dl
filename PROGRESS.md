@@ -1567,6 +1567,126 @@ loses nowhere. That is a **weaker** position to report from, not a stronger one.
 Full write-up, tables and figure in `notebooks/cnn_development_log.ipynb` §8, with the retraction as
 Correction C3.
 
+### 2026-08-14 — Error bars on both sides: the `isolated` win withdraws, and the shape improves
+**Question.** Every DL-vs-CFAR p-value so far used `ttest_1samp(dl_seeds, cfar_value)` — treating
+CFAR's Pd as an exact constant when it is one draw over 200 frames. What survives when CFAR gets its
+own sampling error, and when the 7 simultaneous comparisons are corrected?
+
+**Setup.** `scripts/bootstrap_comparison.py` · `bench2_val` · paired frame bootstrap (resample
+frames, recompute both sides on the same frames so difficulty cancels), 2,000 resamples, percentile
+CI · Bonferroni α = 0.05/7 = **0.0071** · cached CFAR peaks + 8 existing DL checkpoints, no
+retraining. *Limitation stated:* thresholds are computed once per condition, so the intervals cover
+Pd sampling error but not threshold-selection variability — mildly optimistic.
+
+| condition | CFAR | DL (pw100) | diff | 95% CI | p | survives |
+|---|---|---|---|---|---|---|
+| clutter_edge | OS 0.443 | 0.731 | **+0.288** | [0.239, 0.336] | <0.001 | ✓ |
+| mixed | GO 0.426 | 0.541 | **+0.116** | [0.086, 0.148] | <0.001 | ✓ |
+| masking | OS 0.645 | 0.694 | **+0.049** | [0.031, 0.070] | <0.001 | ✓ |
+| multi | CA 0.680 | 0.719 | **+0.038** | [0.025, 0.052] | <0.001 | ✓ |
+| isolated | CA 0.710 | 0.733 | +0.023 | [0.002, 0.046] | 0.031 | ✗ |
+| clutter | GO 0.149 | 0.144 | −0.006 | [−0.030, +0.017] | 0.688 | ✗ |
+| unresolved | CA 0.485 | 0.486 | +0.001 | [−0.008, +0.010] | 0.911 | ✗ |
+
+**⚠️ RETRACTION — the `isolated` win.** Previously reported at **p = 6.9e-07**; it is **p = 0.031**,
+short of the corrected threshold. The DL side had 8 seeds and visible scatter, so the uncertainty
+*looked* accounted for — while all the uncertainty on the other side of the comparison was silently
+set to zero. Eight seeds of precision on one arm does not license a point estimate on the other.
+
+**This improves the project's position.** Milestone 17 records that a well-built CNN should **tie**
+CFAR in homogeneous noise (RadCNN S4, Gusland), and flagged our win there as *"the strongest single
+indication that something still favours the network."* With correct statistics it **is** a tie. The
+result now reads: **DL wins decisively where interference or clutter is present, ties on clean
+noise, on unresolvable pairs, and inside the clutter ridge** — the shape the literature predicts.
+
+**Also checked (clean): target-level leakage.** Frame-level leakage was already zero by content
+hash; this tests the subtler case of the same target *parameters* appearing in both splits.
+Zero exact matches over 16,122 train and 3,115 val targets. 0.42% of val targets have a train
+neighbour within 0.01 normalised distance, against **~0.5% expected by chance** (median NN distance
+0.060, density scaling as r³) — ordinary crowding of independent draws, not leakage.
+`scripts/verify_target_leak.py`.
+
+**What it changed.** All prior DL-vs-CFAR p-values superseded. The same defect applies to
+`notebooks/cfar_baseline.ipynb`, whose CFAR method-to-method comparisons are bare point estimates
+judged against a rule of thumb — being corrected there too.
+
+### 2026-08-15 — Pre-lock robustness block: 6 checks, 3 conclusions changed
+A **closed-ended** block run against a list of objections, under a rule adopted because the project
+had been drifting into open-ended fixing: *a new finding goes on the limitations list, not the work
+queue, unless it changes a number already published here.* Six items, no seventh opened.
+
+#### #4 SO-CFAR added — the baseline was already adequate
+`SO` (smallest-of) is the multiple-target specialist and was missing while we claimed a `masking`
+win. Added to `src/cfar/cfar.py` (`np.minimum` of the half-rings, mirroring GO's `maximum`), and
+`bench2_val` re-scored with four classical methods.
+
+| condition | CA | GO | OS | **SO** |
+|---|---|---|---|---|
+| masking | 0.515 | 0.522 | **0.645** | 0.638 |
+| clutter | 0.134 | **0.149** | 0.137 | 0.065 |
+| clutter_edge | 0.419 | 0.426 | **0.443** | 0.205 |
+| mixed | 0.400 | **0.426** | 0.373 | 0.213 |
+
+**SO does not beat OS on masking** (0.638 vs 0.645), so the DL margin there stands. SO is severely
+worse wherever clutter appears — the exact mirror of GO, since taking the *smallest* half-ring
+underestimates noise at an edge and matched-Pfa scoring then forces its threshold up. GO 0.149 vs
+SO 0.065 on `clutter` is the cleanest statement of GO/SO complementarity in the project.
+**SO is never the best classical method on any condition, so no conclusion changes.**
+
+#### #1 Tolerance sweep — the ±1 gate is NOT doing the work (except on `clutter`)
+The gate credits a detection within ±1 bin, and the label mask is 3×3, so the CNN is trained to fire
+on exactly the region the evaluator rewards (Milestone 16 asymmetry #5, never tested). Re-scored at
+gates of ±1, ±2, ±3 — each with its own threshold sweep, since the gate also sets the guard region.
+
+DL − best CFAR:
+
+| condition | ±1 | ±2 | ±3 | change |
+|---|---|---|---|---|
+| clutter_edge | 0.288 | 0.294 | 0.294 | +0.006 |
+| mixed | 0.116 | 0.120 | 0.114 | −0.001 |
+| masking | 0.049 | 0.059 | 0.062 | +0.013 |
+| multi | 0.038 | 0.045 | 0.039 | +0.001 |
+| isolated | 0.022 | 0.026 | 0.026 | +0.004 |
+| unresolved | 0.001 | 0.004 | 0.004 | +0.003 |
+| **clutter** | **−0.006** | **−0.022** | **−0.038** | **−0.033** |
+
+**Six of seven margins hold** (all ≤0.013). The localisation-to-the-label objection is **falsified**
+for every condition where we claim a win.
+
+⚠️ **`clutter` is the exception and it moves against DL.** The deficit triples as the gate widens.
+The mechanism is the one asymmetry #5 predicted, pointing the other way: on `clutter` the RD peak is
+within 1 bin of the label only **77%** of the time (Milestone 22), so CFAR — which detects the
+*physical* peak — was being denied credit at ±1, while DL, trained on label positions, already sat
+inside the tight gate. **At ±1 the clutter comparison is biased in DL's favour**, and "clutter is a
+tie" may understate CFAR. Needs bootstrapping at ±3 before any claim: the ±1 CI was [−0.030, +0.017]
+and −0.038 sits at its edge.
+
+#### #2 NMS sweep — `unresolved` is capped by physics; the NMS choice is conservative on `masking`
+
+| `unresolved` | nms 1 | nms 2 | nms 3 | nms 5 | | `masking` | nms 1 | nms 2 | nms 3 | nms 5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| CA | 0.495 | 0.485 | 0.485 | 0.485 | | CA | 0.515 | 0.515 | 0.515 | 0.515 |
+| OS | 0.512 | 0.485 | 0.485 | 0.485 | | OS | 0.725 | 0.705 | 0.682 | 0.645 |
+| DL | 0.554 | 0.483 | 0.483 | 0.483 | | DL | 0.804 | 0.770 | 0.739 | 0.697 |
+
+**`unresolved` is flat from nms 2 to 5 for every method** — shrinking the window 11×11 → 5×5 changes
+nothing, because the pairs are 0.26–1.79 range bins apart, below the measured 0.39 m limit. Only the
+disqualified `nms_size=1` lifts it, and it lifts DL most (0.554) while raising DL's
+detections-per-target to 1.22 against 1.16 for the others — the free-attempts regime step 6d rejected.
+**The 0.5 cap is physics.**
+
+**On `masking` the NMS width matters, and our choice costs us.** DL−OS is +0.052 at nms 5 and +0.079
+at nms 1: `nms_size=5` suppresses resolvable neighbours and **shrinks** the claimed DL advantage
+rather than manufacturing it. CA and GO are flat because they cannot resolve these pairs at any
+width. *Caveat on our own metric:* detections-per-target is dominated by false alarms (~1.3/frame at
+Pfa 1e-4), so only the nms=1 rise above the other methods is interpretable as duplication.
+
+#### Block outcome
+Scripts: `bootstrap_comparison.py`, `verify_target_leak.py`, `tolerance_sweep.py`, `nms_sweep.py`,
+SO in `cfar/cfar.py`. Conclusions changed: the `isolated` win withdrawn (see the 2026-08-14 entry),
+the `clutter` tie flagged as gate-sensitive, and the `masking`/`unresolved` objections resolved in
+our favour. Nothing else moved.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,

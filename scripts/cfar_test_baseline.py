@@ -39,7 +39,7 @@ from eval import (MatchConfig, aggregate, evaluate_frame,          # noqa: E402
 
 import argparse
 
-METHODS = ("CA", "GO", "OS")
+METHODS = ("CA", "GO", "OS", "SO")
 TARGET_PFA = 1e-4
 
 # Set by main(); `bench2_test` is the reported baseline, `bench2_val` is what every comparison

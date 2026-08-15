@@ -138,8 +138,48 @@ plt.tight_layout(); plt.show()
 
 print("Spread between best and worst method, per condition:")
 print(piv["spread"].round(3).sort_values(ascending=False).to_string())
-print("\\nA spread of ~0.01 at 400 frames/condition is inside sampling noise;")
-print("only clearly separated rows support a claim about which method is better.")''')
+
+# A rule of thumb is not a measurement. Bootstrap each Pd over FRAMES so the spreads above can be
+# judged against a real interval. This is the same defect that inflated the DL-vs-CFAR p-values
+# until they were redone with a paired bootstrap -- see cnn_development_log.ipynb section 9, where
+# treating one side of a comparison as exact turned a p = 0.031 result into p = 6.9e-07.
+rng = np.random.default_rng(0)
+boot = []
+for cond in CONDS:
+    ids = frames.loc[frames.condition == cond, "frame"].to_numpy()
+    for m in METHODS:
+        row = summary[(summary.condition == cond) & (summary.method == m)]
+        if not len(row) or not np.isfinite(row.threshold.iloc[0]):
+            continue
+        thr = float(row.threshold.iloc[0])
+        hits, tgts = [], []
+        for i in ids:
+            t = TRUTH_BY_FRAME.get(i)
+            tru = (t[["range_bin", "velocity_bin"]].to_numpy(float)
+                   if t is not None else np.zeros((0, 2)))
+            pk = PEAKS[m].get(int(i), np.zeros((0, 3)))
+            det = pk[pk[:, 2] >= thr][:, :2] if len(pk) else np.zeros((0, 2))
+            ev = evaluate_frame(det, tru, SHAPE, MatchConfig(1, 1), valid_mask=VALID)
+            hits.append(ev.tp); tgts.append(len(tru))
+        hits, tgts = np.array(hits, float), np.array(tgts, float)
+        if tgts.sum() == 0:
+            continue
+        draws = np.empty(1000)
+        for b in range(1000):
+            k = rng.integers(0, len(ids), len(ids))
+            draws[b] = hits[k].sum() / max(tgts[k].sum(), 1.0)
+        boot.append(dict(condition=cond, method=m, se=draws.std(ddof=1)))
+
+bt = pd.DataFrame(boot)
+se = bt.pivot_table(index="condition", columns="method", values="se")[METHODS]
+merged = piv[METHODS].join(se.add_suffix(" SE"))
+merged["spread"] = piv["spread"]
+merged["max SE"] = se.max(axis=1)
+merged["real?"] = merged["spread"] > 2 * merged["max SE"]
+print("\\nIs the method-to-method spread larger than the measurement error?")
+display(merged[["spread", "max SE", "real?"]].round(4))
+print("Rows marked False are three-way ties in all but name -- the ordering there is noise,")
+print("and the 'best method' column above should not be read as a finding for them.")''')
 
 # ------------------------------------------------------------- 2b. detections vs truth, on a frame
 md("""## 2b. What the detectors actually did — truth vs detections, same frame

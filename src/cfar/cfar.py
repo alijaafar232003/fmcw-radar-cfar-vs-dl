@@ -213,6 +213,18 @@ def cfar_ratio_map(power: np.ndarray, cfg: CfarConfig):
         # any comparison made at matched MEASURED Pfa.
         alpha = cfg.alpha_go()
 
+    elif cfg.kind == "SO":
+        # Smallest-of: the multiple-target specialist, and the counterpart to GO. Where GO takes
+        # the larger half-ring to survive a clutter edge, SO takes the SMALLER one so that an
+        # interfering target sitting in one half cannot inflate the noise estimate and mask its
+        # neighbour. It is the natural classical baseline for the `masking` stratum, and its
+        # absence left that comparison against OS alone.
+        lead, lag = _half_ring_means(power, hw_r, hw_d, g_r, g_d, axis=cfg.go_axis)
+        noise = np.minimum(lead, lag)
+        # Same half-ring cell count as GO; SO's true Pfa is optimistic rather than conservative
+        # (taking a minimum biases the estimate down), which matched-measured-Pfa scoring removes.
+        alpha = cfg.alpha_go()
+
     elif cfg.kind == "OS":
         rank = int(round(cfg.os_rank_frac * cfg.num_ref_cells))
         noise = _os_ring_statistic(power, hw_r, hw_d, g_r, g_d, rank)
