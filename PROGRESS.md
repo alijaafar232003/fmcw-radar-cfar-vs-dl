@@ -1714,6 +1714,52 @@ sensitivity, not evidence. State it as "small positive, borderline".
 **Decision:** the pre-registered **±1 gate remains the headline**, with ±3 reported beside it as the
 robustness check. Two claims are gate-qualified rather than flat: `clutter` and `isolated`.
 
+### 2026-08-16 — Localization error: the one metric where CFAR clearly beats the network
+**Question.** `aggregate()` has always computed localization error, and `cfar_baseline.ipynb`
+reports it for CFAR — but it was **never extracted for the DL side**; every script computed it and
+read only `pd`. It is also a proposal-required metric. How precisely does each detector place what
+it finds? `scripts/localization_table.py --per-condition`, `bench2_val`, 8 DL seeds at pw100,
+matched measured Pfa 1e-4, gates ±1 and ±3.
+
+| gate ±1 | Pd | \|Δr\| bins | \|Δv\| bins | range (m) | vel (m/s) |
+|---|---|---|---|---|---|
+| CA | 0.482 | 0.216 | 0.101 | 0.042 | 0.042 |
+| GO | 0.497 | 0.218 | 0.119 | 0.043 | 0.050 |
+| **OS** | 0.481 | 0.218 | **0.086** | 0.043 | **0.036** |
+| SO | 0.237 | **0.179** | 0.142 | **0.035** | 0.060 |
+| **DL** | **0.587** | 0.498 | 0.485 | 0.097 | 0.204 |
+
+**DL's Doppler error is 5.6× the best CFAR and its range error 2.8×** — 0.204 m/s against OS's
+0.036 m/s. Identical ordering at ±3, so not a gate artefact.
+
+**Likely cause: the 3×3 label blob.** The network is trained that all nine cells around a target are
+"target", so its peak may land anywhere inside that block, while CFAR responds to the sharper
+physical peak. This is Milestone 16's asymmetry #5 measured directly rather than argued.
+
+**Why it matters.** The headline is no longer one-sided: **DL detects more, CFAR localizes far
+better.** That is a real trade, it is proposal-required, and it is the strongest honest answer to
+"does the network beat CFAR?" — *at finding targets in interference, yes; at placing them, no.*
+
+Side observations: SO has the **best** range localization (0.179 bins) despite the worst Pd, which
+fits a low threshold surviving only on sharp peaks; and DL's error barely moves between gates,
+meaning its displaced detections were already inside the tight gate. Suggests a later experiment:
+a smaller or Gaussian-weighted label instead of a flat 3×3 block.
+
+### 2026-08-16 — `TinyCNNPool` added (pooling control, not yet trained)
+Built to test an assertion `models.py` has been making without evidence: *"down/up-sampling risks
+displacing the peak bin"*. Pool by 2, convolve at half resolution, upsample back to 256×64.
+
+**Parameter count lands at exactly 5,041 — identical to `TinyCNN`** — so capacity is not a confound.
+**The receptive field is not.** Measured **13×13** against TinyCNN's **21×9**: range *shrinks*
+21→13 while Doppler *grows* 9→13, since a 3×3 kernel at half resolution spans twice the input and
+the range-stretching dilations are gone. So a localization difference cannot be attributed to
+downsampling alone, and this model **no longer matches the CFAR window** — it is a control for one
+question, not a valid arm of the CFAR-vs-DL comparison. Both facts are in the class docstring.
+
+Prediction to test: localization error rises. The bar is the no-pooling baseline of 0.498/0.485
+bins, and the ±1 gate will convert displacement beyond one bin into lost Pd rather than larger
+error — so **both** effects should be reported, at ±1 and ±3.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,

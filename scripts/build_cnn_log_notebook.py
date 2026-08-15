@@ -843,6 +843,89 @@ The pre-registered ±1 gate stays the headline, with ±3 reported as the robustn
 Two claims are now gate-qualified rather than flat: `clutter` (CFAR better at ±3) and `isolated`
 (borderline at both).""")
 
+# ============================================================================== 14
+md("""---
+## 14 · Localization error — the one metric where CFAR clearly wins
+
+### Question
+`aggregate()` has always computed localization (mean |Δrange|, |Δdoppler|, RMSE, and the same in
+metres and m/s), and `cfar_baseline.ipynb` reports it for CFAR. **It was never extracted for the DL
+side** — every script computed it and then read only `pd`. It is also a proposal-required metric.
+So: how precisely does each detector place the targets it finds?
+
+### Setup
+`python scripts/localization_table.py --per-condition` · `bench2_val` · CFAR from cached peaks,
+DL averaged over 8 seeds at `pos_weight=100` · matched measured Pfa 1e-4 · reported at the
+pre-registered ±1 gate and at ±3.
+
+The metric is **bounded by the gate**: a detection displaced further than the gate is a miss plus a
+false alarm, not a large error, so severe displacement shows up as lost Pd instead. Both gates are
+reported for that reason.""")
+
+code('''lz = DL / "localization_pw100.csv"
+if lz.exists():
+    L = pd.read_csv(lz)
+    for tol in sorted(L.gate.unique()):
+        d = L[(L.gate == tol) & (L.group == "ALL")].set_index("method")
+        print(f"all conditions pooled, gate +/-{tol}")
+        display(d[["pd", "dr_bins", "dv_bins", "rmse_bins", "range_m", "vel_mps"]].round(4))
+
+    d1 = L[(L.gate == 1) & (L.group == "ALL")].set_index("method")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.4))
+    order = [m for m in ("CA", "GO", "OS", "SO", "DL") if m in d1.index]
+    col = ["#2a78d6" if m == "DL" else MUTED for m in order]
+    axes[0].bar(order, d1.loc[order, "dv_bins"], color=col)
+    axes[0].set_ylabel("mean |Doppler error| (bins)"); axes[0].set_title("Localization — Doppler")
+    axes[1].scatter(d1.loc[order, "dv_bins"], d1.loc[order, "pd"], c=col, s=90)
+    for m in order:
+        axes[1].annotate(m, (d1.loc[m, "dv_bins"], d1.loc[m, "pd"]),
+                         xytext=(6, 4), textcoords="offset points", fontsize=9)
+    axes[1].set_xlabel("mean |Doppler error| (bins)"); axes[1].set_ylabel("Pd")
+    axes[1].set_title("The trade: DL detects more, CFAR places better")
+    plt.tight_layout(); plt.show()
+
+    best = d1.drop("DL").dv_bins.idxmin()
+    print(f"DL Doppler error is {d1.loc['DL','dv_bins']/d1.loc[best,'dv_bins']:.1f}x the best "
+          f"CFAR ({best}); range error {d1.loc['DL','dr_bins']/d1.drop('DL').dr_bins.min():.1f}x.")
+
+    print("\\nPer condition, gate +/-1 (Doppler error in bins):")
+    display(L[(L.gate == 1) & (L.group != "ALL")]
+            .pivot_table(index="group", columns="method", values="dv_bins").round(3))
+else:
+    print("run: python scripts/localization_table.py --per-condition")''')
+
+md("""### What it showed — the trade the project was missing
+
+| gate ±1 | Pd | \\|Δr\\| bins | \\|Δv\\| bins | range (m) | vel (m/s) |
+|---|---|---|---|---|---|
+| CA | 0.482 | 0.216 | 0.101 | 0.042 | 0.042 |
+| GO | 0.497 | 0.218 | 0.119 | 0.043 | 0.050 |
+| **OS** | 0.481 | 0.218 | **0.086** | 0.043 | **0.036** |
+| SO | 0.237 | **0.179** | 0.142 | **0.035** | 0.060 |
+| **DL** | **0.587** | 0.498 | 0.485 | 0.097 | 0.204 |
+
+**DL's Doppler error is 5.6× the best CFAR and its range error 2.8×** — 0.204 m/s against OS's
+0.036 m/s. The ordering is identical at ±3, so it is not a gate artefact.
+
+**The likely cause is the 3×3 label blob.** The network is trained that all nine cells around a
+target are "target", so its peak may land anywhere inside that block; CFAR responds to the physical
+peak, which is sharper. This is Milestone 16's asymmetry #5 — *"the ±1 gate may measure localisation
+rather than detection"* — measured directly rather than argued.
+
+Two details worth carrying into the report: **SO has the best range localization** (0.179 bins)
+despite by far the worst Pd, consistent with a low threshold that only survives on sharp peaks; and
+DL's error barely moves between gates (0.485 → 0.492 Doppler), meaning its displaced detections were
+already inside the tight gate.
+
+### What it changed
+The headline is no longer one-sided. **DL detects more (Pd 0.587 vs 0.497); CFAR localizes far
+better.** That is a genuine trade, it is proposal-required, and it is the strongest answer available
+to *"does the network actually beat CFAR?"* — the honest answer being *"at finding targets, in
+interference; not at placing them."*
+
+It also suggests a concrete improvement to try later: a **smaller or Gaussian-weighted label**
+instead of a flat 3×3 block would stop rewarding the network for firing anywhere in the blob.""")
+
 # ============================================================================== corrections
 md("""---
 ## Corrections

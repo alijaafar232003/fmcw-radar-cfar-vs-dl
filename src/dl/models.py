@@ -82,6 +82,55 @@ class TinyCNN(nn.Module):
                 1 + sum(2 * d for d in self.dilations_d))
 
 
+class TinyCNNPool(nn.Module):
+    """Deliberately WORSE control: the same budget, but with a down/up-sampling stage.
+
+    `TinyCNN`'s docstring asserts that downsampling "risks displacing the peak bin". That is an
+    assertion, not a measurement. This model exists to test it: pool by 2, convolve at half
+    resolution, upsample back, and see whether localization error rises.
+
+    Held as close to `TinyCNN` as pooling allows:
+      * same 3x3 kernels and channel width, so parameter count is comparable (~5k)
+      * output restored to full 256x64 resolution, so the evaluator is unchanged
+      * same per-cell logits, same loss, same post-processing
+
+    **Confound, stated rather than hidden.** Pooling changes the receptive field, and not simply by
+    enlarging it: measured, this model is **13 x 13** against `TinyCNN`'s **21 x 9**. Range shrinks
+    (21 -> 13) while Doppler grows (9 -> 13), because a 3x3 kernel at half resolution spans twice
+    the input on both axes and the dilations that stretched the range axis are gone.
+
+    Two consequences:
+      * a localization difference cannot be attributed to downsampling alone -- the RF differs too;
+      * this model no longer matches the CFAR window, so it is NOT a valid arm of the CFAR-vs-DL
+        comparison. It is a control for one question (does pooling displace peaks?) and nothing else.
+
+    Parameter count happens to land at 5,041, identical to `TinyCNN`, so capacity is not a confound.
+    """
+
+    def __init__(self, in_ch: int = 1, width: int = 16, mode: str = "nearest"):
+        super().__init__()
+        self.mode = mode
+
+        self.pre = nn.Sequential(
+            nn.Conv2d(in_ch, width, 3, padding=1), nn.BatchNorm2d(width), nn.ReLU(inplace=True))
+        self.mid = nn.Sequential(
+            nn.Conv2d(width, width, 3, padding=1), nn.BatchNorm2d(width), nn.ReLU(inplace=True),
+            nn.Conv2d(width, width, 3, padding=1), nn.BatchNorm2d(width), nn.ReLU(inplace=True))
+        self.head = nn.Conv2d(width, 1, 3, padding=1)
+        self.pool = nn.MaxPool2d(2)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h = self.pre(x)
+        h = self.mid(self.pool(h))
+        h = nn.functional.interpolate(h, size=x.shape[-2:], mode=self.mode)
+        return self.head(h)
+
+    @property
+    def receptive_field(self) -> tuple[int, int]:
+        """Analytic RF is not exact through pooling; measure it instead."""
+        return measure_receptive_field(self, size=(129, 129))
+
+
 def count_params(model: nn.Module) -> int:
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
