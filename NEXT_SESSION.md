@@ -11,7 +11,7 @@
 > |---|---|
 > | model | `TinyCNN`, 5,041 params, RF **21×9** = the CFAR window |
 > | `pos_weight` | **100** — measured; 974 (exact class balancing) was worse on 4 of 7 conditions |
-> | epochs | **15** — decided 16 Aug; Pd is flat from 15 but localization *degrades* with training |
+> | epochs | **21** — decided 16 Aug by the **full 1–25 sweep** under a pre-registered rule (earliest epoch within 1 SE of the Pd plateau). Supersedes the earlier "15": Pd is *not* flat below 15, it rises +0.059 from epoch 1 |
 > | optimizer | Adam, lr 1e-3, batch 32 |
 > | NMS | `nms_size=5`, shared with CFAR |
 > | gate | **±1** pre-registered; ±3 reported beside it as robustness |
@@ -19,6 +19,12 @@
 > | operating point | matched **measured** Pfa 1e-4, swept per condition |
 >
 > ### Headline, on `bench2_val`, 8 seeds, bootstrapped and Bonferroni-corrected
+> ⚠️ **Measured at epoch 50, which is no longer the frozen epoch — re-score at 21 (see Do-next 1).**
+> The sweep says Pd at 21 vs 50 is a tie (p = 0.77) so the Pd ordering should survive, but the
+> **localization line below will move**: 21 vs 50 is range −0.075 (p = 0.004), Doppler −0.045
+> (p = 0.036), so DL's localization deficit against CFAR shrinks. Carrying that paired shift onto
+> the 8-seed epoch-50 figure (Doppler 0.485 vs OS 0.086) puts the ratio near **5×** rather than
+> 5.6× — an estimate across two seed sets, to be replaced by the actual re-score, not quoted.
 > DL wins **clutter_edge +0.288, mixed +0.116, masking +0.049, multi +0.038** (all p < 0.001).
 > Ties on **unresolved** and **isolated** (borderline, p = 0.031). **Loses `clutter`** at the ±3
 > gate (−0.038, p = 0.013, edge of significance).
@@ -27,9 +33,10 @@
 >
 > ### Do next, in order
 > 1. **Freeze the config to a file and commit it** — it is decided but not written down.
->    Note epochs = 15, which means the 8 reported seeds (trained to 50) should be **re-evaluated at
->    their epoch-15 checkpoints**, or re-run with `--save-at 15`. The `epflat` runs already have
->    epoch-15 checkpoints for seeds 0–3.
+>    Note epochs = **21**, which means the 8 reported seeds (trained to 50) must be **re-evaluated at
+>    epoch-21 checkpoints**, which do **not** yet exist for seeds 4–7 — the `epsweep` runs cover
+>    seeds 0–3 only (`tinycnn_epsweep_s{0..3}_ep021.pt`). Seeds 4–7 need a re-run with
+>    `--epochs 21 --save-at 21` before the headline table can be re-scored at the frozen config.
 > 2. **The pooling experiment** — `TinyCNNPool` is written and verified (5,041 params, RF **13×13**,
 >    *not* CFAR-matched, so it is a control only). Train 4 seeds, evaluate at **both gates**: ±1
 >    shows the cost as Pd loss, ±3 shows the mechanism as displacement. The no-pooling baseline is
@@ -45,7 +52,9 @@
 >
 > ### Known-open, deliberately not chased
 > `os_rank_frac` never swept · no learned linear baseline · `pos_weight` < 100 untested (100 was the
-> edge of the range) · nothing below epoch 15 tested · one simulator only (criterion 8) ·
+> edge of the range) · ~~nothing below epoch 15 tested~~ **closed 16 Aug — epochs 1–25 all
+> measured** · localization degrades *asymmetrically* between range and Doppler, which a symmetric
+> 3×3 label does not predict (notebook Open/O4) · one simulator only (criterion 8) ·
 > `clutter_edge` stratum 34% diluted · H1/H2 attribution (Milestone 18) not started.
 
 ---

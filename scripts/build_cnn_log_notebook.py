@@ -89,7 +89,10 @@ reported numbers uncontaminated by the choices we are still making.
 clutter-bearing conditions *appeared* to still be moving. Loss is a proxy; the reported metric is Pd
 at matched measured Pfa, and when the two disagreed we followed Pd. (The apparent movement later
 turned out to be seed noise — see Corrections — but the principle stands: the proxy and the metric
-disagreed, so the proxy lost.)
+disagreed, so the proxy lost.) **§16 sharpens this rather than reversing it:** swept at every epoch,
+Pd genuinely does keep improving up to ~21 — the movement that was seed noise was the movement
+*above* ~21 (Corrections C1), not the real rise below 15 that nobody had looked at. Val loss
+plateaus at ~26, later than Pd does, so it would not have picked the right epoch either way.
 
 **3 — Single-seed results are not trusted.** The noise floor must be known before any comparison is
 believed. One trajectory cannot separate "the model changed" from "the evaluation is noisy"; only
@@ -370,7 +373,15 @@ smaller. At epoch 30, seeds 0 and 1 both gave 0.664 while seed 2 gave 0.718.
    well under the noise, so anything from ~15 onward is equivalent.
 3. **Buy seeds, not epochs** — the missing quantity was an error bar, not a longer curve.
 4. Set the bar for the `pos_weight` ablation: single-seed it would have to beat 0.054 to mean
-   anything.""")
+   anything.
+
+> **⚠️ Point 2 is superseded by §16; points 1, 3 and 4 stand.** The noise-floor result — the finding
+> this section exists for — is unaffected. But "closed the stopping-epoch question" was doing more
+> work than the data supported, twice over: it was measured on the discarded `pw974` arm, and its
+> two checkpoints (15 and 30) sat *inside* the plateau, so it could not have seen the rise below
+> epoch 15 that §16 measures. "Anything from ~15 onward is equivalent" is also false on
+> **localization**, which §14–§16 show moves substantially across that range. §16 is the final
+> answer on the stopping epoch.""")
 
 # ============================================================================== 7
 md("""---
@@ -1003,11 +1014,372 @@ better localization**. That makes the epoch count a measured choice rather than 
 
 *Stated limitation:* nothing below epoch 15 was tested, so the optimum may be earlier still. Recorded
 as a limitation rather than another sweep — the real fix is a better label (smaller or
-Gaussian-weighted), not a shorter run.""")
+Gaussian-weighted), not a shorter run.
+
+> **⚠️ Superseded by §16.** The limitation stated in the last paragraph — *nothing below epoch 15
+> was tested* — was then tested. §16 sweeps every epoch from 1 to 25 under a pre-registered
+> selection rule and is the final answer on the stopping point; the epoch-15 recommendation above
+> is **not**. Read this section for the localization mechanism, §16 for the epoch count.""")
+
+# ============================================================================== 16
+md("""---
+## 16 · The full epoch sweep — every epoch from 1 to 25, under a pre-registered rule
+
+### Question
+§15 chose epoch 15 from four sampled points {15, 25, 34, 50} and flagged its own limitation:
+**nothing below epoch 15 had ever been evaluated.** Four points cannot distinguish a curve that is
+flat from one that was merely sampled where it happens to be flat. This measures *every* epoch, so
+the stopping point is read off a curve instead of interpolated between four samples.
+
+Two secondary questions it is sized to answer:
+
+1. **Does localization degrade monotonically from epoch 1, or start flat and then turn?** Monotone
+   from the very start supports the 3×3-label explanation — the network is learning the label
+   *shape* from the first epoch. A flat-then-turn shape would point at something else, e.g. late
+   overfitting, and would weaken §14/§15's mechanism.
+2. **How far back does Pd stay flat?** Never tested below 15.
+
+### Setup
+4 seeds × 25 epochs at `pos_weight=100`, checkpointing **every** epoch → 100 checkpoints, all
+evaluated on `bench2_val` at matched measured Pfa 1e-4, gate ±1. Same seeds and config as the
+reported arm, so the trajectories are identical to §15's `epflat` runs — verified: seed 0 epoch 1
+reproduces train 0.20474 / val 0.14189 exactly.
+
+    for S in 0..3: python scripts/train_tinycnn.py --epochs 25 --pos-weight 100 --seed $S \\
+        --tag epsweep_s$S --save-at 1,2,...,25 --threads 4 --keep-awake --skip-gates --resume
+    python scripts/epoch_sweep.py --tag epsweep --seeds $S    # 4 procs, then --summarise
+
+### ⚠️ The selection rule, fixed before any result existed
+Written into `PROGRESS.md` **while the sweep was still running**, precisely so it could not be
+re-negotiated once the curve was on screen:
+
+> **plateau** = the maximum over epochs of the pooled seed-mean Pd.
+> **tolerance** = the SE of the pooled seed-mean Pd *at the plateau epoch*.
+> **chosen epoch** = the **earliest** epoch whose pooled seed-mean Pd ≥ plateau − tolerance.
+
+"Earliest within 1 SE of the plateau" encodes the actual preference: among epochs that detect
+equally well, take the least-trained one, because localization degrades with training and
+localization is where CFAR wins (§14). Ties in Pd are broken by the metric we are losing on —
+and that is a stated prior, not a post-hoc choice.
+
+`scripts/epoch_sweep.py` reproduces `epoch_flatness.py`'s published numbers **exactly** (all 32
+seed-0 rows, all three metrics, zero difference) before being used for anything new.
+
+**Artefacts.** `results/dl/epoch_sweep_epsweep.csv` (100 checkpoints × 8 groups, the raw scores) ·
+`_seedavg.csv` · `_selection.csv` (the rule's output) · `results/epoch_sweep_epsweep.png` (the same
+four-panel figure the cell below draws) · per-checkpoint score caches in
+`results/dl/epoch_sweep_cache/`, so a re-run costs nothing.""")
+
+code('''es = DL / "epoch_sweep_epsweep.csv"
+if es.exists():
+    S = pd.read_csv(es)
+    se = lambda x: x.std(ddof=1) / np.sqrt(len(x))
+    avg = (S.groupby(["group", "epoch"])
+             .agg(pd_mean=("pd", "mean"), pd_se=("pd", se), dr=("dr_bins", "mean"),
+                  dr_se=("dr_bins", se), dv=("dv_bins", "mean"), dv_se=("dv_bins", se))
+             .reset_index())
+    pooled = avg[avg.group == "ALL"].sort_values("epoch").reset_index(drop=True)
+
+    # THE PRE-REGISTERED RULE, applied verbatim.
+    k = int(pooled.pd_mean.idxmax())
+    plateau, tol = float(pooled.pd_mean[k]), float(pooled.pd_se[k])
+    chosen = pooled[pooled.pd_mean >= plateau - tol].iloc[0]
+    print(f"plateau  Pd {plateau:.4f} at epoch {int(pooled.epoch[k])};  1 SE = {tol:.4f}"
+          f"  -> floor {plateau - tol:.4f}")
+    print(f"CHOSEN   epoch {int(chosen.epoch)}:  Pd {chosen.pd_mean:.4f}   "
+          f"range {chosen.dr:.3f}+/-{chosen.dr_se:.3f}   Doppler {chosen.dv:.3f}+/-{chosen.dv_se:.3f} bins")
+    display(pooled[["epoch", "pd_mean", "pd_se", "dr", "dr_se", "dv", "dv_se"]].round(4))
+
+    # Four panels, not three: on a shared scale with the per-condition curves (clutter 0.14 to
+    # isolated 0.73) the entire +0.059 rise this experiment exists to measure is an invisible
+    # wiggle, so the pooled Pd gets its own zoomed axis. Same figure as
+    # results/epoch_sweep_epsweep.png, produced by scripts/epoch_sweep.py.
+    fig, axes = plt.subplots(4, 1, figsize=(9.5, 13), sharex=True,
+                             gridspec_kw={"height_ratios": [1.25, 1, 1, 1]})
+    conds = sorted(c for c in avg.group.unique() if c != "ALL")
+    cmap = plt.get_cmap("tab10")
+
+    ax = axes[0]
+    ax.axhspan(plateau - tol, plateau, color="crimson", alpha=0.13, zorder=0,
+               label="within 1 SE of the plateau")
+    ax.errorbar(pooled.epoch, pooled.pd_mean, yerr=pooled.pd_se, color="k", lw=2.2,
+                marker="o", ms=4, capsize=2, zorder=5)
+    ax.set_ylabel("pooled Pd (zoomed)"); ax.grid(alpha=0.25)
+    ax.legend(fontsize=8, loc="lower right")
+    ax.set_title(f"Pre-registered rule selects epoch {int(chosen.epoch)} "
+                 f"(plateau {plateau:.4f} at epoch {int(pooled.epoch[k])}, 1 SE = {tol:.4f})")
+
+    for ax, (m, s, lab) in zip(axes[1:], [("pd_mean", "pd_se", "Pd by condition"),
+                                          ("dr", "dr_se", "range error (bins)"),
+                                          ("dv", "dv_se", "Doppler error (bins)")]):
+        for j, c in enumerate(conds):
+            g = avg[avg.group == c].sort_values("epoch")
+            ax.plot(g.epoch, g[m], lw=1.0, alpha=0.5, color=cmap(j % 10), label=c)
+        ax.errorbar(pooled.epoch, pooled[m], yerr=pooled[s], color="k", lw=2.2, marker="o",
+                    ms=3.5, capsize=2, zorder=5, label="pooled")
+        ax.set_ylabel(lab); ax.grid(alpha=0.25)
+    for ax in axes:
+        ax.axvline(int(chosen.epoch), color="crimson", ls="--", lw=1.4, zorder=4)
+    axes[1].legend(fontsize=7, ncol=4, loc="lower right")
+    axes[-1].set_xlabel("epoch")
+    plt.tight_layout(); plt.show()
+
+    # Q1 - monotone from epoch 1, or flat then turning? Segment slopes, since the whole question
+    # is WHERE the curve turns, which a single correlation over 1-25 cannot answer.
+    print("Q1  localization shape (pooled)")
+    for col, name in (("dr", "range  "), ("dv", "Doppler")):
+        y, e = pooled[col].to_numpy(), pooled.epoch.to_numpy()
+        print(f"  {name}  min at epoch {int(e[np.argmin(y)]):>2} | "
+              f"rho(all) {stats.spearmanr(e, y).statistic:+.3f}")
+        for lo, hi in [(1, 8), (8, 15), (15, 25)]:
+            m_ = (e >= lo) & (e <= hi)
+            sl = stats.linregress(e[m_], y[m_])
+            print(f"      epochs {lo:>2}-{hi:<2}  slope {sl.slope:+.5f}/epoch  p={sl.pvalue:.4f}"
+                  f"   total {y[m_][-1]-y[m_][0]:+.3f}")
+    # ... and is that shape the same in every condition, or an artefact of pooling?
+    mins = {c: (int(avg[avg.group == c].sort_values("epoch").iloc[
+                    np.argmin(avg[avg.group == c].sort_values("epoch").dr.to_numpy())].epoch),
+                int(avg[avg.group == c].sort_values("epoch").iloc[
+                    np.argmin(avg[avg.group == c].sort_values("epoch").dv.to_numpy())].epoch))
+            for c in conds}
+    print(f"  per condition: range min at epoch 1 in "
+          f"{sum(1 for r, _ in mins.values() if r == 1)}/{len(conds)}; "
+          f"Doppler min at epoch 2-4 in {sum(1 for _, d in mins.values() if 2 <= d <= 4)}/{len(conds)}")
+
+    # Q2 - how far back does Pd stay flat?
+    q2 = pooled[["epoch", "pd_mean", "pd_se"]].copy()
+    q2["deficit"] = plateau - q2.pd_mean
+    q2["deficit_in_SE"] = q2.deficit / tol
+    q2["within_1SE"] = q2.deficit <= tol
+    print("\\nQ2  deficit from the plateau, in units of the 1-SE tolerance")
+    display(q2.round(4))
+
+    # The chosen epoch against the two values previously argued for, PAIRED BY SEED.
+    W = S[S.group == "ALL"].pivot(index="seed", columns="epoch")
+    ef = pd.read_csv(DL / "epoch_flatness_epflat.csv")
+    e50 = ef[(ef.group == "ALL") & (ef.epoch == 50)].set_index("seed")
+    ch = int(chosen.epoch)
+    rows = []
+    for m, name in [("pd", "Pd"), ("dr_bins", "range (bins)"), ("dv_bins", "Doppler (bins)")]:
+        a15, a_ch = W[m][15], W[m][ch]
+        b50 = e50[m].reindex(a_ch.index).dropna()
+        rows.append({"metric": name,
+                     f"{ch} vs 15": f"{a_ch.mean() - a15.mean():+.4f} "
+                                    f"(p={stats.ttest_rel(a_ch, a15).pvalue:.3f})",
+                     f"{ch} vs 50": f"{a_ch.loc[b50.index].mean() - b50.mean():+.4f} "
+                                    f"(p={stats.ttest_rel(a_ch.loc[b50.index], b50).pvalue:.3f})"})
+    print(f"Chosen epoch vs the two previously-argued values, paired by seed "
+          f"({len(W)} seeds; epoch 50 from the epflat run)")
+    display(pd.DataFrame(rows).set_index("metric"))
+
+    # Winner's curse: the plateau is a max over 25 noisy estimates, so it is biased upward.
+    tail = pooled[pooled.epoch >= 20].pd_mean.mean()
+    print(f"winner's-curse check: plateau {plateau:.4f} (max of {len(pooled)}) vs "
+          f"{tail:.4f} averaged over epochs 20-25 -> gap {plateau - tail:.4f} "
+          f"= {(plateau - tail) / tol:.2f} SE, which biases the rule LATER")
+
+    print("\\nPd by condition (seed mean)")
+    display(avg[avg.group != "ALL"].pivot_table(index="group", columns="epoch",
+                                                values="pd_mean").round(3))
+    print("Doppler error by condition (bins)")
+    display(avg[avg.group != "ALL"].pivot_table(index="group", columns="epoch",
+                                                values="dv").round(3))
+else:
+    print("run: python scripts/epoch_sweep.py --tag epsweep  then  --summarise")''')
+
+md("""### What it showed — the rule picks epoch 21, and "Pd is flat" does not survive
+
+| | |
+|---|---|
+| plateau | Pd **0.5862** at epoch 23 |
+| tolerance (1 SE at the plateau epoch) | **0.0023** → floor 0.5839 |
+| **chosen epoch** | **21** |
+| Pd there | **0.5844 ± 0.0019** |
+| range error there | **0.442 ± 0.022** bins |
+| Doppler error there | **0.409 ± 0.036** bins |
+
+**The flatness claim was an artefact of where the four points were sampled.** Pooled Pd rises
+**+0.059** from epoch 1 (0.5272) to the plateau — roughly **26 SE**. §15 sampled {15, 25, 34, 50},
+**all four of which sit in the flat top**, and the whole rise happens below 15 where nothing had
+ever been measured. The runs agree *exactly* where they overlap (epoch 15 → Pd 0.5825, range 0.4667,
+Doppler 0.3848, identical to §15; epoch 25 likewise), so this is not two measurements disagreeing —
+it is a blind spot in the sampling.
+
+**Q2 — how far back does Pd stay flat?** Deficit from the plateau, in units of the 1-SE tolerance:
+
+| epoch | 1 | 5 | 10 | 14 | 15 | 18 | 20 | 21 |
+|---|---|---|---|---|---|---|---|---|
+| deficit (SE) | 25.7 | 9.8 | 3.9 | 2.4 | **1.6** | 1.8 | 1.1 | **0.8 ✓** |
+
+Epoch 15 sits **1.6 SE below the plateau** — outside the pre-registered band. Strict 1-SE flatness
+begins at **21**; a looser 2-SE reading reaches back to ~14; below 10 the curve is unambiguously
+still climbing.
+
+**Q1 — monotone from epoch 1? Not quite, and the two axes disagree.**
+
+| axis | min at | epochs 1–8 | 8–15 | 15–25 | total 1→25 |
+|---|---|---|---|---|---|
+| range | epoch **1** | **+0.141** (p = 0.0014) | +0.016 (p = 0.025) | −0.010 (p = **0.51**) | +0.147 |
+| Doppler | epoch **4** | +0.038 | **+0.145** (p < 1e-4) | +0.036 (p = 0.0005) | +0.220 |
+
+**Range degrades from epoch 1 and then saturates** — flat from 15 on, slope indistinguishable from
+zero. **Doppler improves slightly to epoch ~4, then turns and never saturates** — still climbing
+significantly through 15–25. Both shapes hold across **all seven conditions** (range minimum at
+epoch 1 in 7/7; Doppler minimum at epoch 2–4 in 7/7), so this is structure rather than seed noise.
+
+**For the 3×3-label explanation this is partial support, plus one thing it does not predict.** The
+"monotone from the very start" signature holds cleanly on **range**. It fails on Doppler, which has
+a genuine early *improving* phase. And a 3×3 label is **symmetric**, so it predicts the same timing
+on both axes — instead Doppler degrades 1.5× as much (+0.220 vs +0.147) and is still going when
+range has stopped. The label mechanism survives but is no longer sufficient alone. Untested
+candidates for the asymmetry: the receptive field is **21×9**, itself asymmetric; Doppler has 64
+bins against range's 256, so the label block spans a larger fraction of the axis; and the clutter
+ridge is a Doppler-axis structure — `clutter` has by far the worst Doppler error (0.711 bins at
+epoch 21) and the steepest climb. Logged in **Open** as O4, not chased: it changes no published
+number.
+
+**Epoch 21 against the two previously-argued values, paired by seed:**
+
+| comparison | Pd | range (bins) | Doppler (bins) |
+|---|---|---|---|
+| 21 vs **15** | +0.0019 (p = 0.14) | −0.025 (p = 0.37) | +0.024 (p = 0.20) |
+| 21 vs **50** | −0.0014 (p = 0.77) | **−0.075 (p = 0.004)** | **−0.045 (p = 0.036)** |
+
+**21 vs 50 is a real improvement** — identical Pd, significantly better localization on both axes —
+so §15's *direction* was right. **21 vs 15 is inside the noise on every metric**, so the practical
+cost of §15's choice was small. What was wrong was its stated *reason*, not badly wrong its number.
+
+*Caveat on the rule itself, not on the data:* the plateau is the max over 25 noisy estimates, so it
+carries a winner's-curse bias upward — 0.5862 against 0.5845 averaged over epochs 20–25, about
+0.7 SE. That bias pushes the chosen epoch **later**, i.e. conservative on Pd and against our
+localization preference. Noted rather than patched: the rule was pre-registered, and re-deriving it
+after seeing the curve is precisely what pre-registration exists to prevent.
+
+### What it changed
+**The frozen epoch count moves from 15 to 21**, and §15's flatness argument is retracted as
+**C5** — the first correction in this log where the *stopping-epoch* conclusion itself moved rather
+than merely sharpened. The epoch count is now selected by a rule fixed in advance, applied to a
+curve measured at every point, rather than read off four samples.""")
+
+# ============================================================================== 17
+md("""---
+## 17 · `--threads` is a reproducibility parameter, not a speed knob
+
+### Question
+Incidental, and worth more than the question that prompted it. §16 trained fresh seeds 0–3 to get
+epoch-21 checkpoints. The 8 reported seeds (`pw100_s0..s7`) have **only epoch-50** checkpoints, so
+before re-running all eight the obvious shortcut was: *can the §16 runs stand in for the reported
+seeds 0–3, since they share seed and config?*
+
+### Setup
+Compare `pw100_s0` against `epflat_s0` — same seed, same `pos_weight`, same optimizer, same epoch
+50. Their `config.json` files differ in exactly one field: **`threads`, 2 vs 4**. And the training
+code is byte-identical between the two commits:
+
+    git diff 27a1f46 b1db7ee -- src/dl/ src/eval/     # empty""")
+
+code('''import subprocess
+a, b = "config_pw100_s0.json", "config_epflat_s0.json"
+ca, cb = (json.load(open(DL / f)) for f in (a, b))
+diff = {k: (ca.get(k), cb.get(k)) for k in set(ca) | set(cb)
+        if k not in ("tag", "epochs", "started", "git_commit", "gates") and ca.get(k) != cb.get(k)}
+print("pw100_s0 vs epflat_s0, config differences:", diff or "NONE")
+print(f"  commits: {ca['git_commit']} vs {cb['git_commit']}")
+
+# Same seed, same code -> do the WEIGHTS differ at all?
+try:
+    import torch
+    wa = torch.load(DL / "tinycnn_pw100_s0_ep050.pt", weights_only=False)["state_dict"]
+    wb = torch.load(DL / "tinycnn_epflat_s0_ep050.pt", weights_only=False)["state_dict"]
+    md_ = max(float((wa[k] - wb[k]).abs().max()) for k in wa)
+    print(f"  max |weight difference| across all 5,041 params: {md_:.3e}")
+except Exception as e:
+    print("  (weights unavailable:", e, ")")
+
+# And what does that cost in the REPORTED metrics?
+p2 = DL / "epoch_sweep_pw100_s0.csv"          # threads=2 arm, scored by scripts/epoch_sweep.py
+p4 = DL / "epoch_flatness_epflat.csv"         # threads=4 arm
+if p2.exists() and p4.exists():
+    A = pd.read_csv(p2)
+    B = pd.read_csv(p4); B = B[(B.seed == 0) & (B.epoch == 50)]
+    M = A.merge(B, on=["seed", "group"], suffixes=("_2thr", "_4thr"))
+    M["d_pd"] = (M.pd_2thr - M.pd_4thr).abs()
+    M["d_dr"] = (M.dr_bins_2thr - M.dr_bins_4thr).abs()
+    M["d_dv"] = (M.dv_bins_2thr - M.dv_bins_4thr).abs()
+    print("\\nSame seed, same epoch, threads 2 vs 4 — |difference| in the reported metrics:")
+    display(M.set_index("group")[["d_pd", "d_dr", "d_dv"]].round(4))
+    # For scale: the 4-seed SE at the chosen epoch.
+    es = DL / "epoch_sweep_epsweep.csv"
+    if es.exists():
+        S_ = pd.read_csv(es); S_ = S_[(S_.group == "ALL") & (S_.epoch == 21)]
+        sef = lambda x: x.std(ddof=1) / np.sqrt(len(x))
+        print(f"for scale, the 4-seed SE at epoch 21:  Pd {sef(S_.pd):.4f}   "
+              f"range {sef(S_.dr_bins):.4f}   Doppler {sef(S_.dv_bins):.4f}")
+else:
+    print("run: python scripts/epoch_sweep.py --tag pw100 --seeds 0")''')
+
+md("""### What it showed — same seed, same code, different weights
+
+Torch's CPU kernels reduce in a different order at a different thread count, so the floating-point
+sums differ and the difference compounds over tens of epochs of Adam. `seed_everything()` cannot
+prevent this: **it is not an RNG effect.**
+
+**And the divergence is not cosmetic.** Max |weight difference| across the 5,041 parameters is
+**0.38** — these are not the same model with rounding noise on it, they are genuinely different
+points in parameter space that happen to detect equally well. A last-bit perturbation in epoch 1 is
+amplified by 50 epochs of a momentum optimizer into a different local basin. That is the honest
+reason the two arms cannot be interchanged, and it is a stronger statement than the metric table
+below, which only shows they *perform* alike.
+
+| pooled metric | threads 2 vs 4 | for scale |
+|---|---|---|
+| Pd | 0.0013 | well under the 0.0023 seed SE — negligible |
+| range error | **0.0224** | ≈ 1 seed SE (0.0217) |
+| Doppler error | **0.0284** | ≈ 1 seed SE (0.0363) |
+
+Per condition it reaches 0.103 bins (range, `isolated`) and 0.079 (Doppler, `clutter`).
+
+**Why it lands on localization and not Pd.** The matched-*measured*-Pfa threshold shifts slightly,
+changing **which marginal detections are included**. Pd moves by one or two borderline targets out
+of ~1,700 — invisible. Localization is averaged over exactly those newly-included marginal
+detections, which are the badly-localised ones — so the same perturbation is ~1 SE there.
+
+**This is one draw, not a variance estimate** — one seed, one epoch. It shows the effect is of order
+one seed's noise; it does not establish a distribution, and nothing suggests either thread count is
+*better*. It is a nuisance parameter to hold fixed, not to optimise.
+
+### What it changed
+1. **§16 is unaffected** — every `epsweep` run and the epoch-50 arm it is compared against used
+   `threads=4`, so its within-experiment conclusions hold throughout.
+2. **Arms may not be mixed.** The §16 seeds 0–3 are a *different numerical realization* from the
+   reported `pw100` seeds 0–3 and cannot stand in for them, so the epoch-21 re-freeze re-runs **all
+   eight** seeds at one fixed thread count rather than reusing four.
+3. **`threads` joins the frozen config**, beside seed, lr and `pos_weight`. It was already written
+   to `config_*.json` — which is how this was caught; what was missing was treating it as
+   load-bearing.
+4. Retro-qualifies §15's *"same seeds as the reported config, so the trajectories are identical"* —
+   true at fixed threads, false across the 2-vs-4 boundary that actually separated those runs. It
+   changes none of §15's numbers, which were internally consistent at 4 threads.""")
 
 # ============================================================================== corrections
 md("""---
-## Corrections
+## Corrections""")
+
+md("""> **Nothing in this log is deleted when it is superseded.** Every retracted claim keeps its
+> number, its date and the evidence that displaced it, because the reasoning error is the part worth
+> reading. The configuration's whole path — epochs 12 → 50 → 15 → 21, `pos_weight` 200 → 974 → 100 —
+> is part of the result, not scaffolding to be tidied away before the report.
+
+| parameter | path | why it moved |
+|---|---|---|
+| **epochs** | 12 → 50 → **15** → **21** | 12 arbitrary with val loss still falling · 50 on "Pd is flat so it does not matter" · 15 from four sampled points once localization was found to degrade · **21** from the full 1–25 sweep under a pre-registered rule (**C5**) |
+| **`pos_weight`** | 200 → 974 → **100** | 200 tuned for the old 1:1563 ratio · 974 the measured inverse class frequency · **100** won the 3-way ablation and retracted the `clutter` loss 974 had manufactured (**C3**) |
+| **`clutter_edge` trend** | "still climbing" → **seed noise** | three correlated points, spread 0.047, against a 0.054 seed spread at fixed epoch (**C1**) |
+| **`isolated`** | "win, p = 6.9e-07" → **tie** | CFAR's Pd had been treated as exact; with error bars both sides + Bonferroni, p = 0.031 (**C4**) |
+| **`threads`** | incidental → **frozen** | changes weights at fixed seed; ~1 SE on localization (§17) |""")
+
+md("""---
+### The retractions themselves
 
 Claims made and later retracted, with the evidence in each case. Kept because the reasoning error
 matters more than the number.
@@ -1072,7 +1444,31 @@ silently set to zero. Eight seeds of precision on one arm does not license a poi
 other.
 
 **Consequence:** the `isolated` claim is withdrawn, and — usefully — its withdrawal removes the
-Milestone 17 anomaly, since a tie in homogeneous noise is exactly what the corpus predicts.""")
+Milestone 17 anomaly, since a tie in homogeneous noise is exactly what the corpus predicts.
+
+### C5 — "Pd is flat with training, so stop at epoch 15"
+**Claimed** (§6, then §15): that Pd does not depend on training length, and therefore that the
+epoch count could be chosen on localization alone — §6 concluding *"anything from ~15 onward is
+equivalent"*, §15 moving the frozen count 50 → 15 on the grounds that it *"costs 0.003 Pd (~1 SE,
+marginal)"*.
+
+**Retracted by** §16. Swept at **every** epoch, pooled Pd rises **+0.059 from epoch 1 to the
+plateau — about 26 SE**. It is one of the least flat curves in this log. Epoch 15 sits **1.6 SE
+below the plateau**, outside the pre-registered 1-SE band, and the rule selects **epoch 21**.
+
+**The reasoning error — and it is a different one from C1.** Nothing here was measured wrongly:
+§15's four points reproduce *exactly* in the sweep. The error was concluding *"the curve is flat"*
+from four samples that all happened to lie **inside the flat region**, when the entire rise sits
+below the lowest of them. §15 even recorded the gap — *"nothing below epoch 15 was tested, so the
+optimum may be earlier"* — and then treated it as a limitation to note rather than the experiment
+that would decide the question. That is C1's failure mode wearing different clothes: C1 read a
+trend into noise, C5 read flatness into a range that was never sampled. **A stated caveat is still
+not a substitute for the measurement that resolves it** — twice now.
+
+**Consequence, stated plainly:** smaller than it looks. Epoch 21 vs 15 is inside the noise on all
+three metrics (Pd p = 0.14, range p = 0.37, Doppler p = 0.20), so the *number* was nearly right; it
+was the *justification* that was unsound. §15's real contribution — that training to 50 costs
+localization for no Pd (21 vs 50: range −0.075, p = 0.004) — is confirmed and strengthened.""")
 
 # ============================================================================== open
 md("""---
@@ -1181,7 +1577,22 @@ The §7 clutter finding is retracted (Corrections C3).
 **What this opens instead:** every §7 number was measured at 974 and is now superseded. The
 headline DL-vs-CFAR table must be re-run at the chosen `pos_weight` before anything is reported, and
 the `clutter_edge` attribution (§Open/O1) should be re-checked there too — its +0.261 was measured
-at 974, and at 100 the same condition scores 0.731 rather than 0.704.""")
+at 974, and at 100 the same condition scores 0.731 rather than 0.704.
+
+### O4 — localization degrades *asymmetrically* between the two axes (2026-08-16, from §16)
+Over epochs 1→25 Doppler error grows **+0.220 bins and is still climbing** at 25, while range grows
+**+0.147 and saturates by ~15** (slope p = 0.51 over 15–25). Both shapes hold in **7/7 conditions**,
+so it is structure, not noise. A flat **3×3 label is symmetric** and predicts neither the differing
+timing nor the 1.5× differing magnitude, so §14–§15's label mechanism is incomplete as stated.
+
+**Untested candidates:** the receptive field is **21×9**, itself asymmetric · Doppler has 64 bins
+against range's 256, so the 3-cell label block spans 4× the fraction of the axis · the clutter ridge
+is a Doppler-axis structure, and `clutter` shows both the worst Doppler error (0.711 bins at epoch
+21) and the steepest climb.
+
+**Not chased**, under the 15 Aug rule: it changes no published number. It is, however, the sharpest
+available test of the label hypothesis — a Gaussian or 1×1 label should collapse the asymmetry — so
+it belongs with the label ablation whenever that runs, not as a standalone experiment.""")
 
 # ============================================================================== next
 md("""---
