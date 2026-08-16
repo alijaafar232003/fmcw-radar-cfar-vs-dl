@@ -926,6 +926,85 @@ interference; not at placing them."*
 It also suggests a concrete improvement to try later: a **smaller or Gaussian-weighted label**
 instead of a flat 3×3 block would stop rewarding the network for firing anywhere in the blob.""")
 
+# ============================================================================== 15
+md("""---
+## 15 · Epoch flatness at the reported configuration — and localization degrades with training
+
+### Question
+Two gaps. **The flatness evidence was measured on the wrong arm** — "nothing moves between epochs 15
+and 30" came from the `pos_weight=974` runs, the value later shown to be the wrong choice, and had
+never been demonstrated at `pos_weight=100`. And **localization had only ever been measured at
+epoch 50**, so we did not know whether it depends on training length at all.
+
+### Setup
+4 seeds × `--save-at 15,25,34,50` at `pos_weight=100` (same seeds as the reported config, so the
+trajectories are identical — only the intermediate checkpoints are new).
+`python scripts/epoch_flatness.py` · `bench2_val` · matched measured Pfa 1e-4 · gate ±1.""")
+
+code('''ef = DL / "epoch_flatness_epflat.csv"
+if ef.exists():
+    E = pd.read_csv(ef)
+    a = E[E.group == "ALL"]
+    se = lambda x: x.std(ddof=1) / np.sqrt(len(x))
+    summ = a.groupby("epoch").agg(pd_mean=("pd", "mean"), pd_se=("pd", se),
+                                  dr=("dr_bins", "mean"), dr_se=("dr_bins", se),
+                                  dv=("dv_bins", "mean"), dv_se=("dv_bins", se))
+    display(summ.round(4))
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.4))
+    ep = summ.index.to_numpy()
+    axes[0].errorbar(ep, summ.pd_mean, yerr=1.96 * summ.pd_se, fmt="o-", color=DLC,
+                     capsize=4, lw=1.8, ms=7)
+    axes[0].set_xlabel("epoch"); axes[0].set_ylabel("Pd at matched measured Pfa 1e-4")
+    axes[0].set_title(f"Pd is flat (range {summ.pd_mean.max()-summ.pd_mean.min():.4f})")
+
+    axes[1].errorbar(ep, summ.dv, yerr=1.96 * summ.dv_se, fmt="o-", color="#c0392b",
+                     capsize=4, lw=1.8, ms=7, label="Doppler")
+    axes[1].errorbar(ep, summ.dr, yerr=1.96 * summ.dr_se, fmt="s-", color=MUTED,
+                     capsize=4, lw=1.8, ms=6, label="range")
+    axes[1].set_xlabel("epoch"); axes[1].set_ylabel("mean |error| (bins)")
+    axes[1].set_title("Localization gets WORSE with training"); axes[1].legend(frameon=False)
+    plt.tight_layout(); plt.show()
+
+    piv = E[E.group != "ALL"].pivot_table(index="group", columns="epoch", values="dv_bins")
+    piv["15 -> 50"] = piv[50] - piv[15]
+    print("Doppler localization error by condition (bins):")
+    display(piv.round(3))
+    print(f"conditions degrading monotonically: "
+          f"{int((piv[[15,25,34,50]].diff(axis=1).iloc[:,1:] >= -0.005).all(axis=1).sum())} of {len(piv)}")
+else:
+    print("run: python scripts/epoch_flatness.py")''')
+
+md("""### What it showed — Pd flat, localization worse
+
+| epoch | Pd | range err (bins) | Doppler err (bins) |
+|---|---|---|---|
+| **15** | 0.5825 | **0.467** | **0.385** |
+| 25 | 0.5846 | 0.457 | 0.421 |
+| 34 | 0.5875 | 0.468 | 0.460 |
+| 50 | 0.5858 | 0.517 | 0.454 |
+
+**Pd is flat** — total range 0.0050 against a mean SE of 0.0022 — so the flatness claim now holds at
+the configuration we actually report, not only at the discarded `pw974` arm.
+
+**But localization degrades with training**: Doppler error +18% (0.385 → 0.454), range +11%. It is
+not a pooling artefact of the aggregate — **every one of the seven conditions degrades
+monotonically**, from `unresolved` (0.278 → 0.364) to `clutter` (0.667 → 0.748). Seven of seven in
+the same direction is far stronger evidence than the ~2 SE of the pooled figure suggests.
+
+**The mechanism is the 3×3 label again.** With longer training the network grows confident across
+the whole nine-cell block, so its peak within that block becomes progressively less sharp. Training
+longer teaches it the *label shape*, not the target position — the same root cause as §14.
+
+### What it changed
+**The frozen epoch count moves from 50 to 15.** The earlier argument ("50 is fine, Pd is flat") only
+looked at Pd; on the full picture epoch 15 costs **0.003 Pd (~1 SE, marginal)** and buys **15%
+better localization**. That makes the epoch count a measured choice rather than an arbitrary one.
+
+*Stated limitation:* nothing below epoch 15 was tested, so the optimum may be earlier still. Recorded
+as a limitation rather than another sweep — the real fix is a better label (smaller or
+Gaussian-weighted), not a shorter run.""")
+
 # ============================================================================== corrections
 md("""---
 ## Corrections

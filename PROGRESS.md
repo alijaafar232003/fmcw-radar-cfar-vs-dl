@@ -1760,6 +1760,42 @@ Prediction to test: localization error rises. The bar is the no-pooling baseline
 bins, and the ±1 gate will convert displacement beyond one bin into lost Pd rather than larger
 error — so **both** effects should be reported, at ±1 and ±3.
 
+### 2026-08-16 — Epoch flatness at pw100: Pd flat, but localization degrades with training
+**Question.** Two gaps. The flatness evidence ("nothing moves between epochs 15 and 30") came from
+the `pos_weight=974` arm — the value later shown to be wrong — and had never been demonstrated at
+`pos_weight=100`. And localization had only ever been measured at epoch 50, so its dependence on
+training length was unknown.
+
+**Setup.** 4 seeds × `--save-at 15,25,34,50` at pw100 (same seeds as the reported config, so the
+trajectories are identical; only the intermediate checkpoints are new). `scripts/epoch_flatness.py`,
+`bench2_val`, matched measured Pfa 1e-4, gate ±1.
+
+| epoch | Pd | SE | range err (bins) | Doppler err (bins) |
+|---|---|---|---|---|
+| **15** | 0.5825 | 0.0020 | **0.467** | **0.385** |
+| 25 | 0.5846 | 0.0022 | 0.457 | 0.421 |
+| 34 | 0.5875 | 0.0015 | 0.468 | 0.460 |
+| 50 | 0.5858 | 0.0031 | 0.517 | 0.454 |
+
+**Pd is flat** — range 0.0050 against mean SE 0.0022 — so flatness now holds at the *reported*
+configuration.
+
+**But localization degrades with training**: Doppler +18% (0.385 → 0.454), range +11%. Not an
+artefact of pooling the conditions — **all seven degrade monotonically**, `unresolved` 0.278 → 0.364
+through `clutter` 0.667 → 0.748. Seven of seven agreeing is much stronger than the ~2 SE of the
+pooled figure alone.
+
+**Mechanism: the 3×3 label, again.** With longer training the network grows confident across the
+whole nine-cell block, so its peak inside it becomes less sharp. Longer training teaches the *label
+shape*, not the target position — same root cause as the localization finding above.
+
+**⚠️ DECISION — the frozen epoch count moves from 50 to 15.** The earlier argument ("50 is fine,
+Pd is flat") considered only Pd. On the full picture epoch 15 costs **0.003 Pd (~1 SE, marginal)**
+and buys **15% better localization**. The epoch count is now a measured choice, not an arbitrary one.
+
+*Limitation:* nothing below epoch 15 was tested, so the optimum may be earlier. Recorded rather than
+swept — the real fix is a better label (smaller or Gaussian-weighted), not a shorter run.
+
 ## Current position
 Phase A ✅. Phase B ✅. Data audit ✅. DL Model 0 ✅. Coverage study ✅. Stratified benchmark ✅.
 Literature corpus ✅. **Experiments ~10 days ahead of `SCHEDULE.md`** (Week 2 milestone met 30 Jul,

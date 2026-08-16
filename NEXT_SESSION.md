@@ -1,5 +1,56 @@
 # Next Session — pick up here
 
+> ## ⚡ STATE AS OF 16 AUGUST 2026 — read this block first
+>
+> Everything below the horizontal rule predates the DL work and is kept for the CFAR reasoning.
+> The current state is here. Full detail: `PROGRESS.md` Milestone 23 (dated entries) and
+> `notebooks/cnn_development_log.ipynb` (§1–15, Corrections, Open, Next experiments).
+>
+> ### The configuration (NOT yet frozen to a file)
+> | | |
+> |---|---|
+> | model | `TinyCNN`, 5,041 params, RF **21×9** = the CFAR window |
+> | `pos_weight` | **100** — measured; 974 (exact class balancing) was worse on 4 of 7 conditions |
+> | epochs | **15** — decided 16 Aug; Pd is flat from 15 but localization *degrades* with training |
+> | optimizer | Adam, lr 1e-3, batch 32 |
+> | NMS | `nms_size=5`, shared with CFAR |
+> | gate | **±1** pre-registered; ±3 reported beside it as robustness |
+> | CFAR | 21×9 window; **CA/GO/OS/SO** (SO added 15 Aug) |
+> | operating point | matched **measured** Pfa 1e-4, swept per condition |
+>
+> ### Headline, on `bench2_val`, 8 seeds, bootstrapped and Bonferroni-corrected
+> DL wins **clutter_edge +0.288, mixed +0.116, masking +0.049, multi +0.038** (all p < 0.001).
+> Ties on **unresolved** and **isolated** (borderline, p = 0.031). **Loses `clutter`** at the ±3
+> gate (−0.038, p = 0.013, edge of significance).
+> **CFAR wins localization decisively** — DL's Doppler error is 5.6× the best CFAR.
+> One-line summary: *at finding targets in interference, DL wins; at placing them, CFAR does.*
+>
+> ### Do next, in order
+> 1. **Freeze the config to a file and commit it** — it is decided but not written down.
+>    Note epochs = 15, which means the 8 reported seeds (trained to 50) should be **re-evaluated at
+>    their epoch-15 checkpoints**, or re-run with `--save-at 15`. The `epflat` runs already have
+>    epoch-15 checkpoints for seeds 0–3.
+> 2. **The pooling experiment** — `TinyCNNPool` is written and verified (5,041 params, RF **13×13**,
+>    *not* CFAR-matched, so it is a control only). Train 4 seeds, evaluate at **both gates**: ±1
+>    shows the cost as Pd loss, ±3 shows the mechanism as displacement. The no-pooling baseline is
+>    0.498/0.485 bins, so the effect must clear that to be visible.
+> 3. **Then `bench2_test`, once**, with the table pre-registered. **Still untouched.**
+> 4. **Writing** — the real schedule risk. `SCHEDULE.md` targeted 20 Aug for everything; the
+>    experiments are far ahead, the report has not started.
+>
+> ### Rule adopted 15 Aug, worth keeping
+> *A new finding goes on the limitations list, not the work queue, unless it changes a number
+> already published in `PROGRESS.md`.* Adopted because the project was drifting into open-ended
+> fixing; the six-item robustness block was run under it and closed cleanly.
+>
+> ### Known-open, deliberately not chased
+> `os_rank_frac` never swept · no learned linear baseline · `pos_weight` < 100 untested (100 was the
+> edge of the range) · nothing below epoch 15 tested · one simulator only (criterion 8) ·
+> `clutter_edge` stratum 34% diluted · H1/H2 attribution (Milestone 18) not started.
+
+---
+
+
 Current as of 11 August 2026, and everything below is committed. `PROGRESS.md` holds the full
 record with reasoning; this file is the short version plus what happens next.
 
