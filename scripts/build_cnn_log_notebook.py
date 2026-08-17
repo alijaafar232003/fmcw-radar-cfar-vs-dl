@@ -1361,6 +1361,119 @@ one seed's noise; it does not establish a distribution, and nothing suggests eit
    true at fixed threads, false across the 2-vs-4 boundary that actually separated those runs. It
    changes none of §15's numbers, which were internally consistent at 4 threads.""")
 
+# ============================================================================== 18
+md("""---
+## 18 · The headline re-scored at epoch 21 — and the configuration frozen
+
+### Question
+Every DL-vs-CFAR number in §9–§14 was measured on epoch-50 checkpoints. §16 moved the frozen
+stopping point to **21**, so all of them describe a model we no longer report. What survives, what
+moves, and can the configuration finally be locked?
+
+### Setup
+8 seeds × 21 epochs at `pos_weight=100`, **`--threads 2` throughout** (§17), from commit `50755c9`.
+`bench2_val`, matched measured Pfa 1e-4, paired frame bootstrap 2,000 resamples, Bonferroni across
+the 7 conditions.
+
+    for S in 0..7: python scripts/train_tinycnn.py --epochs 21 --pos-weight 100 --seed $S \\
+        --tag frozen_s$S --save-at 21 --threads 2 --keep-awake --skip-gates --resume
+    python scripts/bootstrap_comparison.py --tag frozen --epoch 21 --tolerance 1   # and 3
+    python scripts/localization_table.py  --tag frozen --epoch 21 --per-condition
+
+**The frozen arm IS the reported arm, stopped earlier.** At `threads=2` these runs reproduce the
+original `pw100` trajectories **bit-for-bit** — epoch-21 val loss identical to 9 decimals on all 8
+seeds — so the 21-vs-50 comparison is paired by construction, and §17's diagnosis is confirmed.""")
+
+code('''b1 = DL / "bootstrap_frozen_ep021_tol1.csv"
+b3 = DL / "bootstrap_frozen_ep021_tol3.csv"
+lz = DL / "localization_frozen_ep021.csv"
+
+# The epoch-50 tables are KEPT, and read here as the superseded comparison.
+old1, old3 = DL / "bootstrap_pw100.csv", DL / "bootstrap_pw100_tol3.csv"
+oldl = DL / "localization_pw100.csv"
+
+if b1.exists() and b3.exists():
+    for gate, newp, oldp in ((1, b1, old1), (3, b3, old3)):
+        n = pd.read_csv(newp).set_index("condition")
+        cmp_ = pd.DataFrame({"ep21_diff": n["diff"], "ep21_p": n.p_boot, "ep21_sig": n["sig (Bonf)"]})
+        if oldp.exists():
+            o = pd.read_csv(oldp).set_index("condition")
+            cmp_.insert(0, "ep50_sig", o["sig (Bonf)"])
+            cmp_.insert(0, "ep50_diff", o["diff"])
+            cmp_["verdict"] = ["same" if a == b else ("NOW SIG" if b else "NO LONGER SIG")
+                               for a, b in zip(cmp_.ep50_sig, cmp_.ep21_sig)]
+        print(f"gate +/-{gate}:  epoch 50 -> epoch 21")
+        display(cmp_.round(4))
+
+if lz.exists():
+    L = pd.read_csv(lz)
+    p1 = L[(L.gate == 1) & (L.group == "ALL")].set_index("method")
+    display(p1[["n_seeds", "pd", "pd_se", "dr_bins", "dr_bins_se", "dv_bins", "dv_bins_se"]].round(4))
+
+    # THE headline ratio, re-measured. Never carry the epoch-50 value over.
+    ratio = p1.loc["DL", "dv_bins"] / p1.drop("DL").dv_bins.min()
+    best = p1.drop("DL").dv_bins.idxmin()
+    print(f"DL Doppler error = {ratio:.2f}x the best CFAR ({best}) at epoch 21")
+    if oldl.exists():
+        O = pd.read_csv(oldl)
+        o1 = O[(O.gate == 1) & (O.group == "ALL")].set_index("method")
+        print(f"  ... against {o1.loc['DL','dv_bins'] / o1.drop('DL').dv_bins.min():.2f}x at epoch 50 (SUPERSEDED)")
+
+        # Did it improve everywhere, or only on average?
+        a = O[(O.gate == 1) & (O.method == "DL")].set_index("group")
+        b = L[(L.gate == 1) & (L.method == "DL")].set_index("group")
+        t = pd.DataFrame({"dr_50": a.dr_bins, "dr_21": b.dr_bins, "dr_d": b.dr_bins - a.dr_bins,
+                          "dv_50": a.dv_bins, "dv_21": b.dv_bins, "dv_d": b.dv_bins - a.dv_bins})
+        print(f"improved on range in {(t.dr_d < 0).sum()}/{len(t)} groups, "
+              f"Doppler in {(t.dv_d < 0).sum()}/{len(t)}")
+        display(t.round(4))
+else:
+    print("run the three commands in the Setup block above")''')
+
+md("""### What it showed — Pd holds, `clutter` hardens into a real loss, localization improves
+
+**Pd at the ±1 gate is structurally unchanged** — the same 4 of 7 significant, the same 3 ties, all
+deltas within a few thousandths. Exactly what §16 predicted (21 vs 50 Pd is a tie, p = 0.77).
+
+**⚠️ One conclusion changed, at the ±3 gate: `clutter` is now a *significant* loss.**
+−0.0429, **p = 0.005**, clearing the Bonferroni threshold of 0.0071 — where at epoch 50 it was
+−0.038, p = 0.013, reported as "edge of significance" (§13). **This strengthens our position.**
+Milestone 17 records that a credible learned detector normally loses *somewhere*; ours now does so
+demonstrably rather than marginally. It is the one condition where the classical method wins on
+detection, and it is no longer arguable.
+
+**Localization improves, and the headline ratio moves:**
+
+| pooled, gate ±1 | epoch 50 | epoch 21 |
+|---|---|---|
+| DL range error | 0.498 | **0.473** bins |
+| DL Doppler error | 0.485 | **0.393 ± 0.025** bins |
+| **Doppler vs best CFAR (OS)** | **5.6×** | **4.6×** |
+| range vs best CFAR (SO) | 2.79× | 2.65× |
+
+Improved in **8 of 8** groups on **both** axes — not an averaging artefact.
+
+**The "5.6× worse Doppler" figure is retired.** It must be quoted as **4.6× at epoch 21** and never
+carried over from 50. The ~5× estimate written into `NEXT_SESSION.md` on 16 Aug is also superseded:
+it extrapolated a 4-thread paired shift onto a 2-thread table, which §17 shows is exactly the kind
+of mixing that costs ~1 SE on localization. The measured value is 4.6×.
+
+*Caveat carried forward:* this ratio's denominator is a single CFAR run with its own frame-sampling
+error, which the ratio does not propagate. `bootstrap_comparison.py` is the source for intervals
+that do — the ratio is a headline, not an inference.
+
+### What it changed
+**🔒 The configuration is frozen** → **`configs/frozen_dl.yaml`**, validated field-by-field against
+the `config_frozen_s0.json` the run actually produced. It records model, training, data, evaluation,
+the CFAR baseline, environment and the exact commands — including `threads: 2` as a load-bearing
+field, which is the concrete outcome of §17.
+
+The epoch-50 tables are **kept unmodified** as the superseded record, per the project's rule that
+the path is part of the result.
+
+**`bench2_test` is now unblocked.** It is the next thing to touch — once, with the table
+pre-registered before anything is read (N4).""")
+
 # ============================================================================== corrections
 md("""---
 ## Corrections""")

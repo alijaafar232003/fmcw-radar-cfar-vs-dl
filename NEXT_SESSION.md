@@ -1,49 +1,53 @@
 # Next Session — pick up here
 
-> ## ⚡ STATE AS OF 16 AUGUST 2026 — read this block first
+> ## ⚡ STATE AS OF 17 AUGUST 2026 — read this block first
 >
 > Everything below the horizontal rule predates the DL work and is kept for the CFAR reasoning.
 > The current state is here. Full detail: `PROGRESS.md` Milestone 23 (dated entries) and
-> `notebooks/cnn_development_log.ipynb` (§1–15, Corrections, Open, Next experiments).
+> `notebooks/cnn_development_log.ipynb` (§1–18, Corrections, Open, Next experiments).
 >
-> ### The configuration (NOT yet frozen to a file)
+> ### 🔒 The configuration — FROZEN 17 Aug → **`configs/frozen_dl.yaml`**
+> That file is the contract; this table is the summary. It was validated field-by-field against the
+> `config_frozen_s0.json` the run actually produced.
+>
 > | | |
 > |---|---|
 > | model | `TinyCNN`, 5,041 params, RF **21×9** = the CFAR window |
 > | `pos_weight` | **100** — measured; 974 (exact class balancing) was worse on 4 of 7 conditions |
-> | epochs | **21** — decided 16 Aug by the **full 1–25 sweep** under a pre-registered rule (earliest epoch within 1 SE of the Pd plateau). Supersedes the earlier "15": Pd is *not* flat below 15, it rises +0.059 from epoch 1 |
+> | epochs | **21** — the full 1–25 sweep under a pre-registered rule (earliest epoch within 1 SE of the Pd plateau). Supersedes "15": Pd is *not* flat below 15, it rises +0.059 from epoch 1 |
+> | **threads** | **2 — LOAD-BEARING.** Changes the trained weights at fixed seed (max \|ΔW\| 0.38, ~1 SE on localization). Arms at different thread counts may not be pooled (§17) |
 > | optimizer | Adam, lr 1e-3, batch 32 |
 > | NMS | `nms_size=5`, shared with CFAR |
 > | gate | **±1** pre-registered; ±3 reported beside it as robustness |
 > | CFAR | 21×9 window; **CA/GO/OS/SO** (SO added 15 Aug) |
 > | operating point | matched **measured** Pfa 1e-4, swept per condition |
 >
-> ### Headline, on `bench2_val`, 8 seeds, bootstrapped and Bonferroni-corrected
-> ⚠️ **Measured at epoch 50, which is no longer the frozen epoch — re-score at 21 (see Do-next 1).**
-> The sweep says Pd at 21 vs 50 is a tie (p = 0.77) so the Pd ordering should survive, but the
-> **localization line below will move**: 21 vs 50 is range −0.075 (p = 0.004), Doppler −0.045
-> (p = 0.036), so DL's localization deficit against CFAR shrinks. Carrying that paired shift onto
-> the 8-seed epoch-50 figure (Doppler 0.485 vs OS 0.086) puts the ratio near **5×** rather than
-> 5.6× — an estimate across two seed sets, to be replaced by the actual re-score, not quoted.
-> DL wins **clutter_edge +0.288, mixed +0.116, masking +0.049, multi +0.038** (all p < 0.001).
-> Ties on **unresolved** and **isolated** (borderline, p = 0.031). **Loses `clutter`** at the ±3
-> gate (−0.038, p = 0.013, edge of significance).
-> **CFAR wins localization decisively** — DL's Doppler error is 5.6× the best CFAR.
+> ### Headline, on `bench2_val`, 8 seeds @ **epoch 21**, bootstrapped and Bonferroni-corrected
+> DL wins **clutter_edge +0.274, mixed +0.106, masking +0.051, multi +0.037** (all p < 0.001).
+> Ties on **unresolved** (p = 0.62) and **isolated** (p = 0.030, short of the corrected 0.0071).
+> **Loses `clutter` at the ±3 gate — now SIGNIFICANT: −0.043, p = 0.005** (it was p = 0.013, "edge
+> of significance", at epoch 50). That is a *strengthening*: Milestone 17 says a credible learned
+> detector should lose somewhere, and ours now demonstrably does.
+> **CFAR wins localization** — DL's Doppler error is **4.6×** the best CFAR (OS), range 2.65× (SO).
 > One-line summary: *at finding targets in interference, DL wins; at placing them, CFAR does.*
 >
+> ⚠️ **The old "5.6×" is retired — quote 4.6×, measured at epoch 21.** Do not carry the epoch-50
+> value over, and do not use the "≈5×" estimate written here on 16 Aug: that extrapolated across
+> two thread counts, which §17 shows costs ~1 SE on localization. Superseded epoch-50 numbers are
+> kept in `results/dl/bootstrap_pw100*.csv` and `localization_pw100.csv`, and in the §18 table.
+>
 > ### Do next, in order
-> 1. **Freeze the config to a file and commit it** — it is decided but not written down.
->    Note epochs = **21**, which means the 8 reported seeds (trained to 50) must be **re-evaluated at
->    epoch-21 checkpoints**, which do **not** yet exist for seeds 4–7 — the `epsweep` runs cover
->    seeds 0–3 only (`tinycnn_epsweep_s{0..3}_ep021.pt`). Seeds 4–7 need a re-run with
->    `--epochs 21 --save-at 21` before the headline table can be re-scored at the frozen config.
-> 2. **The pooling experiment** — `TinyCNNPool` is written and verified (5,041 params, RF **13×13**,
->    *not* CFAR-matched, so it is a control only). Train 4 seeds, evaluate at **both gates**: ±1
->    shows the cost as Pd loss, ±3 shows the mechanism as displacement. The no-pooling baseline is
->    0.498/0.485 bins, so the effect must clear that to be visible.
-> 3. **Then `bench2_test`, once**, with the table pre-registered. **Still untouched.**
-> 4. **Writing** — the real schedule risk. `SCHEDULE.md` targeted 20 Aug for everything; the
->    experiments are far ahead, the report has not started.
+> 1. ~~Freeze the config~~ ✅ **DONE 17 Aug** — `configs/frozen_dl.yaml`, headline re-scored at 21.
+> 2. **`bench2_test`, ONCE** — now unblocked, and the next thing to touch. Pre-register the table
+>    before reading anything (notebook N4). **Still untouched.**
+> 3. **Pd-vs-SNR figure** on `bench2_snr_sweep` — ⚠️ **proposal-required and still not made** (§4b).
+>    Evaluation only, no training.
+> 4. **Writing** — the real risk, and now the critical path. `SCHEDULE.md` targeted 20 Aug for
+>    everything and nothing is drafted; the realistic target is the 1 Sep hard deadline.
+>
+> **Deliberately cut** (logged, not chased — they change no published number): the `TinyCNNPool`
+> control, N2/N3, the Open/O4 localization asymmetry, Milestone-18 attribution, CARRADA, and the
+> remaining proposal ablations. Every one of them costs a writing day that does not exist.
 >
 > ### Rule adopted 15 Aug, worth keeping
 > *A new finding goes on the limitations list, not the work queue, unless it changes a number

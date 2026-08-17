@@ -1960,6 +1960,70 @@ is *better*. It is a nuisance parameter to hold fixed, not to optimise.
    identical"* — true at fixed threads, not true across the 2-vs-4 boundary that actually separated
    those runs. It does not change §15's numbers, which were internally consistent at 4 threads.
 
+### 2026-08-17 — The headline re-scored at epoch 21, and the configuration is FROZEN
+
+**Question.** Every reported DL-vs-CFAR number was measured at epoch 50. Epoch 21 is now the frozen
+stopping point, so all of them describe a model we no longer report. What survives?
+
+**Setup.** 8 seeds × 21 epochs at `pos_weight=100`, **`--threads 2` throughout**, from commit
+`50755c9`. Scored on `bench2_val`, matched measured Pfa 1e-4, paired frame bootstrap (2,000
+resamples), Bonferroni across the 7 conditions.
+
+**✅ The frozen arm IS the reported arm, stopped earlier.** At `threads=2` the new runs reproduce
+the original `pw100` trajectories **bit-for-bit** — epoch-21 val loss identical to 9 decimal places
+on all 8 seeds. So this is not a re-training that happens to be similar; it is the same 8
+trajectories truncated, which makes the 21-vs-50 comparison paired by construction and confirms the
+thread-count diagnosis from the entry above.
+
+**Pd at the ±1 gate — structure completely unchanged.** 4 of 7 significant, the same 4:
+
+| condition | ep50 Δ | ep21 Δ | ep21 p | verdict |
+|---|---|---|---|---|
+| clutter_edge | +0.288 | **+0.274** | <0.001 | win, unchanged |
+| mixed | +0.116 | **+0.106** | <0.001 | win, unchanged |
+| masking | +0.049 | **+0.051** | <0.001 | win, unchanged |
+| multi | +0.038 | **+0.037** | <0.001 | win, unchanged |
+| isolated | +0.023 | +0.019 | 0.030 | tie (short of 0.0071), unchanged |
+| clutter | −0.006 | −0.008 | 0.505 | tie, unchanged |
+| unresolved | +0.001 | +0.003 | 0.623 | tie, unchanged |
+
+**⚠️ One conclusion changed, at the ±3 gate: `clutter` is now a *significant* loss.**
+−0.0429, p = **0.005**, which clears the Bonferroni threshold of 0.0071 — where at epoch 50 it was
+−0.038, p = 0.013, explicitly reported as "edge of significance". **This strengthens the project's
+position:** Milestone 17 records that a credible learned detector should lose *somewhere*, and the
+one place ours loses is now established rather than marginal. Everything else at ±3 is unchanged.
+
+**Localization improves, and the headline ratio moves — measured, not extrapolated.**
+
+| pooled, gate ±1 | epoch 50 | epoch 21 |
+|---|---|---|
+| DL range error | 0.498 | **0.473** bins |
+| DL Doppler error | 0.485 | **0.393 ± 0.025** bins |
+| **Doppler vs best CFAR (OS)** | **5.6×** | **4.6×** |
+| range vs best CFAR (SO) | 2.79× | 2.65× |
+
+It improves in **8 of 8** groups on **both** axes. **The "5.6× worse Doppler" figure is retired and
+replaced by 4.6×** — it must be quoted at 21, never carried over from 50. The ~5× figure estimated
+in `NEXT_SESSION.md` on 16 Aug was a cross-thread-count extrapolation and is also superseded: the
+measured value is 4.6×. Note the ratio's denominator is a single CFAR run carrying its own
+frame-sampling error, which this ratio does **not** propagate — `bootstrap_comparison.py` is the
+source for intervals that do.
+
+**One-line summary, still true and now better supported:** *at finding targets in interference DL
+wins; at placing them CFAR does* — by 4.6× rather than 5.6×.
+
+**🔒 THE CONFIGURATION IS FROZEN** → **`configs/frozen_dl.yaml`**, validated field-by-field against
+the `config_frozen_s0.json` actually produced by the run. It records model, training, data,
+evaluation, CFAR baseline, environment and the exact commands, including `threads: 2` as a
+load-bearing field. Artefacts: `results/dl/bootstrap_frozen_ep021_tol{1,3}.csv`,
+`localization_frozen_ep021.csv`, `tinycnn_frozen_s{0..7}_ep021.pt`.
+
+The epoch-50 tables (`bootstrap_pw100*.csv`, `localization_pw100.csv`) are **kept on disk
+unmodified** as the superseded record.
+
+**`bench2_test` is now unblocked** — it is the next thing to touch, once, with the table
+pre-registered first.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below

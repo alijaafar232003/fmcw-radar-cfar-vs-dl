@@ -1,0 +1,120 @@
+# FROZEN DL CONFIGURATION — the configuration the project reports
+#
+# Frozen 17 August 2026. Every field here is a measured choice with a record behind it, not a
+# default: see `PROGRESS.md` "Decision history" for the full path each value took, and
+# `notebooks/cnn_development_log.ipynb` for the experiment that fixed it.
+#
+# THIS FILE IS THE REPRODUCIBILITY CONTRACT. A run that differs in ANY field below is a different
+# experiment and its numbers may not be pooled with these. That includes `threads`, which is not a
+# performance knob -- see the note on it.
+#
+# Nothing superseded is deleted from this project. Earlier configurations remain recorded in
+# PROGRESS.md and in `results/dl/config_*.json` beside their own checkpoints. The path matters as
+# much as the endpoint.
+
+meta:
+  frozen_on: 2026-08-17
+  frozen_at_commit: 50755c99851c        # the commit the frozen seeds were trained from
+  arm_tag: frozen                        # checkpoints: results/dl/tinycnn_frozen_s{0..7}_ep021.pt
+  supersedes:
+    - {arm: pw100, epochs: 50, note: "same 8 trajectories, stopped at 50 instead of 21"}
+    - {arm: n,     epochs: 50, pos_weight: 974, note: "wrong pos_weight; retracted in Correction C3"}
+
+# ---------------------------------------------------------------------------------- model
+model:
+  name: TinyCNN                          # src/dl/models.py
+  width: 16
+  params: 5041
+  receptive_field: [21, 9]               # MEASURED by backprop, matches the CFAR window exactly.
+                                         # This equality is the fairness argument -- do not change
+                                         # one without re-deriving the other.
+  dilations_range:   [1, 2, 3, 4]
+  dilations_doppler: [1, 1, 1, 1]
+
+# ---------------------------------------------------------------------------------- training
+training:
+  epochs: 21                             # 12 -> 50 -> 15 -> 21. Chosen by the pre-registered rule
+                                         # "earliest epoch whose pooled seed-mean Pd is within 1 SE
+                                         # of the plateau", applied to a sweep of every epoch 1-25
+                                         # (notebook section 16). NOT early stopping: val loss
+                                         # plateaus at ~26, later than Pd, so it picks the wrong
+                                         # epoch (Standing decision 2).
+  patience: null                         # early stopping OFF, deliberately
+  pos_weight: 100.0                      # 200 -> 974 -> 100. Won the 3-way ablation; 974 (exact
+                                         # class balancing) manufactured a `clutter` loss that had
+                                         # to be retracted (Correction C3).
+  optimizer: adam
+  lr: 0.001
+  weight_decay: 0.0
+  batch_size: 32
+  loss: BCEWithLogitsLoss                # with the pos_weight above
+  label: "3x3 block around each target"  # KNOWN LIMITATION: it is why localization degrades with
+                                         # training (sections 14-16) and the leading suspect for the
+                                         # range/Doppler asymmetry in Open/O4. Kept because changing
+                                         # it invalidates every number in the log.
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7]        # all 8 reported; single-seed results are not trusted
+                                         # (Standing decision 3)
+  device: cpu
+  threads: 2                             # ⚠️ LOAD-BEARING, NOT A SPEED KNOB. Torch CPU kernels
+                                         # reduce in a different order at a different thread count,
+                                         # so the same seed yields DIFFERENT weights: max |dW| 0.38
+                                         # across the 5,041 params, ~1 SE on localization, and
+                                         # negligible on Pd. Arms trained at different thread counts
+                                         # may not be pooled or compared. Section 17.
+
+# ---------------------------------------------------------------------------------- data
+data:
+  train_split: bench2_train              # 8400 frames; `unresolved` excluded from training
+  val_split:   bench2_val                # 1600 frames; every choice above was made on this
+  test_split:  bench2_test               # 3200 frames — TOUCH ONCE, only after this file is frozen
+  input: "10*log10(power / median(power)), clipped [-10, +60] dB, / 20"
+  full_split_asserted: true              # training refuses to start on a subset
+
+# ---------------------------------------------------------------------------------- evaluation
+evaluation:
+  operating_point: "matched MEASURED Pfa, swept per condition"   # never design Pfa
+  target_pfa: 1.0e-4
+  gate: 1                                # ±1 bin, pre-registered
+  gate_robustness: 3                     # ±3 reported BESIDE it, never instead of it. It is where
+                                         # DL's `clutter` loss appears, so dropping it would hide
+                                         # the one condition DL loses.
+  nms_size: 5                            # shared with CFAR — same all_peaks() call, by construction
+  valid_mask: "CFAR-testable interior only, margin 10 range / 4 Doppler"
+  matching: "one-to-one within the gate"
+  n_bootstrap: 2000                      # paired frame bootstrap, DL and CFAR on the same frames
+  multiplicity: "Bonferroni across the 7 scored conditions, alpha 0.05 -> 0.0071"
+
+# ---------------------------------------------------------------------------------- the baseline
+cfar:
+  window: [21, 9]                        # guard 2/2, train 8/2 -> 164 reference cells
+  guard: 2                               # MEASURED: equals the -30 dB mainlobe half-width
+  train: 8
+  guard_v: 2
+  train_v: 2
+  pfa: 1.0e-4
+  os_rank_frac: 0.75                     # never swept — a stated limitation
+  go_axis: 1
+  methods: [CA, GO, OS, SO]
+
+# ---------------------------------------------------------------------------------- environment
+environment:
+  python: 3.11.9
+  torch: 2.13.0+cpu
+  platform: win32
+
+# ---------------------------------------------------------------------------------- reproduce
+reproduce:
+  train: >
+    for S in 0 1 2 3 4 5 6 7; do
+      python scripts/train_tinycnn.py --epochs 21 --pos-weight 100 --seed $S
+        --tag frozen_s$S --save-at 21 --threads 2 --keep-awake --skip-gates --resume
+    done
+  score_pd: >
+    python scripts/bootstrap_comparison.py --tag frozen --epoch 21 --tolerance 1
+    (and --tolerance 3)
+  score_localization: >
+    python scripts/localization_table.py --tag frozen --epoch 21 --per-condition
+  verify: >
+    At threads=2 the frozen seeds reproduce the earlier pw100 run bit-for-bit at epoch 21
+    (val loss identical to 9 decimals on all 8 seeds), so this arm IS the reported arm,
+    stopped earlier — the epoch comparison is paired by construction.
