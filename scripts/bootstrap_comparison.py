@@ -73,6 +73,11 @@ def main() -> None:
     ap.add_argument("--pos-weight", type=int, default=100,
                     help="which DL arm to compare (default 100, the chosen value)")
     ap.add_argument("--n-boot", type=int, default=N_BOOT)
+    ap.add_argument("--tag", default=None,
+                    help="DL arm to score, e.g. 'frozen'. Default keeps the original naming so the "
+                         "epoch-50 tables still reproduce.")
+    ap.add_argument("--epoch", type=int, default=50,
+                    help="checkpoint epoch to score (default 50, the superseded arm)")
     ap.add_argument("--tolerance", type=int, default=1,
                     help="matching gate in bins. The tolerance sweep showed `clutter` is the one "
                          "condition whose margin depends on it, so that claim needs its own CI.")
@@ -92,19 +97,26 @@ def main() -> None:
         cfar_peaks[m] = {int(f): a[a[:, 0] == f][:, 1:] for f in np.unique(a[:, 0])}
 
     # ---------------------------------------------------------------- DL, the chosen arm
-    tag = "n" if args.pos_weight == 974 else f"pw{args.pos_weight}_s"
-    ckpts = sorted(DLR.glob(f"tinycnn_{tag}*_ep050.pt"))
+    tag = f"{args.tag}_s" if args.tag else ("n" if args.pos_weight == 974
+                                            else f"pw{args.pos_weight}_s")
+    ckpts = sorted(DLR.glob(f"tinycnn_{tag}*_ep{args.epoch:03d}.pt"))
     if not ckpts:
-        raise SystemExit(f"no checkpoints for pos_weight={args.pos_weight}")
-    print(f"DL arm: pos_weight={args.pos_weight}, {len(ckpts)} seeds")
+        raise SystemExit(f"no tinycnn_{tag}*_ep{args.epoch:03d}.pt checkpoints found")
+    print(f"DL arm: tag={tag!r} epoch={args.epoch}, {len(ckpts)} seeds")
 
     dl_peaks = []
     for cp in ckpts:
         ck = torch.load(cp, weights_only=False)
         seed = ck["config"]["seed"]
-        # Peaks do not depend on the matching gate, so the cache built by tolerance_sweep.py is
-        # reusable here -- this is the expensive step (8 seeds x 1,600 frames of inference).
-        cache = DLR / f"peaks_val_pw{args.pos_weight}_s{seed}.npz"
+        # Peaks do not depend on the matching gate, so the cache is shared with tolerance_sweep.py
+        # and localization_table.py -- this is the expensive step (8 seeds x 1,600 frames).
+        # Cache keyed on the checkpoint itself. The old `peaks_val_pw100_s{seed}.npz` files carried
+        # no epoch in the name, which was safe only while epoch 50 was the sole scored epoch --
+        # reusing that name for a different epoch would silently score the wrong weights.
+        cache = DLR / f"peaks_val_{cp.stem.replace('tinycnn_', '')}.npz"
+        legacy = DLR / f"peaks_val_pw{args.pos_weight}_s{seed}.npz"
+        if not cache.exists() and args.epoch == 50 and args.tag is None and legacy.exists():
+            cache = legacy
         if cache.exists():
             a = np.load(cache)["peaks"]
             dl_peaks.append({int(f): a[a[:, 0] == f][:, 1:] for f in np.unique(a[:, 0])})
@@ -119,7 +131,16 @@ def main() -> None:
                           "rd_map_mag.npy")
             pk[int(i)] = all_peaks(predict_heatmap(model, mag), valid, nms_size=NMS)
         dl_peaks.append(pk)
-        print(f"  scored {cp.name}")
+
+        # SAVE it. This used to be computed and thrown away, so every re-run paid the full
+        # inference cost again -- and `localization_table.py` has no inference path at all, it only
+        # reads these caches, so a new arm was silently unscoreable there until some other script
+        # happened to write them.
+        rows_pk = [np.column_stack([np.full(len(p), i, float), p])
+                   for i, p in sorted(pk.items()) if len(p)]
+        np.savez_compressed(cache, peaks=np.concatenate(rows_pk) if rows_pk
+                            else np.zeros((0, 4)))
+        print(f"  scored {cp.name} -> cached {cache.name}")
 
     rng = np.random.default_rng(0)
     rows = []
@@ -168,12 +189,16 @@ def main() -> None:
     df["sig (Bonf)"] = df.p_boot < alpha
     df["crosses 0"] = (df.ci_lo <= 0) & (df.ci_hi >= 0)
 
-    out = DLR / f"bootstrap_pw{args.pos_weight}_tol{args.tolerance}.csv"
+    # Superseded results are never overwritten: a new arm writes a new file, and
+    # `bootstrap_pw100_tol1.csv` stays on disk as the record of the epoch-50 headline.
+    arm = args.tag or f"pw{args.pos_weight}"
+    ep = "" if (args.epoch == 50 and args.tag is None) else f"_ep{args.epoch:03d}"
+    out = DLR / f"bootstrap_{arm}{ep}_tol{args.tolerance}.csv"
     df.to_csv(out)
 
     print("\n" + "=" * 100)
-    print(f"DL (pos_weight={args.pos_weight}, {len(ckpts)} seeds) vs best CFAR, {SPLIT}, "
-          f"gate +/-{args.tolerance}")
+    print(f"DL (arm={arm}, epoch={args.epoch}, pos_weight={args.pos_weight}, {len(ckpts)} seeds) "
+          f"vs best CFAR, {SPLIT}, gate +/-{args.tolerance}")
     print(f"paired frame bootstrap, {args.n_boot} resamples · Bonferroni alpha = {alpha:.4f}")
     print("=" * 100)
     print(df.round(4).to_string())
