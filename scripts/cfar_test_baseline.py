@@ -166,19 +166,74 @@ def score(frames_meta: pd.DataFrame, truths: pd.DataFrame) -> pd.DataFrame:
 
 
 def main() -> None:
-    global SPLIT, OUT
+    global SPLIT, OUT, METHODS
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--split", default="bench2_test")
+    ap.add_argument("--methods", default=None,
+                    help="comma-separated subset, e.g. 'SO'. Existing peaks_*.npz for methods NOT "
+                         "listed are left untouched and their summary rows are merged back in, so "
+                         "a late-added method can be filled in without re-reading the split for "
+                         "the ones already measured.")
+    ap.add_argument("--score-only", action="store_true",
+                    help="skip detection and re-derive the summary from the cached peaks_*.npz. "
+                         "This is what caching the detections was for.")
     args = ap.parse_args()
     SPLIT = args.split
     OUT = ROOT / "results" / f"cfar_{SPLIT.replace('bench2_', '')}"
 
-    frames_meta, truths, _ = collect()
-    frames_meta.to_csv(OUT / "frames.csv", index=False)
-    truths.to_csv(OUT / "truths.csv", index=False)
+    if args.methods:
+        METHODS = tuple(m.strip().upper() for m in args.methods.split(","))
+        print(f"running {METHODS} only; other methods' cached results are preserved")
+
+    if args.score_only:
+        frames_meta = pd.read_csv(OUT / "frames.csv")
+        truths = pd.read_csv(OUT / "truths.csv")
+        print(f"  --score-only: re-deriving the summary from cached peaks "
+              f"({len(frames_meta)} frames)")
+    else:
+        frames_meta, truths, _ = collect()
+
+        # Do not clobber the earlier run's frame/truth indices -- they are the join keys for every
+        # cached peaks file, so a reordering would silently corrupt the methods NOT re-run.
+        #
+        # Compared with a tolerance, not exactly: the existing CSVs were written by an earlier run
+        # and float64 does not survive a decimal round-trip bit-for-bit. The observed disagreement
+        # is 3.6e-15 (one ulp) on cnr_db, which is serialisation, not a different dataset. NaN
+        # patterns and every integer/string column must still match EXACTLY.
+        for name, df in (("frames.csv", frames_meta), ("truths.csv", truths)):
+            p = OUT / name
+            if not p.exists():
+                df.to_csv(p, index=False)
+                continue
+            old = pd.read_csv(p)
+            new = df[old.columns.tolist()].reset_index(drop=True)
+            if len(old) != len(new):
+                raise SystemExit(f"{name}: {len(new)} rows against the existing {len(old)} -- "
+                                 f"refusing to overwrite; cached peaks are keyed on it.")
+            for c in old.columns:
+                a, b = old[c], new[c]
+                if a.dtype.kind == "f" or b.dtype.kind == "f":
+                    af, bf = a.to_numpy(float), b.to_numpy(float)
+                    ok = (np.array_equal(np.isnan(af), np.isnan(bf))
+                          and np.allclose(af, bf, rtol=1e-9, atol=1e-12, equal_nan=True))
+                else:
+                    ok = a.equals(b)
+                if not ok:
+                    raise SystemExit(f"{name}: column {c!r} differs from the existing run -- "
+                                     f"refusing to overwrite; cached peaks are keyed on it.")
+            print(f"  {name} matches the existing run, left as is")
 
     summary = score(frames_meta, truths)
-    summary.to_csv(OUT / "summary.csv", index=False)
+
+    # Merge rather than replace: rows for methods not re-run are carried over verbatim.
+    sp = OUT / "summary.csv"
+    if sp.exists():
+        old = pd.read_csv(sp)
+        kept = old[~old.method.isin(METHODS)]
+        summary = pd.concat([kept, summary], ignore_index=True).sort_values(["condition", "method"])
+        print(f"  merged: kept {kept.method.nunique()} existing method(s), "
+              f"added/updated {len(METHODS)}")
+    summary.to_csv(sp, index=False)
 
     piv = summary.pivot_table(index="condition", columns="method", values="pd")
     print(f"\nPd at matched MEASURED Pfa {TARGET_PFA:.0e}, {SPLIT}, 21x9 window\n")

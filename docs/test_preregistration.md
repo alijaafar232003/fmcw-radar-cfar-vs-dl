@@ -91,9 +91,19 @@ CA/GO/OS only. Two options were available and the choice is made **now**, before
 > nothing to tune against, and the non-contamination argument of §1 applies unchanged. Reporting a
 > "best classical" that silently excluded one of the four methods would be worse.
 
-On `bench2_val` SO was much the weakest on Pd (pooled 0.237 against CA 0.482) and was never the
-best method on any condition, so it is **not expected to change "best CFAR" anywhere**. If it does,
-that is a reportable finding and it will be reported.
+**SO matters more than "completeness" suggests, and an earlier draft of this document understated
+it.** On Pd, SO is much the weakest method (`bench2_val` pooled 0.237 against CA 0.482) and is never
+the best on any condition — so for **T1/T2 it is not expected to change "best CFAR" anywhere**.
+
+But on **localization it is the best classical method on the range axis** (`bench2_val`, ±1:
+SO **0.179** bins against CA 0.216, GO 0.218, OS 0.218). The headline range ratio in T3 —
+"DL's range error is 2.65× the best CFAR" — therefore *divides by SO*. Omitting SO would not have
+made T3 incomplete, it would have made it **wrong**, by silently comparing against a weaker
+denominator (OS, giving ~2.2× instead of 2.65×).
+
+So SO is run on `bench2_test` before the DL read, and the T3 range ratio is defined against the best
+of all four. Predicted: **SO remains the best classical method on range localization and the worst
+on Pd.** If either flips, that is a reportable finding and it will be reported.
 
 ## 6. Rules for reading the result
 
@@ -117,3 +127,38 @@ Stated in advance so it cannot be rationalised later:
   bug on the new split rather than a property of the detector, since those have no interference.
 - **Measured Pfa far from 1e-4** in T4 would mean the operating point did not match, invalidating
   every comparison — this is the check that the whole protocol rests on.
+
+---
+
+## 8. Addendum — SO-CFAR added to the test baseline (17 Aug, before the DL read)
+
+Run as specified in §5, **before** any DL evaluation of the split.
+
+    python scripts/cfar_test_baseline.py --methods SO              # detection pass
+    python scripts/cfar_test_baseline.py --methods SO --score-only # merge into summary.csv
+
+**Integrity, verified:** `peaks_CA/GO/OS.npz` are byte-identical to the 11 Aug backup (md5), and all
+14 numeric columns of their `summary.csv` rows are unchanged. Only SO rows were added. The 11 Aug
+state is preserved in `results/cfar_test_backup_11aug/`.
+
+**Pd at matched measured Pfa 1e-4, `bench2_test`:**
+
+| | clutter | clutter_edge | isolated | masking | mixed | multi | unresolved |
+|---|---|---|---|---|---|---|---|
+| CA | 0.166 | 0.397 | **0.675** | 0.535 | 0.408 | **0.687** | **0.464** |
+| GO | **0.171** | 0.415 | 0.662 | 0.529 | **0.426** | 0.680 | 0.462 |
+| OS | 0.163 | **0.449** | 0.662 | **0.622** | 0.388 | 0.682 | 0.462 |
+| SO | 0.063 | 0.197 | 0.665 | 0.609 | 0.210 | 0.682 | 0.462 |
+
+**The §5 prediction held: SO is the weakest on Pd and is the best method on no condition**, so
+"best CFAR" is unchanged everywhere and T1/T2 are unaffected by the addition. SO's value here is
+T3, where it is expected to be the best classical method on the range axis.
+
+The `--score-only` path was added while doing this: the detections were always cached precisely so
+an operating point could be re-derived without re-running CFAR, but nothing exposed that. A
+guard also now refuses to overwrite `frames.csv`/`truths.csv` if they disagree with the existing
+run, since every cached peaks file is keyed on those indices. It compares floats with a tolerance —
+the CSVs round-trip float64 to within one ulp (3.6e-15 on `cnr_db`), which is serialisation, not a
+different dataset; NaN patterns and all integer/string columns must still match exactly.
+
+**`bench2_test` remains untouched on the DL side.** The one-shot has not been taken.
