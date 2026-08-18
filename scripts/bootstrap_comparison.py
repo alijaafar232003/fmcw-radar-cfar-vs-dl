@@ -69,6 +69,7 @@ def matched_threshold(frames, mc):
 
 
 def main() -> None:
+    global SPLIT, CV, PK
     ap = argparse.ArgumentParser()
     ap.add_argument("--pos-weight", type=int, default=100,
                     help="which DL arm to compare (default 100, the chosen value)")
@@ -78,6 +79,9 @@ def main() -> None:
                          "epoch-50 tables still reproduce.")
     ap.add_argument("--epoch", type=int, default=50,
                     help="checkpoint epoch to score (default 50, the superseded arm)")
+    ap.add_argument("--split", default="bench2_val",
+                    help="split to score. `bench2_test` is the pre-registered one-shot -- the CFAR "
+                         "side must already be cached in results/cfar_<split>/.")
     ap.add_argument("--tolerance", type=int, default=1,
                     help="matching gate in bins. The tolerance sweep showed `clutter` is the one "
                          "condition whose margin depends on it, so that claim needs its own CI.")
@@ -85,6 +89,15 @@ def main() -> None:
     mc = MatchConfig(args.tolerance, args.tolerance)
 
     valid = cfar_valid_mask(SHAPE, CfarConfig())
+    SPLIT = args.split
+    CV = ROOT / "results" / f"cfar_{SPLIT.replace('bench2_', '')}"
+    # Peaks caches are namespaced by split. Without this the test run would load, or overwrite,
+    # the val caches -- silently scoring the wrong frames under the right-looking filename.
+    PK = SPLIT.replace("bench2_", "")
+    if not (CV / "frames.csv").exists():
+        raise SystemExit(f"no CFAR baseline at {CV} -- run scripts/cfar_test_baseline.py first")
+    print(f"split: {SPLIT}   CFAR baseline: {CV.name}   peaks prefix: peaks_{PK}_")
+
     frames_meta = pd.read_csv(CV / "frames.csv")
     truths = pd.read_csv(CV / "truths.csv")
     tb = {f: g[["range_bin", "velocity_bin"]].to_numpy(float) for f, g in truths.groupby("frame")}
@@ -113,9 +126,10 @@ def main() -> None:
         # Cache keyed on the checkpoint itself. The old `peaks_val_pw100_s{seed}.npz` files carried
         # no epoch in the name, which was safe only while epoch 50 was the sole scored epoch --
         # reusing that name for a different epoch would silently score the wrong weights.
-        cache = DLR / f"peaks_val_{cp.stem.replace('tinycnn_', '')}.npz"
+        cache = DLR / f"peaks_{PK}_{cp.stem.replace('tinycnn_', '')}.npz"
         legacy = DLR / f"peaks_val_pw{args.pos_weight}_s{seed}.npz"
-        if not cache.exists() and args.epoch == 50 and args.tag is None and legacy.exists():
+        if (not cache.exists() and SPLIT == "bench2_val" and args.epoch == 50
+                and args.tag is None and legacy.exists()):
             cache = legacy
         if cache.exists():
             a = np.load(cache)["peaks"]
@@ -193,7 +207,8 @@ def main() -> None:
     # `bootstrap_pw100_tol1.csv` stays on disk as the record of the epoch-50 headline.
     arm = args.tag or f"pw{args.pos_weight}"
     ep = "" if (args.epoch == 50 and args.tag is None) else f"_ep{args.epoch:03d}"
-    out = DLR / f"bootstrap_{arm}{ep}_tol{args.tolerance}.csv"
+    sp = "" if SPLIT == "bench2_val" else f"_{PK}"
+    out = DLR / f"bootstrap_{arm}{ep}{sp}_tol{args.tolerance}.csv"
     df.to_csv(out)
 
     print("\n" + "=" * 100)

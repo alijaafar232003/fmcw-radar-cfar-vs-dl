@@ -104,10 +104,21 @@ batch), `torch.no_grad()`, model in `eval()` mode, excluding disk I/O and NMS �
 both arms and would cancel. CFAR timings are the `ms_per_frame` already recorded in
 `results/cfar_test/peaks_*.npz`, measured on the same machine.
 
-Commands (the same scripts, pointed at the test split — no new analysis code):
+Commands:
 
-    python scripts/bootstrap_comparison.py --tag frozen --epoch 21 --tolerance 1   # and 3
-    python scripts/localization_table.py  --tag frozen --epoch 21 --per-condition
+    python scripts/bootstrap_comparison.py --tag frozen --epoch 21 --split bench2_test --tolerance 1
+    python scripts/bootstrap_comparison.py --tag frozen --epoch 21 --split bench2_test --tolerance 3
+    python scripts/localization_table.py  --tag frozen --epoch 21 --split bench2_test --per-condition
+    python scripts/runtime_cost.py        --tag frozen --epoch 21 --split bench2_test --threads 2
+
+**Correction to an earlier draft of this section, made before the read.** It claimed "the same
+scripts, pointed at the test split — no new analysis code". That was wrong: both scoring scripts
+had `SPLIT = "bench2_val"` hardcoded, so the commands as written would have re-scored **`bench2_val`
+and labelled the output as test results** — a failure that would have been very hard to see in the
+output. `--split` was added, the peaks caches and every output filename are now namespaced by split
+so a test run cannot read or overwrite a val artefact, and both scripts were regression-checked on
+val: the epoch-21 tables reproduce **exactly**, all numeric columns, zero difference. `runtime_cost.py`
+(T5) did not exist at all and was written for this.
 
 ## 4. Predictions, recorded before the fact
 

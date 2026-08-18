@@ -60,6 +60,7 @@ def measure(pk, ids, tb, valid, mc, per_condition=None):
 
 
 def main() -> None:
+    global SPLIT, CV, PK
     ap = argparse.ArgumentParser()
     ap.add_argument("--pos-weight", type=int, default=100)
     ap.add_argument("--tolerances", type=int, nargs="+", default=[1, 3])
@@ -67,6 +68,8 @@ def main() -> None:
     ap.add_argument("--tag", default=None,
                     help="DL arm to score, e.g. 'frozen'. Default keeps the original "
                          "`pw{pos_weight}` naming so the epoch-50 table still reproduces.")
+    ap.add_argument("--split", default="bench2_val",
+                    help="split to score. `bench2_test` is the pre-registered one-shot.")
     ap.add_argument("--epoch", type=int, default=None,
                     help="epoch of the checkpoints, used only to name the peaks caches and the "
                          "output. Omit for the original (epoch-50) files.")
@@ -76,6 +79,13 @@ def main() -> None:
     # is the epoch-50 table and stays on disk as the record of what was reported before.
     arm = args.tag or f"pw{args.pos_weight}"
     suffix = "" if args.epoch is None else f"_ep{args.epoch:03d}"
+
+    SPLIT = args.split
+    CV = ROOT / "results" / f"cfar_{SPLIT.replace('bench2_', '')}"
+    PK = SPLIT.replace("bench2_", "")
+    if not (CV / "frames.csv").exists():
+        raise SystemExit(f"no CFAR baseline at {CV} -- run scripts/cfar_test_baseline.py first")
+    print(f"split: {SPLIT}   CFAR baseline: {CV.name}   peaks prefix: peaks_{PK}_")
 
     valid = cfar_valid_mask(SHAPE, CfarConfig())
     frames_meta = pd.read_csv(CV / "frames.csv")
@@ -91,8 +101,8 @@ def main() -> None:
     # caches, so once `peaks_val_pw100_s0_ep050.npz` existed beside `peaks_val_pw100_s0.npz` the
     # pooled DL row silently became a 9-"seed" mean with seed 0 counted twice. Caught by the
     # regression check against the saved epoch-50 table; it moved Doppler error by 0.017 bins.
-    pat = re.compile(rf"^peaks_val_{re.escape(arm)}_s\d+{re.escape(suffix)}\.npz$")
-    dl = sorted(p for p in DLR.glob(f"peaks_val_{arm}_s*.npz") if pat.match(p.name))
+    pat = re.compile(rf"^peaks_{PK}_{re.escape(arm)}_s\d+{re.escape(suffix)}\.npz$")
+    dl = sorted(p for p in DLR.glob(f"peaks_{PK}_{arm}_s*.npz") if pat.match(p.name))
     if dl:
         sources["DL"] = [load_peaks(p) for p in dl]
     print("methods:", {k: len(v) for k, v in sources.items()})
@@ -135,7 +145,8 @@ def main() -> None:
             print(f"  gate +/-{tol}  {gname} done")
 
     df = pd.DataFrame(rows)
-    out = DLR / f"localization_{arm}{suffix}.csv"
+    sp = "" if SPLIT == "bench2_val" else f"_{PK}"
+    out = DLR / f"localization_{arm}{suffix}{sp}.csv"
     df.to_csv(out, index=False)
 
     for tol in args.tolerances:
