@@ -2024,6 +2024,96 @@ unmodified** as the superseded record.
 **`bench2_test` is now unblocked** — it is the next thing to touch, once, with the table
 pre-registered first.
 
+### 2026-08-19 — `bench2_test`, the one-shot: DL wins 6 of 7, and loses nowhere
+
+**The pre-registered read**, `docs/test_preregistration.md` (committed 17 Aug, before anything was
+seen). Frozen config, 8 seeds at epoch 21, `threads=2`. Tables T1–T5 as specified. Run once.
+
+**T4 first, because everything rests on it.** Measured Pfa at the matched operating point is within
+**2%** of the 1e-4 target for **every method on every condition** (worst 1.02×). The operating points
+genuinely matched, so the Pd comparisons are like-for-like.
+
+**T1 — Pd at the ±1 gate. 6 of 7 significant after Bonferroni (α = 0.0071):**
+
+| condition | best CFAR | CFAR Pd | DL Pd | Δ | p | verdict |
+|---|---|---|---|---|---|---|
+| clutter_edge | OS | 0.449 | 0.751 | **+0.302** | <0.001 | DL win |
+| mixed | GO | 0.426 | 0.529 | **+0.103** | <0.001 | DL win |
+| isolated | CA | 0.675 | 0.733 | **+0.058** | <0.001 | DL win |
+| masking | OS | 0.623 | 0.674 | **+0.051** | <0.001 | DL win |
+| multi | CA | 0.687 | 0.732 | **+0.045** | <0.001 | DL win |
+| unresolved | CA | 0.464 | 0.476 | **+0.012** | 0.001 | DL win |
+| clutter | GO | 0.171 | 0.169 | −0.002 | 0.79 | **tie** |
+
+**T2 — ±3 gate: the same 6 of 7.** `clutter` −0.019, p = 0.068 — a **tie**, not a loss.
+
+**⚠️ Three pre-registered predictions failed. All three are recorded here because they were written
+down in advance; none is a re-analysis.**
+
+1. **`clutter` at ±3 was predicted a LOSS and came out a TIE.** On val it was −0.043, p = 0.005 —
+   significant after correction, and the 17 Aug entry called it "a strengthening" because Milestone
+   17 says a credible learned detector should lose *somewhere*. On test it is −0.019, p = 0.068.
+   **It does not replicate.** See Correction **C6**.
+2. **`unresolved` was predicted a TIE and came out a significant win** (+0.012, p = 0.001, at both
+   gates). Absolutely tiny — 1.2 percentage points — and **O2's reasoning still stands**: both arms
+   sit at the ~0.5 two-targets-in-one-mainlobe physics cap, and 800 targets makes a negligible
+   effect detectable. **It should not be reported as a win**; it is a significant non-difference.
+3. **SO was predicted to remain the best classical method on range localization.** On val it was
+   best on 5 of 7 conditions; **on test only 2 of 7**, and **OS** takes the pooled range *and*
+   Doppler minimum. The §5 decision to run SO was still right — it is best on `clutter` and `multi`,
+   so excluding it would still have biased T3 — but the specific claim was wrong.
+
+`isolated` crossed into significance, which §4 explicitly flagged as uncertain in advance, so it is
+not a failed prediction. Worth noting anyway that the delta **tripled** (+0.019 → +0.058), which is
+more than the √2 tighter error bars explain.
+
+**T3 — localization. CFAR still wins decisively, by less than predicted.**
+
+| pooled, gate ±1 | DL (8 seeds) | best CFAR | ratio |
+|---|---|---|---|
+| range error | 0.476 ± 0.021 | 0.198 (OS) | **2.40×** |
+| Doppler error | 0.382 ± 0.026 | 0.100 (OS) | **3.83×** |
+
+Predicted 2.65× and 4.57× from val; both came out **lower**. DL's own errors landed within 0.012
+bins of the val values, so the movement is on the **CFAR** side — its localization is slightly worse
+on test. DL is worse than the best CFAR on **every condition and both axes**, as predicted;
+`unresolved` is DL's best condition and `clutter` its worst, also as predicted.
+
+**The headline ratio is now 3.83×, measured on test.** It supersedes 4.6× (val, epoch 21) and 5.6×
+(val, epoch 50). All three are kept on record.
+
+**T5 — computational cost** (test, `threads=2`, batch 1, CPU, median over 200 frames):
+
+| method | ms/frame | vs DL |
+|---|---|---|
+| CA-CFAR | 0.86 | 0.14× |
+| **DL (TinyCNN)** | **6.04** | 1.00× |
+| GO-CFAR | 7.79 | 1.29× |
+| SO-CFAR | 7.82 | 1.29× |
+| OS-CFAR | 69.95 | **11.6×** |
+
+TinyCNN is 4,896 MAC/cell (80.2 MMAC/frame), 5,041 params; CFAR has none. **DL is ~7× slower than
+CA and ~11.6× faster than OS.** Against GO/SO it is within noise — DL was *slower* than both on the
+val run and *faster* on the test run, so that ordering is machine-load dependent and must not be
+claimed either way. The §4.2 premise correction is confirmed: our CFAR is vectorised, so DL is not
+beating a per-cell loop; it beats OS specifically because rank-selection vectorises badly.
+
+**Where this leaves the headline.** *At finding targets in interference DL wins; at placing them
+CFAR does, by ~4× in Doppler; and it runs at roughly GO/SO cost, far cheaper than OS.* But **DL now
+loses nowhere**, which is the weaker position to report from and revives the Milestone 17 concern
+directly. That is the honest state of the evidence and it goes in the report as such.
+
+**Scope, stated in §7 before the read:** `bench2_test` comes from the same generator as `bench2_val`
+— different frames, different seed, no shared content, but not a different world. This establishes
+**sampling generalization only**. It is not evidence that any finding survives a different clutter
+model, a different sensor, or real measurements.
+
+Artefacts: `results/dl/bootstrap_frozen_ep021_test_tol{1,3}.csv`, `localization_frozen_ep021_test.csv`,
+`measured_pfa_frozen_ep021_test_tol1.csv`, `runtime_cost_frozen_ep021_test.csv`.
+`scripts/measured_pfa_table.py` and `scripts/runtime_cost.py` are new.
+
+**`bench2_test` is now spent.** Any further read must be recorded as a second read, with its reason.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below

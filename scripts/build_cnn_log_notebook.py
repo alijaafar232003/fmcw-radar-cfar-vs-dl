@@ -1474,6 +1474,124 @@ the path is part of the result.
 **`bench2_test` is now unblocked.** It is the next thing to touch — once, with the table
 pre-registered before anything is read (N4).""")
 
+# ============================================================================== 19
+md("""---
+## 19 · `bench2_test` — the one-shot, and three predictions that failed
+
+### Question
+The reportable numbers. Run once, against `docs/test_preregistration.md`, which fixed the tables,
+the protocol, the predictions and the reading rules on 17 Aug **before anything was seen**.
+
+### Setup
+Frozen config (`configs/frozen_dl.yaml`): 8 seeds, epoch 21, `pos_weight` 100, `threads` 2,
+`nms_size` 5, matched **measured** Pfa 1e-4 swept per condition. CFAR baseline CA/GO/OS/SO already
+on disk (SO added 17 Aug, before the DL read). Gates ±1 and ±3.
+
+    python scripts/bootstrap_comparison.py --tag frozen --epoch 21 --split bench2_test --tolerance 1
+    python scripts/bootstrap_comparison.py --tag frozen --epoch 21 --split bench2_test --tolerance 3
+    python scripts/localization_table.py   --tag frozen --epoch 21 --split bench2_test --per-condition
+    python scripts/measured_pfa_table.py   --tag frozen --epoch 21 --split bench2_test
+    python scripts/runtime_cost.py         --tag frozen --epoch 21 --split bench2_test --threads 2""")
+
+code('''TEST = "frozen_ep021_test"
+t1 = DL / f"bootstrap_{TEST}_tol1.csv"; t3 = DL / f"bootstrap_{TEST}_tol3.csv"
+lz = DL / "localization_frozen_ep021_test.csv"
+pf = DL / "measured_pfa_frozen_ep021_test_tol1.csv"
+rt = DL / "runtime_cost_frozen_ep021_test.csv"
+
+# T4 FIRST: every other table assumes the operating points matched. If this fails nothing else means anything.
+if pf.exists():
+    P = pd.read_csv(pf)
+    r = P.pivot(index="condition", columns="method", values="ratio_to_target")
+    print(f"T4  measured Pfa / 1e-4 target -- worst {r.to_numpy().max():.2f}x, best {r.to_numpy().min():.2f}x")
+    display(r.round(3))
+
+# T1 / T2, beside the val numbers they supersede.
+for gate, newp, oldp in ((1, t1, DL / "bootstrap_frozen_ep021_tol1.csv"),
+                         (3, t3, DL / "bootstrap_frozen_ep021_tol3.csv")):
+    if not newp.exists():
+        continue
+    n = pd.read_csv(newp).set_index("condition")
+    c = pd.DataFrame({"cfar": n.cfar_method, "cfar_pd": n.cfar_pd, "dl_pd": n.dl_pd,
+                      "test_diff": n["diff"], "test_p": n.p_boot, "test_sig": n["sig (Bonf)"]})
+    if oldp.exists():
+        o = pd.read_csv(oldp).set_index("condition")
+        c.insert(0, "val_diff", o["diff"]); c.insert(1, "val_sig", o["sig (Bonf)"])
+        c["moved"] = ["-" if a == b else ("NOW SIG" if b else "NO LONGER SIG")
+                      for a, b in zip(c.val_sig, c.test_sig)]
+    print(f"gate +/-{gate}: {int(n['sig (Bonf)'].sum())} of {len(n)} significant")
+    display(c.round(4))
+
+# T3 localization + the headline ratio, re-measured on test.
+if lz.exists():
+    L = pd.read_csv(lz)
+    for gate in (1, 3):
+        d = L[(L.gate == gate) & (L.group == "ALL")].set_index("method")
+        dl, cf = d.loc["DL"], d.drop("DL")
+        print(f"T3  gate +/-{gate}:  DL Doppler {dl.dv_bins:.4f} = "
+              f"{dl.dv_bins / cf.dv_bins.min():.2f}x best CFAR ({cf.dv_bins.idxmin()}); "
+              f"range {dl.dr_bins / cf.dr_bins.min():.2f}x ({cf.dr_bins.idxmin()})")
+        display(d[["n_seeds", "pd", "pd_se", "dr_bins", "dr_bins_se", "dv_bins", "dv_bins_se"]].round(4))
+
+if rt.exists():
+    display(pd.read_csv(rt).round(3))''')
+
+md("""### What it showed — 6 of 7 wins, no losses, and three failed predictions
+
+**T4 validates the protocol.** Measured Pfa is within **2%** of the 1e-4 target for every method on
+every condition (worst 1.02×), so both arms really were placed at the same false-alarm rate. This is
+the check everything else rests on, and it passed.
+
+**T1 — Pd at ±1, 6 of 7 significant after Bonferroni:** `clutter_edge` **+0.302**, `mixed` +0.103,
+`isolated` +0.058, `masking` +0.051, `multi` +0.045, `unresolved` +0.012 — all p ≤ 0.001.
+`clutter` is a tie (−0.002, p = 0.79). **T2 at ±3: the same 6 of 7.**
+
+**⚠️ Three pre-registered predictions failed.**
+
+1. **`clutter` at ±3 was predicted a LOSS; it is a TIE** (val −0.043 p = 0.005 → test −0.019
+   p = 0.068). §18 called that loss "a strengthening", since Milestone 17 says a credible learned
+   detector should lose somewhere. **It does not replicate** → Correction **C6**.
+2. **`unresolved` was predicted a TIE; it is a significant win** (+0.012, p = 0.001, both gates).
+   **Do not report it as a win.** O2's reasoning is unchanged — both arms sit at the ~0.5
+   two-targets-in-one-mainlobe physics cap, and 800 targets simply makes a negligible gap
+   detectable. It is a significant non-difference, and O2 should now be cited *because* of this.
+3. **SO was predicted to stay the best classical method on range.** Val: best on 5 of 7 conditions.
+   Test: **2 of 7**, with **OS** taking both pooled minima. Running SO was still right — it is best
+   on `clutter` and `multi`, so omitting it would still have biased T3 — but the claim was wrong.
+
+`isolated` crossing into significance was flagged uncertain in advance, so it is not a failure —
+though the delta **tripled** (+0.019 → +0.058), more than tighter error bars explain.
+
+**T3 — CFAR still wins localization, by less than predicted:**
+
+| pooled, ±1 | DL (8 seeds) | best CFAR | ratio |
+|---|---|---|---|
+| range | 0.476 ± 0.021 | 0.198 (OS) | **2.40×** |
+| Doppler | 0.382 ± 0.026 | 0.100 (OS) | **3.83×** |
+
+Predicted 2.65× and 4.57×. DL's own errors moved ≤0.012 bins from val, so the shift is on the
+**CFAR** side. **The headline is 3.83× on test**, superseding 4.6× (val ep21) and 5.6× (val ep50) —
+all three kept on record.
+
+**T5 — cost.** DL **6.04 ms/frame** against CA 0.86, GO 7.79, SO 7.82, OS 69.95: **~7× slower than
+CA, ~11.6× faster than OS**, and *within noise of GO/SO* — DL was slower than both on val and faster
+on test, so that ordering is machine-load dependent and is not claimed. The §4.2 premise correction
+holds: our CFAR is vectorised, so DL is not beating a per-cell loop; it beats OS because
+rank-selection vectorises badly.
+
+### What it changed
+**The headline:** *at finding targets in interference DL wins; at placing them CFAR does, by ~4× in
+Doppler; and it runs at roughly GO/SO cost, far cheaper than OS.*
+
+**But DL now loses nowhere.** `clutter` was the one place a classical method beat it, and that did
+not survive the test split. This revives Milestone 17's concern directly and is a **weaker**
+position to report from than §18's. It is the honest state of the evidence.
+
+**Scope, fixed before the read:** `bench2_test` shares a generator with `bench2_val` — different
+frames and seed, no shared content, but not a different world. **Sampling generalization only.**
+
+**`bench2_test` is spent.** Any further read is a second read and must be recorded as one.""")
+
 # ============================================================================== corrections
 md("""---
 ## Corrections""")
@@ -1559,6 +1677,10 @@ other.
 **Consequence:** the `isolated` claim is withdrawn, and — usefully — its withdrawal removes the
 Milestone 17 anomaly, since a tie in homogeneous noise is exactly what the corpus predicts.
 
+*(Update, §19: on `bench2_test` `isolated` is a significant win, +0.058 at p < 0.001. C4's
+methodological point stands — the original p-value was computed wrongly — but the "tie" conclusion
+it reached is superseded by the larger split.)*
+
 ### C5 — "Pd is flat with training, so stop at epoch 15"
 **Claimed** (§6, then §15): that Pd does not depend on training length, and therefore that the
 epoch count could be chosen on localization alone — §6 concluding *"anything from ~15 onward is
@@ -1581,7 +1703,27 @@ not a substitute for the measurement that resolves it** — twice now.
 **Consequence, stated plainly:** smaller than it looks. Epoch 21 vs 15 is inside the noise on all
 three metrics (Pd p = 0.14, range p = 0.37, Doppler p = 0.20), so the *number* was nearly right; it
 was the *justification* that was unsound. §15's real contribution — that training to 50 costs
-localization for no Pd (21 vs 50: range −0.075, p = 0.004) — is confirmed and strengthened.""")
+localization for no Pd (21 vs 50: range −0.075, p = 0.004) — is confirmed and strengthened.
+
+### C6 — "`clutter` is a significant loss, so DL does lose somewhere"
+**Claimed** (§18, 17 Aug): at ±3 DL loses `clutter` by −0.043 at p = 0.005, clearing the Bonferroni
+threshold where the epoch-50 run had left it at p = 0.013, "edge of significance". It was written up
+as *strengthening* the position, since Milestone 17 records that a credible learned detector
+normally loses somewhere.
+
+**Retracted by** §19. On `bench2_test` the same comparison is **−0.019, p = 0.068** — a tie, on
+**twice** the frames per condition, i.e. with *more* power to detect the effect, not less.
+
+**The reasoning error:** a result that had just moved from p = 0.013 to p = 0.005 on a single split
+was treated as established. It sat near the correction threshold from both sides, and the sensible
+reading was "unresolved", not "now demonstrated". The prediction was pre-registered, which is the
+only reason this is a clean retraction rather than an argument.
+
+**Consequence, stated plainly:** on the test split **DL ties or beats CFAR on all seven
+conditions** — it loses nowhere. That is a weaker position to report from, and the same one C3 left
+us in before §18 appeared to resolve it. The detection comparison shows no condition where the
+classical method wins; the real DL weakness is **localization** (§19 T3), which is large, measured,
+and reproduces on both splits.""")
 
 # ============================================================================== open
 md("""---

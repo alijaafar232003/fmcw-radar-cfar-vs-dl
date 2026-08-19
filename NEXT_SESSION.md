@@ -1,6 +1,6 @@
 # Next Session — pick up here
 
-> ## ⚡ STATE AS OF 17 AUGUST 2026 — read this block first
+> ## ⚡ STATE AS OF 19 AUGUST 2026 — read this block first
 >
 > Everything below the horizontal rule predates the DL work and is kept for the CFAR reasoning.
 > The current state is here. Full detail: `PROGRESS.md` Milestone 23 (dated entries) and
@@ -22,28 +22,54 @@
 > | CFAR | 21×9 window; **CA/GO/OS/SO** (SO added 15 Aug) |
 > | operating point | matched **measured** Pfa 1e-4, swept per condition |
 >
-> ### Headline, on `bench2_val`, 8 seeds @ **epoch 21**, bootstrapped and Bonferroni-corrected
-> DL wins **clutter_edge +0.274, mixed +0.106, masking +0.051, multi +0.037** (all p < 0.001).
-> Ties on **unresolved** (p = 0.62) and **isolated** (p = 0.030, short of the corrected 0.0071).
-> **Loses `clutter` at the ±3 gate — now SIGNIFICANT: −0.043, p = 0.005** (it was p = 0.013, "edge
-> of significance", at epoch 50). That is a *strengthening*: Milestone 17 says a credible learned
-> detector should lose somewhere, and ours now demonstrably does.
-> **CFAR wins localization** — DL's Doppler error is **4.6×** the best CFAR (OS), range 2.65× (SO).
-> One-line summary: *at finding targets in interference, DL wins; at placing them, CFAR does.*
+> ### 🏁 HEADLINE — `bench2_test`, 8 seeds @ epoch 21, pre-registered, run once (19 Aug)
+> These are **the reportable numbers**. The split is now spent.
 >
-> ⚠️ **The old "5.6×" is retired — quote 4.6×, measured at epoch 21.** Do not carry the epoch-50
-> value over, and do not use the "≈5×" estimate written here on 16 Aug: that extrapolated across
-> two thread counts, which §17 shows costs ~1 SE on localization. Superseded epoch-50 numbers are
-> kept in `results/dl/bootstrap_pw100*.csv` and `localization_pw100.csv`, and in the §18 table.
+> **Pd, gate ±1 — DL wins 6 of 7 after Bonferroni:** `clutter_edge` **+0.302**, `mixed` +0.103,
+> `isolated` +0.058, `masking` +0.051, `multi` +0.045, `unresolved` +0.012 (all p ≤ 0.001).
+> `clutter` **ties** (−0.002, p = 0.79). Gate ±3: the same 6 of 7.
+>
+> **⚠️ DL loses NOWHERE.** The `clutter` loss at ±3 did **not** replicate (val −0.043 p = 0.005 →
+> test −0.019 p = 0.068) → **Correction C6**. This is the *weaker* position to report from and
+> revives the Milestone 17 concern. Report it as such.
+>
+> **⚠️ `unresolved` is significant but is NOT a win** — +0.012 at the ~0.5 physics cap where both
+> methods are stuck. See Open/O2. Do not put it in a wins list.
+>
+> **Localization — CFAR wins, and this is DL's real weakness:** DL Doppler **0.382 ± 0.026** vs
+> **0.100 (OS)** = **3.83×**; range 0.476 ± 0.021 vs 0.198 (OS) = **2.40×**.
+> **Quote 3.83×.** It supersedes 4.6× (val ep21) and 5.6× (val ep50) — both kept on record.
+>
+> **Cost:** DL **6.04 ms/frame** vs CA 0.86, GO 7.79, SO 7.82, OS 69.95 — ~7× slower than CA,
+> **11.6× faster than OS**, within noise of GO/SO (the ordering flipped between runs, so do not
+> claim it either way). TinyCNN 4,896 MAC/cell, 5,041 params.
+>
+> **Protocol check:** measured Pfa within **2%** of 1e-4 for every method on every condition.
+>
+> One-line summary: *at finding targets in interference DL wins; at placing them CFAR does, by ~4×
+> in Doppler; and it runs at roughly GO/SO cost, far cheaper than OS.*
+>
+> **Scope:** `bench2_test` shares a generator with val — this is **sampling generalization only**,
+> not evidence any finding survives a different clutter model, sensor, or real data.
+>
+> *(The `bench2_val` epoch-21 figures this supersedes are kept in
+> `results/dl/bootstrap_frozen_ep021_tol{1,3}.csv` and `localization_frozen_ep021.csv`, §18.)*
 >
 > ### Do next, in order
-> 1. ~~Freeze the config~~ ✅ **DONE 17 Aug** — `configs/frozen_dl.yaml`, headline re-scored at 21.
-> 2. **`bench2_test`, ONCE** — now unblocked, and the next thing to touch. Pre-register the table
->    before reading anything (notebook N4). **Still untouched.**
+> 1. ~~Freeze the config~~ ✅ **DONE 17 Aug** — `configs/frozen_dl.yaml`.
+> 2. ~~`bench2_test`, ONCE~~ ✅ **DONE 19 Aug** — §19. **The split is spent.** Any further read is a
+>    second read and must be recorded as one, with its reason.
 > 3. **Pd-vs-SNR figure** on `bench2_snr_sweep` — ⚠️ **proposal-required and still not made** (§4b).
->    Evaluation only, no training.
-> 4. **Writing** — the real risk, and now the critical path. `SCHEDULE.md` targeted 20 Aug for
->    everything and nothing is drafted; the realistic target is the 1 Sep hard deadline.
+>    Evaluation only, no training, does not touch test. The last missing deliverable.
+> 4. **WRITING — the whole critical path now.** All experiments are done. `SCHEDULE.md` targeted
+>    20 Aug; nothing is drafted; the realistic target is the **1 Sep hard deadline**. Order:
+>    Background → Method (both largely in `docs/`) → Results → Discussion → Intro/Conclusion/
+>    Abstract → slides → rehearse.
+>
+> **For the report, do not bury these:** the Corrections log C1–C6 (six retractions with the
+> reasoning error named in each), the decision history (epochs 12→50→15→21, `pos_weight`
+> 200→974→100), and the fact that three pre-registered predictions failed on the test split and are
+> reported as failures. That is stronger viva material than a clean-looking result.
 >
 > **Deliberately cut** (logged, not chased — they change no published number): the `TinyCNNPool`
 > control, N2/N3, the Open/O4 localization asymmetry, Milestone-18 attribution, CARRADA, and the
