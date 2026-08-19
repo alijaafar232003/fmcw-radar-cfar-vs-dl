@@ -62,7 +62,7 @@
 > 3. ~~Pd-vs-SNR figure~~ ✅ **DONE 19 Aug** — §20, `results/pd_vs_snr_frozen_ep021.png`.
 >    CFAR loss **0.47–0.78 dB** against theory at gate 0: the pipeline agrees with physics.
 >    ⚠️ **Use the two-panel version.** At the ±1 gate every method sits ABOVE theory (3×3 = nine
->    chances vs theory'+chr(39)+'s one), so theory is a bound only at gate 0. The ±1 panel alone would show
+>    chances vs theory's one), so theory is a bound only at gate 0. The ±1 panel alone would show
 >    five detectors beating physics. Bonus finding: at gate 0 DL plateaus at **Pd 0.41** where CFAR
 >    reaches ~0.85 — the localization deficit as a detection number, on a third split.
 > 4. **WRITING — the whole critical path now.** All experiments are done. `SCHEDULE.md` targeted
