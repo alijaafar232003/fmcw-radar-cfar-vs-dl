@@ -1592,6 +1592,83 @@ frames and seed, no shared content, but not a different world. **Sampling genera
 
 **`bench2_test` is spent.** Any further read is a second read and must be recorded as one.""")
 
+# ============================================================================== 20
+md("""---
+## 20 · Pd vs SNR against theory — the absolute check
+
+### Question
+Every other section is a *relative* claim: DL against CFAR at a matched operating point. This is the
+one **absolute** check — is either detector anywhere near the physics?
+
+### Setup
+`bench2_snr_sweep`: 1,300 frames, **one target each**, SNR swept 0–24 dB, no clutter, no
+interference — so the curve is not confounded by the interference conditions. Theory is the
+square-law detector that **knows** the noise level, `Pd = Pfa^(1/(1+SNR))`; the gap below it is
+**CFAR loss**, the price of estimating that level from a finite window.
+
+    python scripts/cfar_test_baseline.py --split bench2_snr_sweep   # CFAR side
+    python scripts/pd_vs_snr_figure.py --tag frozen --epoch 21
+
+### ⚠️ The first run was invalid, and the script's own sanity check caught it
+At the project's ±1 gate **every method — all four CFAR variants and the network — sat ~0.3 Pd
+ABOVE theory**, reaching Pd 0.5 some 1.7–2.8 dB earlier than theory allows. That is not five
+superior detectors. Theory is the probability that **one specific cell** crosses the threshold,
+while the ±1 gate counts a hit anywhere in a **3×3** neighbourhood — nine chances, and the mainlobe
+spans ~2 bins so neighbours carry real target energy. **Theory is a bound only at gate 0**, so the
+figure shows both gates and says so on its face.""")
+
+code('''s = DL / "pd_vs_snr_frozen_ep021_summary.csv"
+c = DL / "pd_vs_snr_frozen_ep021.csv"
+if s.exists():
+    S = pd.read_csv(s)
+    print("SNR at Pd 0.5, and detection loss against theory (theory reaches 0.5 at 10.89 dB)")
+    display(S.round(3))
+    print("gate 0 is the like-for-like comparison. At +/-1 every method sits above theory,")
+    print("which is a property of the GATE, not of the detectors.")
+if c.exists():
+    C = pd.read_csv(c)
+    g0 = C[C.gate == 0]
+    ceil = g0.groupby("method").pd.max()
+    print()
+    print("ceiling at gate 0 (exact-cell Pd at the top of the SNR range):")
+    display(ceil.round(3))
+    print("DL's ceiling is the 3x3 label: it finds the target, then peaks off-cell.")
+    print("CFAR's ~0.85 ceiling is the ~93% label-to-peak alignment of Milestone 22.")
+else:
+    print("run: python scripts/pd_vs_snr_figure.py --tag frozen --epoch 21")''')
+
+md("""### What it showed — the pipeline is validated, and the label problem is confirmed twice over
+
+**At gate 0 the anomaly vanishes and CFAR loss is textbook:**
+
+| | theory | CA | GO | OS | SO | DL |
+|---|---|---|---|---|---|---|
+| SNR at Pd 0.5 | **10.89 dB** | 11.37 | 11.55 | 11.68 | 11.52 | **never reaches 0.5** |
+| detection loss | — | **+0.47 dB** | +0.65 | +0.78 | +0.63 | — |
+
+**0.47–0.78 dB is exactly the expected price** of estimating the noise level from a finite reference
+window instead of knowing it. The evaluation pipeline agrees with physics.
+
+**Two things this panel shows that no other section did.**
+
+1. **DL's localization deficit as a detection number.** On exact-cell matching the network plateaus
+   at **Pd 0.41** at 24 dB, where CFAR reaches ~0.85. It finds the target and then places its peak
+   *somewhere inside the 3×3 label block*. This is §14/§16/§19-T3 measured a different way on a
+   different split — the strongest evidence yet that the **label**, not detection ability, is the
+   limitation, and the clearest argument for the Gaussian/smaller-label ablation in Open/O4.
+2. **CFAR tops out at ~0.85, not 1.0.** That is Milestone 22's ~93% label-to-peak alignment
+   appearing as a ceiling: the label is not always on the physical peak, so exact-cell matching
+   cannot reach 1 for anybody.
+
+### What it changed
+Nothing in the reported numbers — it is a validation figure, and it validates. What it adds is the
+**absolute** footing the project lacked: every headline elsewhere is a difference between two
+detectors, and this shows both are where physics says they should be.
+
+It also fixes a trap for the write-up: **the ±1 panel alone would have shown five detectors beating
+theory.** That figure would have been indefensible in a viva, and the caption now carries the
+reason on its face.""")
+
 # ============================================================================== corrections
 md("""---
 ## Corrections""")

@@ -2114,6 +2114,58 @@ Artefacts: `results/dl/bootstrap_frozen_ep021_test_tol{1,3}.csv`, `localization_
 
 **`bench2_test` is now spent.** Any further read must be recorded as a second read, with its reason.
 
+### 2026-08-19 — Pd vs SNR against theory: the absolute check, and it found something
+
+**Question.** Every other result is *relative* — DL against CFAR at a matched operating point. This
+is the one **absolute** check: is either detector anywhere near the physics? `bench2_snr_sweep`,
+1,300 frames, one target each, SNR swept 0–24 dB, no clutter and no interference.
+Theory is the square-law detector that **knows** the noise level: `Pd = Pfa^(1/(1+SNR))`.
+
+**⚠️ The first run was invalid, and the script's own sanity check caught it.** At the project's ±1
+gate **every method — all four CFAR variants and the network — sat ~0.3 Pd ABOVE theory**, reaching
+Pd 0.5 some 1.7–2.8 dB earlier than theory says is possible. That is not five superior detectors.
+Theory is the probability that **one specific cell** exceeds the threshold; the ±1 gate counts a hit
+anywhere in a **3×3** neighbourhood — nine chances, and the mainlobe spans ~2 bins so the neighbours
+carry real target energy. **Theory is only a bound at gate 0.**
+
+Re-scored at **gate 0 (exact cell)** the anomaly vanishes entirely:
+
+| | theory | CA | GO | OS | SO | DL |
+|---|---|---|---|---|---|---|
+| SNR at Pd 0.5 | **10.89 dB** | 11.37 | 11.55 | 11.68 | 11.52 | **never reaches 0.5** |
+| detection loss | — | **+0.47** | +0.65 | +0.78 | +0.63 | — |
+
+**CFAR loss of 0.47–0.78 dB is textbook** — exactly the price expected for estimating the noise
+level from a finite reference window. The pipeline is validated against physics, which is the point
+of the figure.
+
+**Two things the gate-0 panel shows that nothing else did.**
+
+1. **DL's localization deficit, stated as a detection number.** On exact-cell matching the network
+   plateaus at **Pd 0.41** even at 24 dB, where CFAR reaches ~0.85. The network finds the target and
+   then puts its peak *somewhere in the 3×3 label block* rather than on the target cell. This is
+   §14/§16/§19-T3 measured a completely different way, on a different split, and it is the most
+   direct evidence yet that the 3×3 label — not detection ability — is the limitation.
+2. **CFAR itself tops out at ~0.85, not 1.0.** That is the ~93% label-to-peak alignment of
+   Milestone 22 showing up as a ceiling: the label is not always exactly on the physical peak, so
+   exact-cell matching cannot reach 1 for anyone.
+
+**Reported as a two-panel figure** — gate 0 (the valid comparison, with the CFAR-loss number) beside
+gate ±1 (the project's operating point, with theory drawn only as a reference shape and explicitly
+labelled *not a bound*). Publishing only the ±1 panel would have shown five detectors beating
+physics.
+
+`scripts/pd_vs_snr_figure.py`, `results/pd_vs_snr_frozen_ep021.png`,
+`results/dl/pd_vs_snr_frozen_ep021{,_summary}.csv`. CFAR on this split:
+`scripts/cfar_test_baseline.py --split bench2_snr_sweep` → `results/cfar_snr_sweep/`.
+
+*(Note: that script's final summary pivot fails on this split because `bench2_snr_sweep` frames
+carry no `condition` label, so the groupby is empty. Every artefact this figure needs — peaks,
+frames.csv, truths.csv — is written before that point. Not fixed: the split has one condition by
+construction, so a per-condition summary is meaningless for it.)*
+
+**This was the last outstanding experiment.** Everything remaining is writing.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
