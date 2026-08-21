@@ -79,7 +79,30 @@
 >    chances vs theory's one), so theory is a bound only at gate 0. The ±1 panel alone would show
 >    five detectors beating physics. Bonus finding: at gate 0 DL plateaus at **Pd 0.41** where CFAR
 >    reaches ~0.85 — the localization deficit as a detection number, on a third split.
-> 4. **WRITING — the whole critical path now.** All experiments are done. `SCHEDULE.md` targeted
+> 4. **Six evaluation-methodology fixes — STARTED, THEN PARKED 22 Aug.** None applied; nothing is
+>    half-done. `scripts/localization_common_subset.py` exists but has **never completed a run** and
+>    is unverified. The queue, in the order given:
+>    1. **Localization on the common detected subset** — restrict both arms to targets *both*
+>       detected, gate ±1, per condition and pooled. Tests whether the 3.83× Doppler gap survives
+>       when neither arm gets credit for what the other missed. ⚠️ **Post-hoc** — it is listed in the
+>       pre-registration and comparison notebook §9.4 as a limitation deliberately *not* run, so it
+>       must be reported as post-hoc, not as part of the pre-registered result.
+>    2. **Re-select best CFAR inside each bootstrap replicate**, so "OS is best on masking" stops
+>       being treated as certain. Expect wider CIs; report the widening per condition. Do not
+>       resample the 8 DL seeds.
+>    3. **Define the three Pfa notions once** in Methods: per-cell, post-NMS, guard-excluded — and
+>       state that the matched operating point is post-NMS + guard-excluded while the §5 theory
+>       comparison is per-cell.
+>    4. **Precise wording:** "Detector discrimination is compared at matched measured Pfa = 1e-4,
+>       obtained independently from each condition's ROC" — plus a clause noting a per-condition
+>       threshold is an oracle a deployed system lacks, which frames the fixed-threshold experiment
+>       as closing a stated gap.
+>    5. **Never print `p = 0`** — the floor is 1/2000, so report `p < 0.001`.
+>    6. **Confirm Bonferroni on the DL side** and state it in Methods rather than applying it
+>       silently. Note `unresolved` (+0.012) does not survive correction, which supports the
+>       existing "tie at the physics cap" reading for a second, independent reason.
+>
+> 5. **WRITING — the whole critical path now.** All experiments are done. `SCHEDULE.md` targeted
 >    20 Aug; nothing is drafted; the realistic target is the **1 Sep hard deadline**. Order:
 >    Background → Method (both largely in `docs/`) → Results → Discussion → Intro/Conclusion/
 >    Abstract → slides → rehearse.
