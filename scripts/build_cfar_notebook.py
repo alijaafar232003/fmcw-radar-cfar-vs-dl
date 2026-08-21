@@ -496,9 +496,15 @@ from cfar.cfar import CfarConfig as _CC
 TAB = _json.loads((ROOT / "configs" / "cfar_alpha_table.json").read_text(encoding="utf-8"))
 AU = pd.read_csv(ROOT / "results" / "cfar_alpha_audit.csv").set_index("method").loc[METHODS]
 
+# Indexed by method, NOT a bare list: pandas aligns Series by index but assigns lists
+# POSITIONALLY, so a bare list would silently misalign if AU were ever ordered differently
+# from METHODS -- GO would show OS's alpha, with no error raised.
+shipped = pd.Series({m: _CC(kind=m).resolved_alpha() for m in METHODS}, name="alpha")
+assert list(AU.index) == METHODS, f"AU index {list(AU.index)} != METHODS {METHODS}"
+
 tab = pd.DataFrame({
     "alpha (closed form)": AU.alpha_closed_form,
-    "alpha (calibrated, SHIPPED)": [_CC(kind=m).resolved_alpha() for m in METHODS],
+    "alpha (calibrated, SHIPPED)": shipped,
     "calib / closed": AU.ratio_cal_over_closed,
     "Pfa @ closed form": AU.pfa_cells_verifyseed_at_current,
     "Pfa @ calibrated": AU.pfa_cells_verifyseed_at_calibrated,
