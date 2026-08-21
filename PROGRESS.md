@@ -2450,6 +2450,75 @@ uniform shift a pooling artefact would produce.
   +0.0010 per step after, changing sign — a noise floor. The knee is at 8, and past it the ring is
   no longer improving the estimate, only making it less local.
 
+### 2026-08-21 — Calibrated alphas wired into `CfarConfig`; **`bench2_test` was NOT re-read**
+
+Closes the C7 finding: alpha is now measured rather than assumed, and the claim §7 had been making
+since before it was true is true (Correction **C8**).
+
+**What was done.**
+* `calibrate_all()` fixed to include **SO** and to take the rectangular geometry — it defaulted to
+  `kinds=("CA","OS","GO")` and to the square `guard=2, train=8`, so SO had never been calibrated and
+  the others had been calibrated for a window the project does not use.
+* All four calibrated by Monte Carlo on 300 pure-noise frames (seed 0) and **verified on held-out
+  seed 9000**. A variant is only written to the table if it passes within 25% of target.
+* Cached to **`configs/cfar_alpha_table.json`**, keyed by kind + geometry + Pfa, and read by the new
+  `CfarConfig.resolved_alpha()`. All four `cfar_ratio_map` call sites use it; it falls back to the
+  closed form when a geometry is absent, and `calibrated_alpha_available()` reports which was used.
+
+| | CA | GO | OS | SO |
+|---|---|---|---|---|
+| closed form | 9.474 | 9.808 | 9.474 | 9.808 |
+| **calibrated** | **10.459** | **9.546** | **7.579** | **12.849** |
+| achieved/target, closed | 2.37× | 0.78× | **0.13×** | **6.55×** |
+| **achieved/target, calibrated (held-out seed)** | **0.96×** | **1.01×** | **0.95×** | **1.00×** |
+
+A ~50× spread between variants collapses to 0.95–1.01×. The held-out seed is the point: these were
+fitted on seed 0 and land on target on seed 9000, so they generalise rather than fitting the
+calibration draw.
+
+**⚠️ The re-run of `bench2_test` was authorised and was NOT taken, because it cannot matter.**
+`cfar_ratio_map` returns `power / noise`; **alpha is the threshold applied to that map, not an input
+to it**. Asserted directly — `scripts/cfar_calibrate_table.py --verify-invariance` confirms the ratio
+map is bit-identical under alphas differing by 2×, for all four variants. So the cached detections
+could not change, and the summaries were re-derived from them with `--score-only`, which reads no
+frame data at all.
+
+**Verification (the step-3 gate):**
+
+| | result |
+|---|---|
+| `pd`, `bench2_test` | **max \|diff\| = 0.000e+00** — bit-identical |
+| `pd`, `bench2_val` | **max \|diff\| = 0.000e+00** |
+| `measured_pfa`, `tp`, `fp`, `fn`, `fa_per_frame` | all 0.000e+00 on both splits |
+| `threshold` | 3.6e-15 (one ulp of float64 on a value of ~10 — the same number re-computed) |
+| `peaks_*.npz`, `bench2_test` | **byte-identical, md5-verified** |
+| `design_alpha`, `design_pd`, `design_pfa`, `design_fa_per_frame` | changed, as intended |
+
+Nothing moved that should not have, so the gate did not trip. **This is not a second read of
+`bench2_test`** — no frame of it was opened — and the pre-registration's one-shot is intact.
+
+**§4.2 simplified, and the simplification is itself the evidence.** That section carried a
+normalisation step dividing each condition by its method's own `noise` row, to separate the
+calibration offset from the clutter effect. With calibrated alphas the `noise` row runs **0.952 to
+0.959** — a spread of **0.007**, against 0.76–1.25 before. The offset is no longer method-specific,
+so the normalisation measures nothing and has been **removed**; the raw ratios are now directly
+comparable. The residual common ~0.95 is the **post-NMS** offset (alpha is per-cell, the thresholds
+are matched post-NMS), not miscalibration.
+
+What remains above the line is the clutter effect proper: **CA 2.25×, GO 1.74×, OS 2.74×, SO 24.2×**
+— still a different factor per method, which is still the reason results are reported at matched
+measured Pfa.
+
+**§2.4 rebuilt** around the procedure rather than the outcome, with a two-panel figure: achieved Pfa
+vs alpha per method with an arrow from each variant's closed-form position to its calibrated one
+(the arrows point in **opposite** directions — OS's alpha had to come down, SO's up, which is why one
+closed form could never serve four statistics), and a second panel showing the held-out-seed result.
+
+**§7 point 1 corrected.** It claimed geometry, guard *and alpha* were selected by measurement. The
+geometry half was always honest; the alpha half was not, until now. Both corrections are recorded as
+**C7** (the false claim) and **C8** (making it true) in `cnn_development_log.ipynb`, which is the
+canonical retraction list — C7 had previously been logged only here.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below

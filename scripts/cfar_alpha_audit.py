@@ -44,9 +44,12 @@ TARGET_PFA = 1e-4
 
 
 def current_alpha(kind: str) -> float:
-    """The alpha `cfar_ratio_map` actually applies for this kind — closed form, per cfar.py."""
-    cfg = CfarConfig(kind=kind)
-    return cfg.alpha_go() if kind in ("GO", "SO") else cfg.alpha()
+    """The CLOSED-FORM alpha -- what `cfar.py` used before the calibrated table existed.
+
+    Kept as `current_alpha` so the artefact's column names stay stable, but it is now the "before"
+    value: `CfarConfig.resolved_alpha()` returns the calibrated one once the table is in place.
+    """
+    return CfarConfig(kind=kind).closed_form_alpha()
 
 
 def pooled_ratios(kind: str, radar_cfg: RadarConfig, n_frames: int, seed: int):
@@ -84,8 +87,11 @@ def main() -> None:
         c_cells, c_peaks, n_valid, nf = pooled_ratios(kind, radar, args.frames, args.calib_seed)
         v_cells, v_peaks, n_valid_v, _ = pooled_ratios(kind, radar, args.frames, args.verify_seed)
 
-        # Calibrated alpha = the (1 - Pfa) quantile of the pooled noise ratio distribution.
-        a_cal = float(np.quantile(c_cells, 1.0 - TARGET_PFA))
+        # The SHIPPED calibrated alpha, read from configs/cfar_alpha_table.json rather than re-fit
+        # here -- otherwise this artefact and the library could quietly disagree.
+        cfg_k = CfarConfig(kind=kind)
+        a_cal = (cfg_k.resolved_alpha() if cfg_k.calibrated_alpha_available()
+                 else float(np.quantile(c_cells, 1.0 - TARGET_PFA)))
 
         rows.append(dict(
             method=kind,

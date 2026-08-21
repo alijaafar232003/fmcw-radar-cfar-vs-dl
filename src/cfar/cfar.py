@@ -28,10 +28,50 @@ comparable structure, so the two axes do not want the same window.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from dataclasses import dataclass
 
 import numpy as np
 from scipy.ndimage import uniform_filter, rank_filter, correlate
+
+
+# ----------------------------------------------------------------------
+# Calibrated alpha table
+# ----------------------------------------------------------------------
+#
+# The closed form `alpha = N(Pfa^(-1/N) - 1)` is derived for the arithmetic mean of N INDEPENDENT
+# exponential cells. Neither assumption holds here: the Blackman window correlates adjacent
+# reference cells, and three of the four variants are not a mean at all (OS is an order statistic,
+# GO a maximum of two half-ring means, SO a minimum). Measured on pure noise, the closed form landed
+# between 0.13x and 6.55x of the target rate depending on the variant.
+#
+# So alpha is taken from a Monte-Carlo table when one exists for this exact geometry, and falls back
+# to the closed form when it does not. Regenerate with `scripts/cfar_calibrate_table.py`.
+#
+# NOTE: alpha does NOT affect `ratio_map`. It is the detection threshold applied to that map, so
+# switching to calibrated values cannot change any result scored at matched MEASURED Pfa -- which is
+# every result in this project. It changes the DESIGN operating point only.
+
+_ALPHA_TABLE_PATH = Path(__file__).resolve().parents[2] / "configs" / "cfar_alpha_table.json"
+_ALPHA_TABLE: dict | None = None
+
+
+def _alpha_table() -> dict:
+    global _ALPHA_TABLE
+    if _ALPHA_TABLE is None:
+        try:
+            _ALPHA_TABLE = json.loads(_ALPHA_TABLE_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _ALPHA_TABLE = {"entries": {}}
+    return _ALPHA_TABLE
+
+
+def alpha_key(cfg: "CfarConfig") -> str:
+    """Canonical key for the calibrated-alpha table. Geometry-specific by construction."""
+    return (f"{cfg.kind}|g{cfg.guard_r}-{cfg.guard_d}|t{cfg.train_r}-{cfg.train_d}"
+            f"|pfa{cfg.pfa:g}|os{cfg.os_rank_frac:g}|ax{cfg.go_axis}")
 
 
 @dataclass(frozen=True)
@@ -122,6 +162,27 @@ class CfarConfig:
         n = self.num_half_ring_cells
         return n * (self.pfa ** (-1.0 / n) - 1.0)
 
+    def closed_form_alpha(self) -> float:
+        """The analytic multiplier this kind would use with no calibration available.
+
+        GO and SO are half-ring statistics, so both take the half-ring cell count; CA and OS take
+        the full ring. For OS this is only a first approximation -- an order statistic has a
+        different distribution entirely, which is precisely why the table exists.
+        """
+        return self.alpha_go() if self.kind in ("GO", "SO") else self.alpha()
+
+    def resolved_alpha(self) -> float:
+        """The multiplier actually used: calibrated if this geometry is in the table, else closed.
+
+        `calibrated_alpha_available()` reports which one was returned, so callers that need to
+        disclose it (the notebooks do) are not left guessing.
+        """
+        hit = _alpha_table().get("entries", {}).get(alpha_key(self))
+        return float(hit) if hit is not None else self.closed_form_alpha()
+
+    def calibrated_alpha_available(self) -> bool:
+        return alpha_key(self) in _alpha_table().get("entries", {})
+
 
 # ----------------------------------------------------------------------
 # Windowed mean over the training ring (outer window minus guard region)
@@ -203,7 +264,7 @@ def cfar_ratio_map(power: np.ndarray, cfg: CfarConfig):
 
     if cfg.kind == "CA":
         noise = _ring_mean(power, hw_r, hw_d, g_r, g_d)
-        alpha = cfg.alpha()
+        alpha = cfg.resolved_alpha()
 
     elif cfg.kind == "GO":
         lead, lag = _half_ring_means(power, hw_r, hw_d, g_r, g_d, axis=cfg.go_axis)
@@ -211,7 +272,7 @@ def cfar_ratio_map(power: np.ndarray, cfg: CfarConfig):
         # alpha over the cells one half-ring actually holds. GO's exact Pfa is still slightly
         # conservative (taking a maximum biases the estimate up) — documented, and irrelevant to
         # any comparison made at matched MEASURED Pfa.
-        alpha = cfg.alpha_go()
+        alpha = cfg.resolved_alpha()
 
     elif cfg.kind == "SO":
         # Smallest-of: the multiple-target specialist, and the counterpart to GO. Where GO takes
@@ -223,14 +284,14 @@ def cfar_ratio_map(power: np.ndarray, cfg: CfarConfig):
         noise = np.minimum(lead, lag)
         # Same half-ring cell count as GO; SO's true Pfa is optimistic rather than conservative
         # (taking a minimum biases the estimate down), which matched-measured-Pfa scoring removes.
-        alpha = cfg.alpha_go()
+        alpha = cfg.resolved_alpha()
 
     elif cfg.kind == "OS":
         rank = int(round(cfg.os_rank_frac * cfg.num_ref_cells))
         noise = _os_ring_statistic(power, hw_r, hw_d, g_r, g_d, rank)
-        # OS threshold multiplier is set empirically to the design Pfa during the
-        # sensitivity sweep; start from the CA value as a first approximation.
-        alpha = cfg.alpha()
+        # OS threshold multiplier is genuinely empirical -- an order statistic has no
+        # closed form here -- so the calibrated table matters most for this kind.
+        alpha = cfg.resolved_alpha()
 
     else:
         raise ValueError(f"Unknown CFAR kind: {cfg.kind!r}")

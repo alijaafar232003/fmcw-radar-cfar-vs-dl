@@ -1,0 +1,21 @@
+{
+  "meta": {
+    "generated": "2026-08-21",
+    "generated_at_commit": "a97c067efbd9",
+    "method": "Monte-Carlo (1 - Pfa) quantile of pooled per-cell ratio on pure noise",
+    "target_pfa": 0.0001,
+    "frames_per_seed": 300,
+    "calibration_seed": 0,
+    "verification_seed": 9000,
+    "acceptance": "|achieved/target - 1| <= 0.25 on the held-out seed",
+    "geometry": "21x9 (guard 2/2, train 8/2) -- keys are geometry-specific",
+    "note": "alpha is NOT an input to cfar_ratio_map; it is the threshold applied to it. Every result scored at matched MEASURED Pfa is unaffected by this table.",
+    "python": "3.11.9"
+  },
+  "entries": {
+    "CA|g2-2|t8-2|pfa0.0001|os0.75|ax1": 10.458623632270868,
+    "GO|g2-2|t8-2|pfa0.0001|os0.75|ax1": 9.545772108465384,
+    "OS|g2-2|t8-2|pfa0.0001|os0.75|ax1": 7.578603657299678,
+    "SO|g2-2|t8-2|pfa0.0001|os0.75|ax1": 12.849393788206301
+  }
+}

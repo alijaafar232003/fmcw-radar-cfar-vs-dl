@@ -1800,7 +1800,46 @@ only reason this is a clean retraction rather than an argument.
 conditions** — it loses nowhere. That is a weaker position to report from, and the same one C3 left
 us in before §18 appeared to resolve it. The detection comparison shows no condition where the
 classical method wins; the real DL weakness is **localization** (§19 T3), which is large, measured,
-and reproduces on both splits.""")
+and reproduces on both splits.
+### C7 — "CFAR's alpha is calibrated empirically, and the empirical value is the one used"
+**Claimed** in `cfar_baseline.ipynb` §2.4, as part of the argument that the classical baseline is
+tuned rather than inherited.
+
+**Retracted 19 Aug 2026.** `cfar.py` never imported `calibrate.py` and no cached alpha table
+existed, so all four variants ran on **closed-form** multipliers. Measured on pure noise those
+achieved **0.13× to 6.55×** of the 1e-4 target depending on variant — roughly a 50× spread. SO was
+never in `calibrate_all()`'s method list at all, so it had never been calibrated even in principle.
+
+**The reasoning error:** `calibrate.py` was written, validated against the analytic CA value and
+documented in Milestone 9, and its *existence* was then treated as evidence that it was **in use**.
+Nothing checked that the value reached `CfarConfig`. **A module that exists is not a module that
+runs** — the same shape as assuming a flag is honoured because it is defined, and the second such
+find that week (the geometry sweep had silently inherited `nms_size = 2`).
+
+**Consequence: none for any reported number**, because everything is scored at matched *measured*
+Pfa, which sweeps the threshold and discards alpha. It affected the design operating point only.
+
+### C8 — the same claim, now made true
+**Resolved 21 Aug 2026**, and recorded as a correction rather than a silent fix because C7's claim
+sat in the notebook for weeks before the work behind it was done.
+
+Alphas are now calibrated by Monte Carlo on pure noise, **verified on a held-out seed**, cached in
+`configs/cfar_alpha_table.json`, and read by `CfarConfig.resolved_alpha()`. Achieved rate on the
+held-out seed moved from **0.13–6.55×** of target to **0.95–1.01×**. `calibrate_all()` now includes
+SO and calibrates at the rectangular 21×9 geometry the project actually uses, rather than the square
+default it was written for.
+
+**Still no reported number moves, and this time that is provable rather than hoped.** alpha is not
+an input to the ratio map — `cfar_ratio_map` returns `power / noise` and alpha is the threshold
+applied afterwards, asserted directly by
+`scripts/cfar_calibrate_table.py --verify-invariance`. Re-deriving every summary with the calibrated
+table left `pd`, `measured_pfa`, `tp`, `fp` and `fn` **bit-identical** on `bench2_val` and
+`bench2_test`, and the cached `peaks_*.npz` byte-identical.
+
+**`bench2_test` was therefore not re-read.** Permission to re-read it was given, but the detections
+cannot depend on alpha, so the summaries were re-derived from the existing cache with `--score-only`
+and the peak files verified unchanged afterwards. The cheapest correct action was to not spend the
+read.""")
 
 # ============================================================================== open
 md("""---

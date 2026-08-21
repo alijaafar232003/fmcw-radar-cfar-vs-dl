@@ -468,91 +468,115 @@ cap("The cyan box is what the detector averages to estimate noise; the orange bo
     "The shaded band is the clutter ridge — look at where it overlaps the left edge of the cyan "
     "box. That overlap is the entire clutter-edge failure: the target is in clean noise, but its "
     "noise estimate is not.")
-md("""### 2.4 Alpha is **not** calibrated — measured, and it matters for §4.2 only
+md("""### 2.4 Alpha is calibrated by Monte Carlo — measured, verified, and shipped
 
-The closed form `alpha = N(Pfa^(-1/N) - 1)` is derived for the **arithmetic mean of N independent
-exponential cells**. Two assumptions break here:
+The closed form `alpha = N(Pfa^(-1/N) - 1)` is derived for the arithmetic mean of N **independent**
+exponential cells. Both assumptions fail here: the Blackman window correlates adjacent reference
+cells, so the effective sample is smaller than the 164 counted; and only CA is a mean at all — OS is
+an order statistic, GO the maximum of two half-ring means, SO the minimum.
 
-1. **The cells are not independent.** The Blackman window correlates adjacent reference cells, so
-   the effective sample size is smaller than the 164 counted, and the iid formula **underestimates**
-   the alpha needed.
-2. **Three of the four methods are not a mean at all.** OS is an order statistic, GO the maximum of
-   two half-ring means, SO the minimum. The formula does not apply to any of them; `cfar.py` uses
-   the full-ring closed form for OS and the half-ring one for GO and SO as approximations.
+So alpha is set **empirically**, by Monte Carlo on pure noise, and the value is cached in
+`configs/cfar_alpha_table.json`, which `CfarConfig.resolved_alpha()` reads. The procedure:
 
-`src/cfar/calibrate.py` exists to fix exactly this by Monte-Carlo, and `PROGRESS.md` Milestone 9
-records calibrated values for CA/GO/OS. **But nothing wires them into `CfarConfig`** — `cfar.py`
-never imports `calibrate.py`, and there is no cached alpha table. Every variant runs on its closed
-form. `calibrate_all()` also still defaults to `kinds=("CA", "OS", "GO")`, so **SO was never put
-through the procedure at all.**
+1. pool the per-cell ratio values over 300 pure-noise frames through the real processing chain, on
+   the **calibration seed (0)**;
+2. take alpha as the (1 − Pfa) empirical quantile of that pool;
+3. apply it to a **held-out seed (9000)** and measure the achieved rate.
 
-The cell below measures what each variant actually achieves on pure noise. This is the direct
-test: at its own alpha, every method should land at 1e-4.""")
+Step 3 is the part that matters: it tests that the value generalises rather than fitting the
+calibration draw. A variant is only written to the table if it passes.
 
-code('''AU = pd.read_csv(ROOT / "results" / "cfar_alpha_audit.csv").set_index("method")
-tab = AU[["alpha_closed_form", "alpha_calibrated", "ratio_cal_over_closed",
-          "pfa_cells_calibseed_at_current", "pfa_cells_verifyseed_at_current",
-          "pfa_cells_verifyseed_at_calibrated"]].loc[METHODS]
-tab.columns = ["alpha (closed form, USED)", "alpha (calibrated)", "calib / closed",
-               "Pfa @ current, seed 0", "Pfa @ current, seed 9000",
-               "Pfa @ calibrated, seed 9000"]
-display(tab.round(6))
+> **This was not always so.** Until 19 Aug 2026 `cfar.py` never imported `calibrate.py`, and all
+> four variants ran on closed-form values — see Correction **C8**. The figure below shows both
+> states, because the size of the correction is the argument for doing it.""")
 
-dev = (AU.pfa_cells_verifyseed_at_current / TARGET_PFA).loc[METHODS]
-print("ACHIEVED / TARGET per-cell Pfa on independent noise, at the alpha actually used:")
-print(dev.round(2).to_string())
+code('''import json as _json
+from cfar.cfar import CfarConfig as _CC
+
+TAB = _json.loads((ROOT / "configs" / "cfar_alpha_table.json").read_text(encoding="utf-8"))
+AU = pd.read_csv(ROOT / "results" / "cfar_alpha_audit.csv").set_index("method").loc[METHODS]
+
+tab = pd.DataFrame({
+    "alpha (closed form)": AU.alpha_closed_form,
+    "alpha (calibrated, SHIPPED)": [_CC(kind=m).resolved_alpha() for m in METHODS],
+    "calib / closed": AU.ratio_cal_over_closed,
+    "Pfa @ closed form": AU.pfa_cells_verifyseed_at_current,
+    "Pfa @ calibrated": AU.pfa_cells_verifyseed_at_calibrated,
+})
+tab["x target, closed"] = tab["Pfa @ closed form"] / TARGET_PFA
+tab["x target, calibrated"] = tab["Pfa @ calibrated"] / TARGET_PFA
+display(tab.round(5))
+
+print("in the table:", all(_CC(kind=m).calibrated_alpha_available() for m in METHODS),
+      "| generated", TAB["meta"]["generated"], "| frames/seed", TAB["meta"]["frames_per_seed"])
 print()
-print("1.0 would mean calibrated. NONE of the four is:")
-print(f"  OS is {1/dev['OS']:.0f}x too CONSERVATIVE, SO is {dev['SO']:.1f}x too PERMISSIVE.")
+print("achieved / target on the HELD-OUT seed:")
+print(f"  before (closed form): {tab['x target, closed'].min():.2f}x to "
+      f"{tab['x target, closed'].max():.2f}x   <- a ~50x spread between variants")
+print(f"  after  (calibrated):  {tab['x target, calibrated'].min():.2f}x to "
+      f"{tab['x target, calibrated'].max():.2f}x")
 print()
-ver = AU.pfa_cells_verifyseed_at_calibrated.loc[METHODS]
-print("At the CALIBRATED alpha, on the independent verification seed:")
-print((ver / TARGET_PFA).round(2).to_string())
-print("-> all four within ~10% of target, on a seed not used to calibrate. The procedure works;")
-print("   it simply was never applied to the shipped configuration.")
-print()
-nms = (AU.pfa_peaks_verifyseed_at_current / AU.pfa_cells_verifyseed_at_current).loc[METHODS]
-print("NMS survival fraction (post-NMS Pfa / per-cell Pfa):")
-print(nms.round(3).to_string())
-print(f"-> spans only {nms.min():.2f}-{nms.max():.2f} across methods, so NMS is a roughly COMMON")
-print("   factor. The per-cell deviations above span 0.13x-6.55x and are method-specific, so the")
-print("   `noise`-row gap in S4.2 is the UNCALIBRATED ALPHA, not the post-NMS offset.")''')
+print("The held-out seed is the evidence: these alphas were fitted on seed 0 and land on target")
+print("on seed 9000, so they are not fitting the calibration noise.")''')
 
 code('''CU = pd.read_csv(ROOT / "results" / "cfar_alpha_curve.csv")
 
-fig, ax = plt.subplots(figsize=(9.5, 5.2))
+fig, axes = plt.subplots(1, 2, figsize=(14, 5.2),
+                         gridspec_kw={"width_ratios": [2.1, 1]})
+
+ax = axes[0]
 for m in METHODS:
     c = CU[CU.method == m].sort_values("alpha")
-    ax.loglog(c.alpha, c.pfa.replace(0, np.nan), color=COLOR[m], lw=1.9, label=m)
-    a_now = AU.loc[m, "alpha_closed_form"]
-    a_cal = AU.loc[m, "alpha_calibrated"]
-    ax.plot(a_now, AU.loc[m, "pfa_cells_verifyseed_at_current"], "o", color=COLOR[m], ms=9,
-            mec="black", mew=1.2, zorder=6)
-    ax.plot(a_cal, AU.loc[m, "pfa_cells_verifyseed_at_calibrated"], "*", color=COLOR[m], ms=15,
-            mec="black", mew=0.8, zorder=6)
-ax.axhline(TARGET_PFA, color=INK, ls="--", lw=1.4)
-ax.text(3.2, TARGET_PFA * 1.25, "target Pfa 1e-4", fontsize=8, color=INK)
-ax.set_xlabel("threshold multiplier alpha")
-ax.set_ylabel("achieved per-cell Pfa on pure noise (verification seed)")
-ax.set_title("None of the four closed-form alphas lands on the target\\n"
-             "circle = alpha in use, star = calibrated alpha, dashed = 1e-4", fontsize=10)
-ax.legend(frameon=False, ncol=4, fontsize=9)
-ax.set_ylim(1e-6, 1e-1)
+    ax.plot(c.alpha, c.pfa.replace(0, np.nan), color=COLOR[m], lw=1.9, label=m)
+    a_clo = float(AU.loc[m, "alpha_closed_form"])
+    a_cal = float(_CC(kind=m).resolved_alpha())
+    p_clo = float(AU.loc[m, "pfa_cells_verifyseed_at_current"])
+    # Arrow runs FROM where the variant was TO where it should be: the correction itself.
+    ax.annotate("", xy=(a_cal, TARGET_PFA), xytext=(a_clo, p_clo),
+                arrowprops=dict(arrowstyle="-|>", color=COLOR[m], lw=1.7, alpha=0.95,
+                                shrinkA=6, shrinkB=8,
+                                connectionstyle="arc3,rad=0.15"))
+    ax.plot(a_clo, p_clo, "o", color=COLOR[m], ms=10, mec="black", mew=1.3, zorder=6)
+    ax.plot(a_cal, TARGET_PFA, "*", color=COLOR[m], ms=17, mec="black", mew=0.9, zorder=7)
+ax.axhline(TARGET_PFA, color=INK, ls="--", lw=1.5)
+ax.text(3.15, TARGET_PFA * 1.35, "target Pfa 1e-4", fontsize=8.5, color=INK)
+ax.annotate("OS: too CONSERVATIVE (fires 8x too rarely)" + chr(10) + "-> alpha must come DOWN",
+            xy=(9.3, 1.35e-5), xytext=(3.15, 2.2e-6), fontsize=8, color=COLOR["OS"],
+            arrowprops=dict(arrowstyle="->", color=COLOR["OS"], lw=1.2))
+ax.annotate("SO: too PERMISSIVE (fires 6.5x too often)" + chr(10) + "-> alpha must go UP",
+            xy=(9.9, 6.6e-4), xytext=(3.15, 1.1e-2), fontsize=8, color=COLOR["SO"],
+            arrowprops=dict(arrowstyle="->", color=COLOR["SO"], lw=1.2))
+ax.set_xscale("log"); ax.set_yscale("log")
+ax.set_xlabel("threshold multiplier alpha"); ax.set_ylabel("achieved per-cell Pfa on pure noise")
+ax.set_title("What calibration does: circle = closed form (where each variant WAS),\\n"
+             "star = calibrated (where it should be). The arrow is the correction.", fontsize=10)
+ax.legend(frameon=False, ncol=4, fontsize=9, loc="upper right")
+ax.set_ylim(1e-6, 5e-2)
+
+ax = axes[1]
+x = np.arange(len(METHODS))
+ax.bar(x, [float(AU.loc[m, "pfa_cells_verifyseed_at_calibrated"]) for m in METHODS],
+       0.55, color=[COLOR[m] for m in METHODS])
+ax.axhline(TARGET_PFA, color=INK, ls="--", lw=1.5)
+ax.set_xticks(x); ax.set_xticklabels(METHODS)
+ax.set_ylabel("achieved per-cell Pfa"); ax.set_ylim(0, 1.6e-4)
+ax.set_title("At the calibrated alpha, on the\\nHELD-OUT seed: all four on target", fontsize=10)
 plt.tight_layout(); plt.show()''')
 
-cap("Every star sits on the dashed line by construction; every circle is where that method actually operates. The horizontal gap between a circle and its star is the miscalibration — largest for OS (too conservative) and SO (too permissive), in opposite directions.")
+cap("Left: follow each arrow from its circle to its star. The horizontal length of the arrow is how far that variant was miscalibrated, and the arrows point in OPPOSITE directions — OS needed a lower threshold, SO a much higher one, which is why one closed form could never serve all four. Right: the calibrated alphas were fitted on seed 0 and land on target on seed 9000, so they generalise rather than fitting the calibration draw.")
 
-md("""**What this does and does not affect.**
+md("""**What this changed, and what it did not.**
 
-* **Reported Pd is unaffected.** Every table in this notebook sweeps the threshold to matched
-  *measured* Pfa **per condition**, so the closed-form alpha is only a starting guess that the sweep
-  discards. §3, §5 and §6 stand exactly as they are.
-* **§4.2 is affected**, because it is the one place that reads the design threshold. Its
-  `noise`-row ratios are a direct readout of this miscalibration, and its clutter rows mix that
-  offset with the genuine clutter effect. §4.2 now separates the two.
-
-This is recorded as **Correction C7** in `PROGRESS.md`: §2.4 previously asserted that the empirical
-value "is the one used", which was never true of the shipped code.""")
+* **No reported Pd moved — provably, not just empirically.** alpha is *not* an input to the ratio
+  map: `cfar_ratio_map` returns `power / noise`, and alpha is the threshold applied to it
+  afterwards. Every result in this project is scored at matched **measured** Pfa, which sweeps that
+  threshold and discards alpha. Re-deriving all summaries with the calibrated table left `pd`,
+  `measured_pfa`, `tp`, `fp` and `fn` **bit-identical** on both `bench2_val` and `bench2_test`.
+* **`bench2_test` was not re-read.** Because the ratio map is alpha-independent, the cached
+  detections could not change; the summaries were re-derived from them with `--score-only`, and the
+  `peaks_*.npz` files verified byte-identical afterwards.
+* **What did change** is the design operating point — `design_alpha`, `design_pd`, `design_pfa` —
+  and therefore §4.2, which is the only section that reads it.""")
 
 # ============================================================================== 3 · result
 md("""---
@@ -814,89 +838,72 @@ was predicted to win `clutter_edge`, and at matched Pfa it does not. **GO wins `
 the ridge); OS wins `clutter_edge` (CUT outside it).** Opposite geometries, opposite winners.""")
 
 code('''thr = summary.pivot_table(index="condition", columns="method", values="threshold")[METHODS]
-# Computed here, NOT read from summary.csv: that file recorded the full-ring alpha for SO while
-# cfar.py uses the half-ring value. Display metadata only -- no detection depended on it, and
-# scripts/cfar_test_baseline.py is fixed for future runs.
-design = {m: (CfarConfig(kind=m).alpha_go() if m in ("GO", "SO") else CfarConfig(kind=m).alpha())
-          for m in METHODS}
+# resolved_alpha() returns the CALIBRATED value now that configs/cfar_alpha_table.json exists
+# (S2.4). Before 19 Aug this read the closed form, which is why this section used to need a
+# normalisation step to separate the calibration offset from the clutter effect.
+design = {m: CfarConfig(kind=m).resolved_alpha() for m in METHODS}
 ratio = pd.DataFrame({m: thr[m] / design[m] for m in METHODS})
 
-# TWO EFFECTS ARE MIXED IN `ratio`, and S2.4 showed they are different sizes:
-#   (a) the alpha is uncalibrated -- a per-method offset, visible on the `noise` row where
-#       there is no clutter at all and every method should therefore sit at 1.0;
-#   (b) clutter breaks the homogeneous-noise assumption -- the effect this section is about.
-# Dividing each column by its own `noise` row removes (a) and leaves (b).
-norm = ratio.div(ratio.loc["noise"], axis=1)
-
-print("RAW: measured threshold / design threshold")
+print("measured threshold / DESIGN threshold, at the calibrated alpha:")
 display(ratio.round(2))
-print("The `noise` row should be 1.0 for every method -- there is no clutter there.")
-print("It is not, and that row IS the miscalibration measured in S2.4:")
-display(ratio.loc[["noise"]].round(2))
 
-print("NORMALISED by each method own `noise` row -- the CLUTTER effect alone:")
-display(norm.drop(index="noise").round(2))
+# The `noise` row is the control: no clutter there, so every method should sit at the same place.
+nz = ratio.loc["noise"]
+print(f"`noise` row: {nz.min():.3f} to {nz.max():.3f} across the four methods "
+      f"(spread {nz.max() - nz.min():.3f})")
+print("Before calibration this row was 0.76 (OS) to 1.25 (SO) -- a method-SPECIFIC offset that",
+      "had to be")
+print("divided out. It is now common to all four, so the raw ratios are directly comparable and")
+print("the normalisation step this section used to carry has been removed.")
+print()
+print("The residual ~0.95 is not miscalibration: it is the POST-NMS offset (S5). alpha is a")
+print("per-cell threshold, while these thresholds are matched on post-NMS detections.")
 
-fig, axes = plt.subplots(1, 2, figsize=(13.5, 4.8), sharey=True)
-panels = [(ratio, "RAW: calibration offset x clutter"),
-          (norm.drop(index="noise"), "NORMALISED by the `noise` row:\\nthe clutter effect alone")]
-for ax, (D, ttl) in zip(axes, panels):
-    x = np.arange(len(D)); w = 0.2
-    for k, m in enumerate(METHODS):
-        ax.bar(x + (k - 1.5) * w, D[m], w, color=COLOR[m], label=m)
-    ax.axhline(1.0, color=INK, ls="--", lw=1.2)
-    ax.set_yscale("log")
-    ax.set_xticks(x)
-    ax.set_xticklabels(D.index, rotation=20, ha="right")
-    ax.set_title(ttl, fontsize=10)
-axes[0].set_ylabel("measured / design threshold  (log scale)")
-axes[0].legend(frameon=False, ncol=4, fontsize=8.5)
+fig, ax = plt.subplots(figsize=(10.5, 4.8))
+x = np.arange(len(ratio)); w = 0.2
+for k, m in enumerate(METHODS):
+    ax.bar(x + (k - 1.5) * w, ratio[m], w, color=COLOR[m], label=m)
+ax.axhline(1.0, color=INK, ls="--", lw=1.2)
+ax.set_yscale("log")
+ax.set_xticks(x)
+ax.set_xticklabels(ratio.index, rotation=20, ha="right")
+ax.set_ylabel("measured / design threshold  (log scale)")
+ax.set_title("With calibrated alphas the clean conditions collapse onto one line;\\n"
+             "what is left above it is the clutter effect, and it differs per method",
+             fontsize=10)
+ax.legend(frameon=False, ncol=4, fontsize=9)
 plt.tight_layout(); plt.show()
 
-raw = ratio.drop(index="noise")
-nrm = norm.drop(index="noise")
-wm = raw.max().idxmax()
-off = float(ratio.loc["noise", wm])
-print(f"RAW worst miss: {raw.max().max():.1f}x ({wm}), which folds in that method")
-print(f"  calibration offset of {off:.2f}x on pure noise.")
-print(f"NORMALISED worst: {nrm.max().max():.1f}x ({nrm.max().idxmax()}) -- clutter effect proper.")
-print()
-print("Clutter-driven factor per method (normalised, worst condition):")
-print(nrm.max().round(2).to_string())''')
+clut = [c for c in ("clutter", "clutter_edge", "mixed") if c in ratio.index]
+clean = [c for c in ratio.index if c not in clut]
+print("clutter-bearing rows, factor above the clean baseline:")
+display((ratio.loc[clut] / ratio.loc[clean].mean()).round(2))
+print("CA/GO/OS need 1.7-2.7x their design threshold in clutter; SO needs ~13-24x, because")
+print("taking the MINIMUM of two half-rings biases the noise estimate down hardest exactly")
+print("where the ring is inhomogeneous.")''')
 
-cap("Log scale, because SO spans two decades and would otherwise flatten the others into an "
-    "unreadable band. LEFT: raw ratios, mixing the calibration offset with the clutter "
-    "effect. RIGHT: after dividing out each method's own `noise` row, the clean conditions "
-    "collapse to 1.00-1.02 exactly as they should, and what is left on the clutter rows is "
-    "the clutter effect alone.")
+cap("Log scale, because SO spans more than a decade. Every clean condition now sits on one line just under 1.0 — that common offset is the post-NMS effect, not miscalibration. What rises above it is the clutter effect, and it is a different height for each method, which is why a shared 'design 1e-4' would place the four at four different operating points.")
 
-md("""**Two effects were mixed here, and the right-hand panel separates them.**
+md("""**The `noise` row is the control.** There is no clutter there, so every method should sit at
+the same place — and now does: **0.952 to 0.959**, a spread of 0.007. Before calibration that row
+ran 0.76 (OS) to 1.25 (SO), a method-*specific* offset that had to be divided out before the clutter
+effect could be read. **That normalisation step has been removed** — it is no longer measuring
+anything, which is the cleanest evidence that §2.4's calibration worked.
 
-**(a) The calibration offset.** The `noise` row has no clutter, so every method should sit at 1.0.
-Instead: CA 1.05, GO 0.93, OS 0.76, SO 1.25. That row is a direct readout of the uncalibrated alphas
-measured in §2.4 — and it is *not* a post-NMS artefact, since §2.4 showed NMS survival is a roughly
-common factor (0.66–0.83) while the per-cell deviations are method-specific and span 0.13×–6.55×.
+**The residual ~0.95 is not miscalibration.** It is the post-NMS offset: alpha is a **per-cell**
+threshold, while these thresholds are matched on **post-NMS** detections, and NMS removes ~20–35% of
+candidates (§5). Being common to all four, it cancels in any comparison between them.
 
-**(b) The clutter effect**, which is what this section is about. After dividing each column by its
-own `noise` row, the clean conditions land at **1.00–1.02** — exactly the sanity check the
-normalisation needs to pass — and the clutter-bearing rows show:
+**What is left above the line is the clutter effect**, and it differs by method:
 
-| | CA | GO | OS | SO |
+| factor above the clean baseline | CA | GO | OS | SO |
 |---|---|---|---|---|
-| worst clutter row (normalised) | **2.27×** | **1.75×** | **2.75×** | **24.2×** |
+| worst clutter row | **2.25×** | **1.74×** | **2.74×** | **24.2×** |
 
-So the honest statement is **1.75×–2.8× for CA/GO/OS, and ~24× for SO** — not one number, and
-crucially **a different factor per method**, which is precisely why a "design 1e-4" comparison would
-place the four at four different operating points.
-
-**SO's ~24× is real, not a plotting error.** SO takes the *minimum* of the two half-rings, which
-biases the noise estimate **downward**, so its design Pfa is optimistic and its threshold must be
-pushed far past the closed form. It is the extreme case of the section's point.
-
-*(Bug found while restructuring: `summary.csv` recorded the full-ring `alpha` for SO where
-`cfar.py` uses the half-ring value. The cell above recomputes it correctly;
-`scripts/cfar_test_baseline.py` is fixed for future runs. Display metadata only — no detection or
-reported Pd depended on it, and correcting it moved SO's clutter ratio 26.6 → 25.7.)*""")
+CA/GO/OS need 1.7–2.7× their design threshold in clutter. **SO needs 13–24×**, because taking the
+*minimum* of two half-rings biases the noise estimate downward hardest exactly where the ring is
+inhomogeneous. A single "design 1e-4" would therefore place the four at four different operating
+points — which is the whole reason this project matches the **measured** rate instead.""")
 
 md("""### 4.3 Where the false alarms land""")
 
@@ -1208,9 +1215,14 @@ cap("Log scale. CA, GO and SO are all cheap sliding-window statistics; only OS n
 md("""---
 ## 7 · What this establishes
 
-1. **The classical baseline is tuned, not inherited.** Window geometry, guard size and alpha were
-   each selected by measurement on a disjoint split (§2). No paper in the 19-paper corpus does this,
-   and it removes the most obvious objection to any comparison built on top of it.
+1. **The classical baseline is tuned, not inherited.** Window geometry and guard size were selected
+   by measurement on a disjoint split (§2.1–§2.3), and **alpha is calibrated by Monte Carlo on pure
+   noise and verified on a held-out seed** (§2.4). No paper in the 19-paper corpus re-tunes CFAR at
+   all, and this removes the most obvious objection to any comparison built on top of it.
+
+   *This claim was asserted before it was true.* Until 19 Aug 2026 `cfar.py` never imported
+   `calibrate.py` and every variant ran on a closed-form alpha; the geometry half was always
+   honest, the alpha half was not. See Correction **C8**.
 2. **The variants are complementary in the direction theory predicts** — CA on homogeneous noise,
    OS when an interferer is in the ring, GO inside a ridge, and, the pair that makes the argument,
    **GO inside the ridge but OS at its edge**, which are opposite geometries.
@@ -1229,24 +1241,21 @@ md("""---
    known-noise bound is **0.27–0.64 dB as plotted, or 0.45–0.86 dB** once the post-NMS-vs-per-cell
    Pfa offset is corrected (§5) — a fraction of a dB either way. The pipeline measures what it
    claims to measure.
-5. **Matching the *measured* Pfa is not a formality.** Once the calibration offset is divided out,
-   the design threshold is wrong by **1.75×–2.8× for CA/GO/OS and ~24× for SO** on clutter-bearing
-   conditions — **a different factor for each method** (§4.2). On top of that, none of the four
-   alphas is calibrated in the first place (§2.4): achieved per-cell Pfa on pure noise spans
-   **0.13×–6.55×** of the 1e-4 target. Sweeping to the measured rate is what makes the four
-   comparable at all.
+5. **Matching the *measured* Pfa is not a formality.** Even with correctly calibrated alphas, the
+   design threshold is wrong by **1.7×–2.7× for CA/GO/OS and 13–24× for SO** on clutter-bearing
+   conditions — **a different factor for each method** (§4.2), because clutter breaks the
+   homogeneous-noise assumption the calibration is done under. Sweeping to the measured rate is what
+   makes the four comparable at all.
 
 ### Limitations to carry into the report
 
 * **Variant-level differences are not resolved on this split.** 400 frames per condition gives a
   bootstrap SE of 0.007–0.024, and every best-vs-runner-up margin is smaller than 2 SE. Separating
   the variants would need substantially more frames per condition.
-* **No CFAR alpha is calibrated.** All four run on closed-form values; achieved per-cell Pfa
-  on pure noise spans **0.13×–6.55×** of target (§2.4). Reported Pd is unaffected — everything
-  is scored at matched *measured* Pfa — but any number reading the design threshold carries
-  this. Calibrated values are measured and available in `results/cfar_alpha_audit.csv`;
-  wiring them into `CfarConfig` was deliberately not done, since it changes no reported Pd
-  and would require re-running the baselines to keep `summary.csv` consistent.
+* **The alphas are calibrated for *homogeneous noise*, which is the only regime where a fixed
+  multiplier can be right.** In clutter every variant still needs 1.7–24× its design threshold
+  (§4.2). That is a property of the detector, not a calibration failure, and it is exactly why
+  results are reported at matched measured Pfa.
 * **`os_rank_frac` was never swept.** OS's one free parameter sits at its default, so OS may be
   under-tuned exactly where it wins.
 * **`clutter_edge` is ~⅓ diluted** — a third of the stratum is not an edge (§3.2). The pooled row

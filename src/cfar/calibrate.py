@@ -74,19 +74,31 @@ def calibrate_alpha(
     return alpha, int(ratios.size)
 
 
+# SO was missing from this tuple until 19 Aug 2026, which is why it was never calibrated: it was
+# added to `cfar.py` on 15 Aug and nothing here knew about it. Keep all four.
+ALL_KINDS = ("CA", "GO", "OS", "SO")
+
+
 def calibrate_all(
     radar_cfg: RadarConfig,
     target_pfa: float,
     guard: int = 2,
     train: int = 8,
-    kinds=("CA", "OS", "GO"),
+    guard_v: int | None = 2,
+    train_v: int | None = 2,
+    kinds=ALL_KINDS,
     n_frames: int = 60,
     seed: int = 0,
 ) -> dict[str, float]:
-    """Calibrated alpha for each CFAR kind at a common geometry and target Pfa."""
+    """Calibrated alpha for each CFAR kind at a common geometry and target Pfa.
+
+    `guard_v` / `train_v` are exposed because the selected window is RECTANGULAR (21x9). Calibrating
+    at the square default would produce alphas for a geometry the project does not use.
+    """
     out = {}
     for k in kinds:
-        cfg = CfarConfig(kind=k, guard=guard, train=train, pfa=target_pfa)
+        cfg = CfarConfig(kind=k, guard=guard, train=train, guard_v=guard_v, train_v=train_v,
+                         pfa=target_pfa)
         alpha, _ = calibrate_alpha(cfg, radar_cfg, target_pfa, n_frames=n_frames, seed=seed)
         out[k] = alpha
     return out
