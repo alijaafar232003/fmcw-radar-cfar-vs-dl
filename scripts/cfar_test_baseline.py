@@ -148,7 +148,11 @@ def score(frames_meta: pd.DataFrame, truths: pd.DataFrame) -> pd.DataFrame:
             # Fixed-threshold view: the operating point CFAR theory prescribes. GO's whole design
             # goal -- surviving a clutter edge -- shows up here as fewer false alarms, and is
             # invisible at matched Pfa, where equal false-alarm rates are imposed by construction.
-            alpha = CfarConfig(kind=m).alpha_go() if m == "GO" else CfarConfig(kind=m).alpha()
+            # GO *and* SO are half-ring statistics, so both take the half-ring cell count --
+            # this previously recorded the full-ring alpha for SO, which is not what
+            # cfar.py uses for it. Display metadata only; no detection depended on it.
+            alpha = (CfarConfig(kind=m).alpha_go() if m in ("GO", "SO")
+                     else CfarConfig(kind=m).alpha())
             evs_d = [evaluate_frame(p[p[:, 2] >= alpha][:, :2] if len(p) else np.zeros((0, 2)),
                                     t, s, mc, valid_mask=v)
                      for p, t, s, v in fr]

@@ -2166,6 +2166,103 @@ construction, so a per-condition summary is meaningless for it.)*
 
 **This was the last outstanding experiment.** Everything remaining is writing.
 
+### 2026-08-19 — `cfar_baseline.ipynb` restructured, and SO had been missing from it entirely
+
+**The correctness fix, and it was not cosmetic.** The notebook declared
+`METHODS = ["CA", "GO", "OS"]`. **SO-CFAR was absent from every table, plot and colour map**, even
+though `peaks_SO.npz` had been on disk since 17 Aug. So:
+
+* every **"best method"** column was a maximum over **three** variants, not four;
+* the **localization** table omitted SO entirely — the variant that is best on the range axis in
+  most conditions on `bench2_val`;
+* the runtime table understated the classical baseline's cheap end.
+
+Fixed throughout: `METHODS`, `COLOR`, peaks/runtime loading, and every table and figure. Verified
+`peaks_SO.npz` loads and carries `ms_per_frame` (6.57 ms).
+
+**⚠️ What adding SO changed — the headline claim is now weaker, and correctly so.**
+
+The old separability test compared **best against worst**, which passed on four conditions. With SO
+included that column is dominated by *how bad SO is* (SO scores 0.063 on `clutter` against GO's
+0.171), so it stopped measuring what it was for. The meaningful test is **best against
+runner-up**, and on that test:
+
+| condition | winner | runner-up | margin | SE of winner | separable? |
+|---|---|---|---|---|---|
+| clutter | GO | CA | 0.0050 | 0.0141 | ❌ |
+| clutter_edge | OS | GO | 0.0339 | 0.0212 | ❌ |
+| isolated | CA | **SO** | 0.0100 | 0.0235 | ❌ |
+| masking | OS | **SO** | 0.0138 | 0.0128 | ❌ |
+| mixed | GO | CA | 0.0178 | 0.0179 | ❌ |
+| multi | CA | OS | 0.0055 | 0.0139 | ❌ |
+| unresolved | CA | GO | 0.0012 | 0.0066 | ❌ |
+
+**Not one winner is separable from its runner-up at 2 SE.** Note also that SO is the *runner-up* on
+two conditions — it was invisible before, and it is not a weak method everywhere.
+
+**But the mechanism prediction still scores 7 of 7.** Every point estimate orders exactly as CFAR
+theory says it should — CA on homogeneous noise, OS when an interferer is in the ring, GO inside a
+ridge, OS at its edge (the opposite geometry), SO nowhere. Seven-for-seven directional agreement
+with an independently derived mechanism is unlikely to be chance, but it is **not** the same as
+having measured each gap. **The reportable claim is "the variants are complementary in the direction
+theory predicts", not "OS beats GO on masking by 0.09".** Separating them would need substantially
+more than 400 frames per condition.
+
+*Adding SO did not create this ambiguity — it exposed it.* The three-method version reported four
+"real" differences that were artefacts of comparing against the worst method rather than the second
+best.
+
+**Second bug found, smaller.** `summary.csv` recorded the **full-ring** `alpha` for SO, while
+`cfar.py` uses the **half-ring** value (`alpha_go()`) for it — SO is a half-ring statistic like GO.
+Display metadata only: no detection or reported Pd ever depended on it, and correcting it moves SO's
+`clutter` threshold ratio only 26.6 → 25.7. `scripts/cfar_test_baseline.py` is fixed for future
+runs; the notebook recomputes rather than trusting the stale column, so **`bench2_test` was not
+re-read**. (SO genuinely does need ~25× its design threshold on clutter — taking the *minimum* of
+two half-rings biases the noise estimate down, so its design Pfa is optimistic. That is a property
+of SO, not the bug.)
+
+**The restructure: 11 sections → 7 + appendix.**
+
+| new | contents |
+|---|---|
+| §1 | the frame: split composition, geometry, **the metric hierarchy stated once**, and why *measured* Pfa. Fixes the `nms_size=5` vs 11×11 ambiguity — it is the **half-width** |
+| §2 | **how the CFAR window was chosen** — entirely new, from Milestone 19 step 2a and step 6 |
+| §3 | the baseline result: headline table with bootstrap CIs, the win-by-condition table with a **mechanism column**, and the `clutter_edge` dilution moved next to it |
+| §4 | why the methods differ: noise-estimate map, design-vs-measured threshold, false-alarm locations |
+| §5 | validation against physics, **promoted** from §6: Pd vs SNR with per-method CFAR loss in dB, plus the resolution ablation |
+| §6 | secondary metrics: localization for all four methods, bootstrapped, at both gates; runtime with measurement conditions |
+| §7 | what this establishes + limitations |
+| A | appendix: per-target record, representative ROCs |
+
+**Removed:** the pairwise method-agreement section (§2d) — it supported no claim the win table and
+separability test do not already make. **Shrunk:** ROC-per-condition to three representative
+conditions (clean / interference / edge), remainder to the appendix.
+
+**Three new figures in §2, which is where the notebook was weakest:**
+
+1. **The measured PSF profile** on a log scale, with the guard boundary and *both* window edges
+   marked (range ±10 and Doppler ±4 — one line would have been wrong for one of the two curves).
+   The −30 dB spread sits inside the guard and the ring starts below −40 dB: the whole guard = 2
+   justification in one picture. New script `scripts/export_psf_profile.py` persists the profile so
+   nothing is pasted.
+2. **The geometry sweep per condition** as a heatmap plus a gain bar — the pooled sweep alone is the
+   artefact (pooled Pd correlates r = 0.98 with *usable Doppler bins*), and the per-condition view
+   is what separated real mechanism from artefact.
+3. **The 21×9 window drawn to scale on a real `clutter_edge` frame**, with the ridge extent shaded.
+   The first draft's title claimed the ridge was inside the ring; it is not, and the figure showed
+   that. Corrected to what is actually true and what makes the mechanism work: **the ridge centre is
+   outside the window, but 2 of the ring's training columns overlap the ridge's ±4-bin extent**,
+   which is enough to inflate the noise estimate.
+
+⚠️ **Discrepancy recorded, not resolved.** `results/cfar_geometry_percondition.csv` reproduces the
+*direction and ordering* of the step-6 sweep but not its absolute values (`isolated` 0.272 → 0.306
+in the artefact against 0.654 → 0.629 in the step-6 entry) — it is a different run of the sweep. The
+notebook plots the artefact and describes the artefact, with a banner warning against quoting the
+two together. The conclusions the window selection rested on hold in both: gain concentrated in
+clutter-bearing conditions (9.6× the mean elsewhere) and `masking` regressing at 29×9.
+
+`bench2_test` was **not** re-read — SO's detections already existed; this was display only.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
