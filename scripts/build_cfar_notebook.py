@@ -959,6 +959,13 @@ md("""---
 Everything so far is *relative* — one variant against another. This is the one **absolute** check:
 is the classical detector anywhere near what theory says is achievable?
 
+> **Which measurement this is.** `bench2_test`, restricted to the **clean conditions** (`isolated` +
+> `multi`), because interference-limited strata are limited by the interference rather than by the
+> noise the theory models. A second, independent CFAR-loss measurement exists on
+> **`bench2_snr_sweep`** (one target per frame, SNR swept uniformly 0–24 dB) and reports
+> **0.47–0.78 dB** — see `cnn_development_log.ipynb` §20. **Different splits, different target
+> populations, different numbers**; neither supersedes the other.
+
 Theory is a square-law detector that **knows** the noise level: `Pd = Pfa^(1/(1+SNR))`. The gap
 below it is **CFAR loss** — the price of estimating that level from 164 cells instead of being told
 it.
@@ -1243,10 +1250,15 @@ md("""---
    margins are not.**
 3. **SO wins nothing on Pd but is competitive on localization**, which is only visible because it is
    now included at all.
-4. **The detector agrees with physics.** At gate 0 on clean conditions, CFAR loss against the
-   known-noise bound is **0.27–0.64 dB as plotted, or 0.45–0.86 dB** once the post-NMS-vs-per-cell
-   Pfa offset is corrected (§5) — a fraction of a dB either way. The pipeline measures what it
-   claims to measure.
+4. **The detector agrees with physics.** On **`bench2_test`, clean conditions only** (`isolated` +
+   `multi`), at gate 0, CFAR loss against the known-noise bound is **0.27–0.64 dB as plotted, or
+   0.45–0.86 dB** once the post-NMS-vs-per-cell Pfa offset is corrected (§5) — a fraction of a dB
+   either way. The pipeline measures what it claims to measure.
+
+   ⚠️ **Not the same number as the SNR-sweep figure**, which reports **0.47–0.78 dB** on
+   **`bench2_snr_sweep`** (`cnn_development_log.ipynb` §20). Different split and different target
+   population — one target per frame with SNR swept uniformly 0–24 dB (mean 11.2 dB) there, against
+   1–2 targets per frame at mean 15.2 dB here. Both are valid; they are not interchangeable.
 5. **Matching the *measured* Pfa is not a formality.** Even with correctly calibrated alphas, the
    design threshold is wrong by **1.7×–2.7× for CA/GO/OS and 13–24× for SO** on clutter-bearing
    conditions — **a different factor for each method** (§4.2), because clutter breaks the

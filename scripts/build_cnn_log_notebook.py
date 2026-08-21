@@ -1647,7 +1647,14 @@ md("""### What it showed — the pipeline is validated, and the label problem is
 | detection loss | — | **+0.47 dB** | +0.65 | +0.78 | +0.63 | — |
 
 **0.47–0.78 dB is exactly the expected price** of estimating the noise level from a finite reference
-window instead of knowing it. The evaluation pipeline agrees with physics.
+window instead of knowing it.
+
+⚠️ **This is the `bench2_snr_sweep` measurement** — one target per frame, SNR swept uniformly
+0–24 dB (mean 11.2 dB). `cfar_baseline.ipynb` §5 makes the *same kind* of measurement on
+**`bench2_test` clean conditions** and gets **0.27–0.64 dB**, because the target population differs
+(1–2 targets per frame, mean 15.2 dB). Both are correct; **do not quote them as one range.** Neither
+moved when SO was added or when the alphas were calibrated — verified bit-identical, since Pd at
+matched *measured* Pfa does not depend on alpha. The evaluation pipeline agrees with physics.
 
 **Two things this panel shows that no other section did.**
 

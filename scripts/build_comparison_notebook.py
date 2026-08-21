@@ -396,8 +396,8 @@ plt.tight_layout(); plt.show()''')
 
 md("""### Two findings, one of them a trap
 
-**✅ CFAR loss is textbook: 0.47–0.78 dB.** At gate 0, CA needs 11.37 dB to reach Pd 0.5 against
-theory's 10.89 dB. That is exactly the expected price of estimating the noise level rather than
+**✅ CFAR loss is textbook: 0.47–0.78 dB** *(on `bench2_snr_sweep` — see the note below)*. At gate
+0, CA needs 11.37 dB to reach Pd 0.5 against theory's 10.89 dB. That is exactly the expected price of estimating the noise level rather than
 knowing it. **The evaluation pipeline agrees with physics** — which is what this figure exists to
 establish.
 
@@ -503,7 +503,8 @@ sc = pd.DataFrame([
     dict(question="Doppler localization", winner="CFAR",
          margin=f"{dlr.dv_bins / cfr.dv_bins.min():.2f}x better", confidence="every condition"),
     dict(question="Agreement with theory (gate 0)", winner="CFAR",
-         margin="0.47-0.78 dB loss; DL caps at Pd 0.41", confidence="bench2_snr_sweep"),
+         margin="0.47-0.78 dB loss (snr_sweep); DL caps at Pd 0.41",
+         confidence="bench2_snr_sweep -- NOT the bench2_test clean-condition figure"),
     dict(question="Speed vs OS-CFAR", winner="DL", margin="11.6x faster", confidence="same machine"),
     dict(question="Speed vs CA-CFAR", winner="CFAR", margin="7x faster than DL",
          confidence="same machine"),

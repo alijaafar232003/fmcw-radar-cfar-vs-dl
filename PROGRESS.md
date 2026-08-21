@@ -2519,6 +2519,43 @@ geometry half was always honest; the alpha half was not, until now. Both correct
 **C7** (the false claim) and **C8** (making it true) in `cnn_development_log.ipynb`, which is the
 canonical retraction list — C7 had previously been logged only here.
 
+### 2026-08-22 — The two CFAR-loss numbers are two different measurements, now labelled
+
+**The question.** §7 of `cfar_baseline.ipynb` reports CFAR loss of **0.27–0.64 dB**; the SNR-sweep
+figure reports **0.47–0.78 dB** (CA 0.47, GO 0.65, OS 0.78, SO 0.63). Same quantity twice, or two
+quantities?
+
+**Two quantities.** Confirmed from the artefacts rather than inferred:
+
+| | measurement A | measurement B |
+|---|---|---|
+| artefact | `results/dl/pd_vs_snr_frozen_ep021_summary.csv` | computed live in `cfar_baseline.ipynb` §5 |
+| split | **`bench2_snr_sweep`** | **`bench2_test`**, clean conditions only (`isolated` + `multi`) |
+| targets | 1,300 — **one per frame**, SNR swept uniformly 0–24 dB | 2,215 — **1–2 per frame** |
+| mean cell SNR | **11.24 dB** | **15.19 dB** (p90 28.9 dB) |
+| CFAR loss, gate 0 | **0.47–0.78 dB** | **0.27–0.64 dB** |
+
+Different splits, different target populations, and `multi` contributes mild mutual interference
+that the one-target-per-frame sweep has by construction. They are not expected to agree and neither
+supersedes the other.
+
+**Did SO or the alpha calibration move either? No — checked, not assumed.**
+
+* **Alpha calibration:** re-ran `pd_vs_snr_figure.py` after wiring the calibrated table in and
+  diffed against the pre-calibration artefact. `snr50`, `loss_db` and `pd_max` all **max \|diff\| =
+  0.000e+00**. Measurement B likewise unchanged (0.273 / 0.427 / 0.553 / 0.644 both sides). This is
+  the expected result and now the *measured* one: CFAR loss is derived from Pd at matched **measured**
+  Pfa, which sweeps the threshold and cannot depend on alpha.
+* **Adding SO:** SO appears as its own row in both artefacts; the CA/GO/OS values are computed
+  per-method and were untouched by its addition.
+
+**Labelled in five places** so the two cannot be read as one range: `cfar_baseline.ipynb` §5 intro
+and §7 point 4, `cnn_development_log.ipynb` §20, `cfar_vs_dl_comparison.ipynb` §6 and its scorecard
+row, and `NEXT_SESSION.md`. Each now names its split and points at the other measurement.
+
+*Also corrected while there:* `NEXT_SESSION.md` still described the alphas as uncalibrated (closed
+21 Aug) and counted seven Corrections rather than eight.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
