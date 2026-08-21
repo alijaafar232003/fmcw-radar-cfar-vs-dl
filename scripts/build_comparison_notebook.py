@@ -416,7 +416,15 @@ at **Pd 0.41** even at 24 dB, where CFAR reaches ~0.85. It finds strong targets 
 exact cell — the 3×3 label again, measured on a third split by a completely different route.
 
 *(CFAR's own ~0.85 ceiling is not a detector failure either: labels sit on the true physical peak
-only ~93% of the time (Milestone 22), so exact-cell matching cannot reach 1.0 for anybody.)*""")
+only ~93% of the time (Milestone 22), so exact-cell matching cannot reach 1.0 for anybody.)*
+
+⚠️ **One caveat on the absolute comparison.** Theory is a **per-cell** statement, while both arms are
+matched at a **post-NMS** Pfa of 1e-4. NMS survival is 0.66–0.83, so the true per-cell rate is
+~1.2–1.5e-4 and both detectors are scored at a marginally *easier* point than theory is drawn at —
+worth ~0.1–0.2 dB (quantified in `cfar_baseline.ipynb` §5). **It does not touch the DL-vs-CFAR
+delta:** identical NMS and identical post-NMS matching on both sides make the offset common-mode, so
+it cancels in the difference. It shifts where *both* sit relative to theory, never where they sit
+relative to *each other*.""")
 
 # ============================================================================== 7
 md("""---
@@ -597,7 +605,33 @@ frames, different seed, no shared content, but not a different world. So this es
 results hold on unseen *frames*. It is **not** evidence that anything survives a different clutter
 model, a different sensor, or real measurements. One simulator, throughout.
 
-### 9.8 Smaller things, kept on the record
+### 9.8 No CFAR threshold multiplier is calibrated — disclosed, not discovered
+
+Audited 19 Aug (`scripts/cfar_alpha_audit.py`). `cfar.py` never imports `calibrate.py` and there is
+no cached alpha table, so **all four CFAR variants run on closed-form threshold multipliers.** On
+pure noise, at the alpha each actually uses, the achieved per-cell Pfa is:
+
+| | CA | GO | OS | SO |
+|---|---|---|---|---|
+| achieved ÷ 1e-4 target | 2.37× | 0.78× | **0.13×** | **6.55×** |
+
+OS is ~8× too conservative, SO ~6.5× too permissive — about a 50× spread. Calibrating them (and
+verifying on an independent noise seed) puts all four at 0.90–1.01× target, so the procedure works;
+it was simply never applied to the shipped configuration. SO was never even in
+`calibrate_all()`'s default method list.
+
+**This changes none of the numbers above.** Every comparison in this notebook is scored at matched
+**measured** Pfa, swept per condition, which discards the closed-form alpha entirely — and §1
+confirms both arms landed within 2% of 1e-4. What it would affect is any figure reading the *design*
+threshold, which this notebook does not use.
+
+**It is listed here because it should be disclosed rather than discovered.** A reader who checks
+`CfarConfig` will find uncalibrated alphas, and should find this paragraph first. Recorded as
+Correction **C7** in `PROGRESS.md`, with the measured values in `results/cfar_alpha_audit.csv`.
+Wiring them in was deliberately not done: it changes no reported Pd and would require re-running the
+CFAR baselines to keep `summary.csv` consistent.
+
+### 9.9 Smaller things, kept on the record
 
 * **`--threads` changes the trained weights** at fixed seed (max |Δw| 0.38 over 5,041 params) — same
   code, same seed, different floating-point reduction order. ~1 SE on localization, negligible on
@@ -616,7 +650,7 @@ model, a different sensor, or real measurements. One simulator, throughout.
 * **`os_rank_frac` was never swept** — OS-CFAR's one free parameter is at its default, so OS may be
   slightly under-tuned wherever it is the best classical method.
 
-### 9.9 What would change the conclusions
+### 9.10 What would change the conclusions
 
 Honest list of what we would do with more time, in order of how much it threatens the result:
 

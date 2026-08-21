@@ -61,6 +61,9 @@
 >    second read and must be recorded as one, with its reason.
 > 3. ~~Pd-vs-SNR figure~~ ✅ **DONE 19 Aug** — §20, `results/pd_vs_snr_frozen_ep021.png`.
 >    CFAR loss **0.47–0.78 dB** against theory at gate 0: the pipeline agrees with physics.
+>    ⚠️ That is measured at a **post-NMS** Pfa against a **per-cell** theory curve, so it is
+>    understated by ~0.1–0.2 dB (quantified in `cfar_baseline.ipynb` §5). Common-mode in the
+>    DL-vs-CFAR delta, so it cancels there.
 >    ⚠️ **Use the two-panel version.** At the ±1 gate every method sits ABOVE theory (3×3 = nine
 >    chances vs theory's one), so theory is a bound only at gate 0. The ±1 panel alone would show
 >    five detectors beating physics. Bonus finding: at gate 0 DL plateaus at **Pd 0.41** where CFAR
@@ -70,7 +73,7 @@
 >    Background → Method (both largely in `docs/`) → Results → Discussion → Intro/Conclusion/
 >    Abstract → slides → rehearse.
 >
-> **For the report, do not bury these:** the Corrections log C1–C6 (six retractions with the
+> **For the report, do not bury these:** the Corrections log C1–C7 (seven retractions with the
 > reasoning error named in each), the decision history (epochs 12→50→15→21, `pos_weight`
 > 200→974→100), and the fact that three pre-registered predictions failed on the test split and are
 > reported as failures. That is stronger viva material than a clean-looking result.
@@ -85,7 +88,9 @@
 > fixing; the six-item robustness block was run under it and closed cleanly.
 >
 > ### Known-open, deliberately not chased
-> `os_rank_frac` never swept · no learned linear baseline · `pos_weight` < 100 untested (100 was the
+> **no CFAR alpha is calibrated** — all four run on closed-form values, achieved per-cell Pfa on
+> pure noise spans 0.13×–6.55× of target (Correction C7; reported Pd unaffected, since
+> everything is scored at matched *measured* Pfa) · `os_rank_frac` never swept · no learned linear baseline · `pos_weight` < 100 untested (100 was the
 > edge of the range) · ~~nothing below epoch 15 tested~~ **closed 16 Aug — epochs 1–25 all
 > measured** · localization degrades *asymmetrically* between range and Doppler, which a symmetric
 > 3×3 label does not predict (notebook Open/O4) · one simulator only (criterion 8) ·

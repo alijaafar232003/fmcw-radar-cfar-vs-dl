@@ -949,6 +949,67 @@ cap("Left panel is the honest comparison: each curve sits slightly below the das
     "gap in dB is the CFAR loss tabled underneath. Right panel shows why ±1 cannot be used for "
     "this — every method appears to beat physics.")
 
+md("""#### ⚠️ One correction to the CFAR-loss number: post-NMS Pfa is not per-cell Pfa
+
+The theory curve `Pd = Pfa^(1/(1+SNR))` is a statement about **one cell** crossing a threshold at a
+**per-cell** false-alarm rate. Our detectors are matched at a **post-NMS** Pfa of 1e-4 — counted over
+surviving local maxima, not over every cell.
+
+§2.4 measured the NMS survival fraction on pure noise (0.66–0.83 depending on method). So a post-NMS
+Pfa of 1e-4 corresponds to a **per-cell rate above 1e-4**, which means the detectors are being scored
+at a slightly *easier* operating point than the one theory is drawn at — and the CFAR loss above is
+therefore **understated**.
+
+The corrected anchor is computed below rather than estimated. Inverting the theory curve at
+Pd = 0.5 is closed form: `SNR = ln(Pfa)/ln(0.5) − 1`.""")
+
+code('''AUD = pd.read_csv(ROOT / "results" / "cfar_alpha_audit.csv").set_index("method")
+surv = (AUD.pfa_peaks_verifyseed_at_current / AUD.pfa_cells_verifyseed_at_current).loc[METHODS]
+
+
+def snr50_for_pfa(pfa):
+    """SNR (dB) at which the known-noise detector reaches Pd 0.5, from Pd = Pfa^(1/(1+SNR))."""
+    return 10 * np.log10(np.log(pfa) / np.log(0.5) - 1.0)
+
+
+anchor_naive = snr50_for_pfa(TARGET_PFA)
+rows = []
+for m in METHODS:
+    s = float(surv[m])
+    pfa_cell = TARGET_PFA / s                    # per-cell rate behind a post-NMS rate of 1e-4
+    anchor = snr50_for_pfa(pfa_cell)
+    base = [r for r in loss if r["method"] == m]
+    meas = base[0]["snr_at_pd50_db"] if base else np.nan
+    rows.append(dict(method=m, nms_survival=s, per_cell_pfa=pfa_cell,
+                     theory_anchor_db=anchor,
+                     cfar_loss_as_reported=meas - anchor_naive,
+                     cfar_loss_corrected=meas - anchor,
+                     understated_by_db=anchor_naive - anchor))
+C = pd.DataFrame(rows).set_index("method")
+display(C.assign(per_cell_pfa=C.per_cell_pfa.map(lambda v: f"{v:.3e}")).round({"nms_survival": 3, "theory_anchor_db": 3, "cfar_loss_as_reported": 3, "cfar_loss_corrected": 3, "understated_by_db": 3}))
+
+print(f"theory anchor as drawn (per-cell Pfa = 1e-4):     {anchor_naive:.3f} dB")
+print(f"corrected anchors (per-cell Pfa = 1e-4 / survival): "
+      f"{C.theory_anchor_db.min():.3f} to {C.theory_anchor_db.max():.3f} dB")
+print()
+print(f"-> the reported CFAR loss is understated by "
+      f"{C.understated_by_db.min():.2f}-{C.understated_by_db.max():.2f} dB.")
+print(f"   corrected range: {C.cfar_loss_corrected.min():.2f}-{C.cfar_loss_corrected.max():.2f} dB "
+      f"(as reported: {C.cfar_loss_as_reported.min():.2f}-{C.cfar_loss_as_reported.max():.2f} dB)")
+print("   Still a fraction of a dB. The conclusion -- CFAR sits just below the known-noise bound")
+print("   -- is unchanged; the number is simply a little larger than the figure above shows.")''')
+
+md("""**Why this is not corrected in the figure.** The survival fraction is measured on *pure noise*,
+where every surviving peak is a false alarm; on target-bearing frames the mix differs, so applying a
+single per-method scalar to the plotted curves would trade a stated bias for an unstated one. The
+bias is small, its direction is known, and it is stated here instead.
+
+**⚠️ This affects §5 only.** The DL-vs-CFAR comparison is untouched: both arms run the *same*
+`all_peaks()` with the *same* `nms_size=5`, and both are matched at the *same* post-NMS Pfa. The
+offset is **common-mode and cancels in the difference** — it can shift where both sit relative to
+*theory*, never where they sit relative to *each other*. Only this section compares against an
+absolute, per-cell bound, so only this section carries it.""")
+
 md("""### 5.1 Resolution — Pd of the weak target vs separation""")
 
 code('''pair = truths[truths.condition.isin(["masking", "unresolved"])]
@@ -1082,8 +1143,10 @@ md("""---
    margins are not.**
 3. **SO wins nothing on Pd but is competitive on localization**, which is only visible because it is
    now included at all.
-4. **The detector agrees with physics.** At gate 0 on clean conditions, CFAR loss is a fraction of a
-   dB against the known-noise bound (§5) — the pipeline measures what it claims to measure.
+4. **The detector agrees with physics.** At gate 0 on clean conditions, CFAR loss against the
+   known-noise bound is **0.27–0.64 dB as plotted, or 0.45–0.86 dB** once the post-NMS-vs-per-cell
+   Pfa offset is corrected (§5) — a fraction of a dB either way. The pipeline measures what it
+   claims to measure.
 5. **Matching the *measured* Pfa is not a formality.** Once the calibration offset is divided out,
    the design threshold is wrong by **1.75×–2.8× for CA/GO/OS and ~24× for SO** on clutter-bearing
    conditions — **a different factor for each method** (§4.2). On top of that, none of the four

@@ -2345,6 +2345,52 @@ baselines to keep `summary.csv` consistent — for no change to any reported Pd,
 scored at matched measured Pfa. It is recorded as a limitation with the measured values available in
 `results/cfar_alpha_audit.csv` for anyone who wants them.
 
+### 2026-08-19 — Post-NMS vs per-cell Pfa: the CFAR loss was understated by 0.1–0.2 dB
+
+**The gap.** §5 of `cfar_baseline.ipynb` compares measured Pd against `Pd = Pfa^(1/(1+SNR))`, which
+is a **per-cell** statement. Both arms are matched at a **post-NMS** Pfa of 1e-4, counted over
+surviving local maxima. Those are not the same operating point.
+
+Using the NMS survival fractions measured in the alpha audit (0.657–0.829), a post-NMS rate of 1e-4
+corresponds to a per-cell rate of **1.21–1.52e-4**, so the detectors were being scored at a slightly
+*easier* point than theory was drawn at. Inverting the theory curve at Pd 0.5 is closed form
+(`SNR = ln(Pfa)/ln(0.5) − 1`), so the corrected anchor is computed rather than estimated:
+
+| | CA | GO | OS | SO |
+|---|---|---|---|---|
+| NMS survival | 0.712 | 0.771 | 0.829 | 0.657 |
+| implied per-cell Pfa | 1.40e-4 | 1.30e-4 | 1.21e-4 | 1.52e-4 |
+| theory anchor (dB) | 10.718 | 10.760 | 10.798 | 10.675 |
+| CFAR loss **as plotted** | 0.273 | 0.427 | 0.553 | 0.644 |
+| CFAR loss **corrected** | **0.450** | **0.562** | **0.650** | **0.864** |
+
+Anchor as drawn: **10.895 dB**. **The reported loss is understated by 0.10–0.22 dB**, and the
+corrected range is **0.45–0.86 dB** against 0.27–0.64 as plotted. **The conclusion is unchanged** —
+still a fraction of a dB, still comfortably below the known-noise bound — but it is now stated
+rather than left for a reader to work out.
+
+**Not corrected in the figure, deliberately.** The survival fraction is measured on *pure noise*,
+where every surviving peak is a false alarm; on target-bearing frames the mix differs, so applying a
+single per-method scalar to the plotted curves would swap a stated bias for an unstated one.
+
+**⚠️ This affects the absolute comparison ONLY.** The DL-vs-CFAR result is untouched: both arms use
+the same `all_peaks()` with the same `nms_size=5` and are matched at the same post-NMS Pfa, so the
+offset is **common-mode and cancels in the difference**. It can move where both sit relative to
+*theory*; it cannot move where they sit relative to *each other*. Noted in
+`cfar_vs_dl_comparison.ipynb` §6, which is the only place that notebook makes an absolute claim.
+
+**Also this session, checked rather than assumed:** §7 points 2 and 5 of `cfar_baseline.ipynb` had
+already been corrected in the previous commit — point 5 reads 1.75–2.8× / ~24×, and point 2 already
+carried the 7-of-7 joint-pattern argument. A sweep for the stale "~4×" claim found no surviving
+instance: the remaining `~4×` hits are the DL Doppler ratio (3.83×) or the unrelated NMS
+candidate-peak figure. §7 point 4 now quotes both the plotted and the corrected loss range.
+
+**C7 promoted to a first-class limitation.** The uncalibrated-alpha finding was recorded only as a
+Correction; it is now **§9.8 of `cfar_vs_dl_comparison.ipynb`** (the report-facing notebook) and is
+in `NEXT_SESSION.md`'s known-open list. It changes no reported Pd — everything is scored at matched
+measured Pfa — but a reader who opens `CfarConfig` will find closed-form alphas, and should meet the
+disclosure first rather than discover it.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
