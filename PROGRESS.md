@@ -2263,6 +2263,88 @@ clutter-bearing conditions (9.6× the mean elsewhere) and `masking` regressing a
 
 `bench2_test` was **not** re-read — SO's detections already existed; this was display only.
 
+### 2026-08-19 — CFAR alpha audit: **none of the four variants is calibrated**, SO least of all
+
+**The question.** SO was added on 15 August, after the Milestone 9 calibration work. Does a
+calibrated alpha exist for it, or does `CfarConfig` fall back to a closed form?
+
+**The answer is worse than "SO was missed".** Three findings, in order of severity:
+
+1. **`cfar.py` never imports `calibrate.py`, and there is no cached alpha table.** Every variant
+   runs on a **closed-form** alpha. The Milestone 9 values (CA 9.74, GO 9.09, OS 6.98) exist in that
+   entry and nowhere in the code path.
+2. **Those values were for a different geometry anyway** — `calibrate_all()` takes scalar
+   `guard=2, train=8`, i.e. the square 21×21 window, superseded by the rectangular 21×9 chosen in
+   step 6.
+3. **SO was never put through the procedure at all**: `calibrate_all()` still defaults to
+   `kinds=("CA", "OS", "GO")`.
+
+**The direct test** — `scripts/cfar_alpha_audit.py`, 200 pure-noise frames per seed through the real
+processing chain, calibration seed 0 and verification seed 9000, the same pair Milestone 9 used.
+On pure noise every variant should achieve 1e-4 at its own alpha.
+
+| method | alpha in use (closed form) | calibrated alpha | achieved per-cell Pfa @ alpha in use (seed 9000) | **× target** |
+|---|---|---|---|---|
+| CA | 9.474 | 10.450 | 2.37e-4 | **2.37×** |
+| GO | 9.808 | 9.534 | 7.76e-5 | **0.78×** |
+| OS | 9.474 | 7.623 | 1.32e-5 | **0.13×** |
+| SO | 9.808 | 12.888 | 6.55e-4 | **6.55×** |
+
+**Not one lands on 1e-4.** OS is ~8× too *conservative*, SO ~6.5× too *permissive* — a spread of
+about 50× between the two extremes. At the **calibrated** alpha, on the independent verification
+seed, all four land at 0.90–1.01 × target. **The procedure works; it was simply never applied to the
+shipped configuration.**
+
+**Is it the alpha or the post-NMS offset? The alpha.** The NMS survival fraction (post-NMS Pfa ÷
+per-cell Pfa) is **0.66–0.83** across the four — a roughly *common* factor. The per-cell deviations
+are **0.13×–6.55×** and method-*specific*. A common factor cannot produce a method-specific spread,
+so the `noise`-row gap in §4.2 (CA 1.05, GO 0.93, OS 0.76, SO 1.25) is the uncalibrated alpha.
+Note the orderings agree: the two methods over-firing on noise (CA, SO) are the two whose measured
+threshold has to be pushed *above* design, and OS, which under-fires, is the one pulled *below*.
+
+**⚠️ What this does and does not affect.**
+
+* **No reported Pd changes.** Every comparison in this project sweeps the threshold to matched
+  *measured* Pfa **per condition**, which discards the closed-form alpha entirely. §3, §5, §6 of the
+  CFAR notebook, the whole DL-vs-CFAR comparison, and `bench2_test` are all unaffected.
+* **§4.2 is affected**, being the one place that reads the design threshold — and its SO row
+  specifically, which was the largest distortion.
+* **`bench2_test` was not re-read.** The audit runs on freshly generated noise, not on any split.
+
+**Correction C7 — "alpha is calibrated empirically, and the empirical value is the one used".**
+That was §2.4's claim in `cfar_baseline.ipynb`, and it was never true of the shipped code. The
+reasoning error: `calibrate.py` was written, validated and documented in Milestone 9, and its
+existence was then treated as evidence that it was *in use*. Nothing checked that the value reached
+`CfarConfig`. **A module that exists is not a module that runs** — the same class of error as
+assuming a flag is honoured because it is defined.
+
+**§2.4 rewritten with the evidence** (it was markdown-only, no code, no numbers): closed-form vs
+calibrated alpha per method with the ratio, achieved Pfa on both seeds, the NMS-vs-alpha separation,
+and a figure of achieved Pfa vs alpha per method with the 1e-4 target and both alphas marked — every
+star on the target line, every circle off it.
+
+**§4.2 fixed**, three ways:
+* the figure title claimed "theory is wrong by up to ~4×" while the chart showed 30× — the same
+  wrong number sat in §7 point 5. Both now read from the data;
+* **log y-axis**, since SO spans two decades and was flattening CA/GO/OS into an unreadable band;
+* **each condition's ratio is now normalised by that method's own `noise` row**, separating the
+  calibration offset from the clutter effect. The check that this works: the clean conditions
+  collapse to **1.00–1.02**. What remains on the clutter rows is the clutter effect proper —
+  **CA 2.27×, GO 1.75×, OS 2.75×, SO 24.2×**.
+
+**§7 point 2 gained the other half of its argument.** It said no winner is separable from its
+runner-up at 2 SE, which is true and was only half the story: **7 of 7 winners match a mechanism map
+specified in advance.** Under the most conservative null — a toss-up between the top two on every
+condition — that is (1/2)⁷ ≈ 0.008; against a uniform choice among four variants, (1/4)⁷ ≈ 6e-5.
+Individually weak, jointly hard to get by luck, exactly like the 7-of-7 monotone localization result
+in the DL log. Both halves are now stated together.
+
+**Not fixed, deliberately:** the calibrated alphas are **not** wired into `CfarConfig`. Doing so
+would change every design-threshold number in the project and would require re-running the CFAR
+baselines to keep `summary.csv` consistent — for no change to any reported Pd, since everything is
+scored at matched measured Pfa. It is recorded as a limitation with the measured values available in
+`results/cfar_alpha_audit.csv` for anyone who wants them.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
