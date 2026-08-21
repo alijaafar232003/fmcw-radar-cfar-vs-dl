@@ -253,7 +253,46 @@ md("""**The per-condition breakdown is what separated the two explanations.** A 
 would shift every condition roughly uniformly. A real clutter mechanism would concentrate the gain
 in the **clutter-bearing** conditions and leave clean ones alone.""")
 
-code('''pc = pd.read_csv(ROOT / "results" / "cfar_geometry_percondition.csv")
+md("""**The candidate windows, drawn to scale.** Before any numbers: this is what is being compared.
+The shaded band is the clutter ridge (half-width ~4 Doppler bins); the cell under test sits at a
+typical `clutter_edge` offset of 7 bins from the ridge centre.""")
+
+code('''from matplotlib.patches import Rectangle
+
+# (label, half_width_r, half_width_d) -- guard is 2/2 throughout.
+GEOMS = [("21x21", 10, 10), ("21x13", 10, 6), ("21x11", 10, 5),
+         ("21x9", 10, 4), ("29x9", 14, 4)]
+SELECTED = "21x9"
+RIDGE_HALF, CUT_OFFSET, G = 4, 7, 2
+
+fig, axes = plt.subplots(1, len(GEOMS), figsize=(14, 3.4), sharey=True)
+for ax, (label, hr, hd) in zip(axes, GEOMS):
+    sel = label == SELECTED
+    # Doppler axis measured from the ridge centre; the CUT sits CUT_OFFSET bins out.
+    ax.axvspan(-RIDGE_HALF - .5, RIDGE_HALF + .5, color="#38f9d7", alpha=0.22, zorder=0)
+    ax.add_patch(Rectangle((CUT_OFFSET - hd - .5, -hr - .5), 2 * hd + 1, 2 * hr + 1,
+                           fill=False, ec="#1a7f6c" if sel else MUTED,
+                           lw=2.6 if sel else 1.6, zorder=3))
+    ax.add_patch(Rectangle((CUT_OFFSET - G - .5, -G - .5), 2 * G + 1, 2 * G + 1,
+                           fill=False, ec="#ffb03a", lw=1.8, zorder=4))
+    ax.plot(CUT_OFFSET, 0, "s", mfc="white", mec=INK, ms=5, mew=1.2, zorder=5)
+
+    n_over = sum(1 for c in range(CUT_OFFSET - hd, CUT_OFFSET + hd + 1)
+                 if abs(c - CUT_OFFSET) > G and abs(c) <= RIDGE_HALF)
+    ax.set_title(f"{label}{'  (selected)' if sel else ''}\\n{n_over} ring cols in ridge",
+                 fontsize=9, color="#1a7f6c" if sel else INK)
+    ax.set_xlim(-9, 23); ax.set_ylim(-16, 16)
+    ax.set_xlabel("Doppler bin (0 = ridge)", fontsize=8)
+    ax.grid(False)
+    ax.tick_params(labelsize=7)
+axes[0].set_ylabel("range bin (0 = CUT)", fontsize=8)
+fig.suptitle("The candidate windows to scale: cyan band = clutter ridge, orange = guard, "
+             "white square = CUT", fontsize=10)
+plt.tight_layout(); plt.show()''')
+
+cap("Read the Doppler width. The 21-wide ring (left) reaches deep into the cyan ridge; narrowing it to 9 (fourth panel) leaves only the two innermost training columns touching the ridge edge. The count under each title is exactly that. 29×9 keeps the narrow Doppler ring but widens the RANGE half-width 10 → 14, which is what costs it `masking`.")
+
+code('''pc = pd.read_csv(ROOT / "results" / "cfar_geometry_percondition_v2.csv")
 gm = pc.groupby(["window", "condition"]).pd_at_pfa.mean().unstack()
 order = ["21x21", "21x13", "21x11", "21x9", "29x9"]
 gm = gm.loc[[w for w in order if w in gm.index]]
@@ -292,9 +331,9 @@ plt.tight_layout(); plt.show()
 print(f"clutter-bearing ({', '.join(clut)}): mean gain {gain[clut].mean():+.3f}")
 print(f"everything else:                      mean gain {gain[rest].mean():+.3f}")
 print(f"-> {conc:.1f}x concentration. A pooling artefact would shift every condition alike;")
-print("   this does not, so the mechanism is real. Note it is CONCENTRATED, not zero elsewhere:")
-print(f"   `isolated` gains {gain.get('isolated', float('nan')):+.3f} and "
-      f"`multi` loses {abs(gain.get('multi', float('nan'))):.3f}.")
+print("   this does not, so the mechanism is real. And the clean conditions do not merely fail")
+print("   to gain -- two of them LOSE, which is the opposite of a uniform shift:")
+print("   " + ", ".join(f"{c} {gain[c]:+.3f}" for c in ["isolated", "clutter", "multi"] if c in gain.index))
 
 if "29x9" in gm.index:
     d = (gm.loc["29x9"] - gm.loc["21x9"]).sort_values()
@@ -310,12 +349,55 @@ cap("Left: read down the `clutter_edge` and `mixed` columns — those are where 
     "slightly worse — a uniform pooling artefact would not look like this. The `masking` "
     "regression at 29×9 is in the printout.")
 
-md("""> ⚠️ **Note on this artefact.** `results/cfar_geometry_percondition.csv` reproduces the *direction
-> and ordering* of the step-6 sweep recorded in `PROGRESS.md`, but its absolute Pd values are lower
-> (e.g. `isolated` 0.272 → 0.306 here against 0.654 → 0.629 there) — it is a different run of the
-> sweep, not the one tabulated in that entry. **Do not quote the two together.** The conclusion the
-> window selection rested on — gain concentrated in clutter-bearing conditions, and `masking`
-> regressing at 29×9 — holds in both.""")
+md("""> **Note on which artefact this is.** The figure reads
+> `results/cfar_geometry_percondition_v2.csv`, regenerated 19 Aug under the **current** scoring
+> protocol. The original `cfar_geometry_percondition.csv` is kept but is **not** authoritative: it
+> disagreed with the step-6 table in `PROGRESS.md` on the *sign* for `isolated` and `multi`, because
+> it was produced when `all_peaks()` defaulted to `nms_size=2`, read Pd by **interpolation** off the
+> ROC, and used a uniform quantile threshold grid. All three have since been replaced (NMS 5,
+> Pd measured *at* the matched threshold, false-alarm-anchored grid), so that script no longer
+> reproduces its own output. Re-run under today's protocol, the sweep **matches the recorded step-6
+> run** — `clutter_edge` +0.294 against +0.296, `isolated` −0.013 against −0.025, and the `masking`
+> regression at 29×9 −0.043 against −0.041.""")
+
+md("""#### Why `train = 8` — the knee
+
+Guard size came from the PSF (§2.1); the *number of training cells* is a different trade. More cells
+mean a lower-variance noise estimate and less CFAR loss; fewer cells mean a more **local** estimate
+that tracks structure the window is sitting in. Milestone 9 recorded that Pd went flat beyond about
+8 — that evidence was never persisted, so it is regenerated here on `bench2_tune` under the current
+protocol.""")
+
+code('''TS = pd.read_csv(ROOT / "results" / "cfar_train_sweep.csv")
+tm = TS.groupby(["train_r", "condition"]).pd_at_pfa.mean().unstack()
+tm["POOLED"] = tm.mean(axis=1)
+display(tm.round(3))
+
+fig, ax = plt.subplots(figsize=(8.5, 4.4))
+ax.plot(tm.index, tm.POOLED, "o-", color=INK, lw=2.2, ms=6, label="pooled (mean over conditions)")
+for c in ["clutter_edge", "mixed", "isolated"]:
+    if c in tm.columns:
+        ax.plot(tm.index, tm[c], "-", lw=1.1, alpha=0.55, label=c)
+ax.axvline(8, color="#c62828", ls="--", lw=1.6)
+ax.text(8.2, tm.POOLED.min(), "selected: train = 8", fontsize=8, color="#c62828")
+ax.set_xlabel("training cells per side on the range axis (train_r)")
+ax.set_ylabel("Pd at matched measured Pfa 1e-4")
+ax.set_title("Pd rises to ~8 training cells and is flat after: more reference cells\\n"
+             "stop buying anything, while a wider ring becomes less local", fontsize=10)
+ax.legend(frameon=False, fontsize=8)
+plt.tight_layout(); plt.show()
+
+d = tm.POOLED.diff()
+print("change in pooled Pd per step of train_r:")
+print(d.round(4).to_string())
+pre = d.loc[:8].dropna()
+post = d.loc[10:].dropna()
+print()
+print(f"mean step up to train_r=8:   {pre.mean():+.4f}")
+print(f"mean step beyond train_r=8:  {post.mean():+.4f}  (and it changes sign, i.e. noise)")
+print("-> the knee is at 8. Past it the estimate is no longer improving, only less local.")''')
+
+cap("The pooled curve flattens at train = 8; steps beyond it are smaller than the steps before it and change sign, which is what a noise floor looks like. Everything right of the red line costs locality for no Pd.")
 
 md("""**Selected: 21 × 9, guard 2/2, train 8/2 — 164 reference cells.**
 

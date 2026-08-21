@@ -2391,6 +2391,65 @@ in `NEXT_SESSION.md`'s known-open list. It changes no reported Pd — everything
 measured Pfa — but a reader who opens `CfarConfig` will find closed-form alphas, and should meet the
 disclosure first rather than discover it.
 
+### 2026-08-19 — The geometry-sweep discrepancy resolved: it was `nms_size = 2`
+
+**The problem.** `results/cfar_geometry_percondition.csv` disagreed with the step-6 table in this
+file on the **sign** for two conditions, not just on absolute values — `isolated` −20.025 recorded
+against +0.036 in the CSV, `multi` +0.006 against −0.015. The note added to the notebook on 19 Aug
+claimed the artefact "reproduces the direction and ordering" and then cited `isolated` as its
+example, which is one of the two that flip. **The note contradicted itself and has been removed.**
+
+**Cause — three scoring differences, the first decisive.**
+
+1. **`nms_size`.** `cfar_geometry_percondition.py` calls `all_peaks(ratio, valid)` with no explicit
+   size. At the time it was written that defaulted to **2**, a transient state during the step-6d
+   NMS investigation; it now defaults to **5**, the project standard. **The script therefore no
+   longer reproduces its own CSV** — the artefact is from a detector configuration that no longer
+   exists anywhere else in the project.
+2. **Interpolated Pd.** It reads Pd off the ROC by interpolation. The project later rejected that:
+   interpolation finds the *threshold*, and Pd is MEASURED at it, because interpolated Pd carries up
+   to 0.017 of error and is biased optimistic on the clutter strata — exactly the strata this sweep
+   is about.
+3. **Threshold grid.** Uniform quantiles, rather than the false-alarm-anchored grid adopted after
+   Milestone 20b.
+
+**Resolution: regenerated, not reconciled.** `scripts/cfar_geometry_resweep.py` re-runs both sweeps
+on `bench2_tune` through the same path as `cfar_test_baseline.py` (NMS 5, FA-anchored thresholds, Pd
+measured at the matched threshold). The result **matches the recorded step-6 run**, and both sign
+flips disappear:
+
+| condition | step-6 (recorded) | old CSV (nms=2) | **v2 (current protocol)** |
+|---|---|---|---|
+| clutter_edge | +0.296 | +0.129 | **+0.294** |
+| mixed | +0.185 | +0.060 | **+0.193** |
+| multi | +0.006 | −0.015 ✗ | **+0.000** |
+| masking | +0.003 | +0.011 | **−0.003** |
+| unresolved | +0.001 | +0.018 | **+0.000** |
+| clutter | −0.016 | +0.001 | **−0.013** |
+| isolated | −0.025 | +0.036 ✗ | **−0.013** |
+
+`masking` at 29×9: recorded −0.041, v2 **−0.043**. Absolute levels agree too — `clutter_edge`
+0.095 → 0.390 against the recorded 0.094 → 0.390.
+
+**`results/cfar_geometry_percondition_v2.csv` is authoritative**; the original is kept, marked
+non-authoritative, and the notebook now reads v2. The window choice never depended on this: the
+conclusions — gain concentrated in clutter-bearing conditions, `masking` regressing at 29×9 — hold
+in every version. What changed is which numbers we quote. On the corrected data the concentration is
+sharper: **+0.244 on clutter-bearing against −0.006 elsewhere**, and the clean conditions do not
+merely fail to gain — `isolated` and `clutter` **lose** 0.013 each, which is the opposite of the
+uniform shift a pooling artefact would produce.
+
+**Two figures added to §2.2, both previously missing evidence.**
+
+* **The candidate windows drawn to scale**, one row of panels, with the clutter ridge shaded and the
+  count of ring columns falling inside it: 21×21 puts **8** training columns in the ridge, 21×9 puts
+  **2**, and 29×9 has the same Doppler width but a visibly taller range extent — which is what costs
+  it `masking`. The choice is legible before any number is read.
+* **The train-cell sweep**, which justified `train = 8` in Milestone 9 but never had its data
+  persisted. Regenerated on `bench2_tune`: pooled Pd rises +0.0053 per step up to `train_r = 8` and
+  +0.0010 per step after, changing sign — a noise floor. The knee is at 8, and past it the ring is
+  no longer improving the estimate, only making it less local.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
