@@ -60,10 +60,18 @@
 > 2. ~~`bench2_test`, ONCE~~ ✅ **DONE 19 Aug** — §19. **The split is spent.** Any further read is a
 >    second read and must be recorded as one, with its reason.
 > 3. ~~Pd-vs-SNR figure~~ ✅ **DONE 19 Aug** — §20, `results/pd_vs_snr_frozen_ep021.png`.
->    CFAR loss **0.47–0.78 dB** against theory at gate 0, **on `bench2_snr_sweep`**: the pipeline
->    agrees with physics. ⚠️ A second, separate measurement on **`bench2_test` clean conditions**
->    gives **0.27–0.64 dB** (`cfar_baseline.ipynb` §5) — different split and target population,
->    both valid, **do not merge the two ranges**.
+>    CFAR loss against theory at gate 0. **Two separate measurements — do not merge the ranges:**
+>    **`bench2_test` clean conditions → 0.27–0.64 dB** (`cfar_baseline.ipynb` §5), and
+>    **`bench2_snr_sweep` → 0.47–0.78 dB** (`cnn_development_log.ipynb` §20). Different splits and
+>    target populations (mean cell SNR 15.2 vs 11.2 dB); both valid.
+>
+>    **✅ DECIDED 22 Aug — which to quote where.** The **Results chapter quotes the `bench2_test`
+>    figure**, because every other reported number comes from that split and mixing splits inside one
+>    chapter invites exactly the confusion this note exists to prevent. Quote it as
+>    **"0.27–0.64 dB as plotted, 0.45–0.86 dB once the post-NMS-vs-per-cell Pfa offset is
+>    corrected"** — §5 computes both. The **`bench2_snr_sweep` figure stays as the supporting
+>    validation figure**: it has the cleaner design for this particular curve (one target per frame,
+>    SNR swept uniformly), so it is the better *picture* even though it is not the headline *number*.
 >    ⚠️ That is measured at a **post-NMS** Pfa against a **per-cell** theory curve, so it is
 >    understated by ~0.1–0.2 dB (quantified in `cfar_baseline.ipynb` §5). Common-mode in the
 >    DL-vs-CFAR delta, so it cancels there.

@@ -2553,6 +2553,14 @@ supersedes the other.
 and §7 point 4, `cnn_development_log.ipynb` §20, `cfar_vs_dl_comparison.ipynb` §6 and its scorecard
 row, and `NEXT_SESSION.md`. Each now names its split and points at the other measurement.
 
+**✅ Decided 22 Aug — which number the report quotes.** The **Results chapter uses measurement B**
+(`bench2_test` clean conditions), because every other reported number comes from that split and
+mixing splits inside one chapter invites the confusion these labels exist to prevent. It is quoted
+as **0.27–0.64 dB as plotted, 0.45–0.86 dB once the post-NMS-vs-per-cell Pfa offset is corrected**
+— §5 computes both. **Measurement A stays as the supporting validation figure**: one target per
+frame with SNR swept uniformly is the cleaner design for that particular curve, so it is the better
+*picture* even though it is not the headline *number*.
+
 *Also corrected while there:* `NEXT_SESSION.md` still described the alphas as uncalibrated (closed
 21 Aug) and counted seven Corrections rather than eight.
 
