@@ -1106,11 +1106,19 @@ where every surviving peak is a false alarm; on target-bearing frames the mix di
 single per-method scalar to the plotted curves would trade a stated bias for an unstated one. The
 bias is small, its direction is known, and it is stated here instead.
 
-**⚠️ This affects §5 only.** The DL-vs-CFAR comparison is untouched: both arms run the *same*
-`all_peaks()` with the *same* `nms_size=5`, and both are matched at the *same* post-NMS Pfa. The
-offset is **common-mode and cancels in the difference** — it can shift where both sit relative to
-*theory*, never where they sit relative to *each other*. Only this section compares against an
-absolute, per-cell bound, so only this section carries it.""")
+**⚠️ This affects §5 only, and the reason is worth stating carefully.** It would be wrong to argue
+that the offset is common-mode and cancels because both arms run the same `all_peaks()` at the same
+`nms_size`. **Running the same NMS does not imply the same survival fraction** — survival depends on
+how peaked a detector's score map is, which is a property of the detector, not of the suppression
+code. The four CFAR variants above share one `all_peaks()` call and their survival fractions still
+span 0.66–0.83.
+
+The DL-vs-CFAR comparison is untouched for a simpler reason that needs no cancellation assumption:
+**both arms are matched directly at the same final post-NMS, guard-excluded Pfa**, measured on each
+arm's own reported detections. Whatever per-cell rates sit behind those matched post-NMS rates may
+differ between the arms, and that is irrelevant — no reported comparison is made at the per-cell
+level. Only this section compares against an absolute, per-cell bound, so only this section carries
+the offset. See `evaluation_metrics_overview.ipynb` §5.2–5.3.""")
 
 md("""### 5.1 Resolution — Pd of the weak target vs separation""")
 

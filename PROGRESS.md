@@ -2777,11 +2777,12 @@ detections. Whatever per-cell rates sit behind those matched post-NMS rates may 
 irrelevant, because no reported comparison is made at the per-cell level. Fairness comes from
 equalising the quantity that is actually reported.
 
-⚠️ **The same flawed justification is still in `build_cfar_notebook.py` (line ~1111)** —
-"the offset is common-mode and cancels in the difference", with the same "same `all_peaks()`, same
-`nms_size`" reasoning. Its conclusion is also correct and its §5 theory discussion is unaffected, but
-the wording needs the same replacement. **Not yet fixed** — it needs `cfar_baseline.ipynb` rebuilt
-and re-executed.
+✅ **The same flawed justification in `cfar_baseline.ipynb` §5 is now fixed too** (24 Aug). It
+carried "the offset is common-mode and cancels in the difference" from the same premise. Replaced
+with the direct-matching argument and a cross-reference to `evaluation_metrics_overview.ipynb`
+§5.2–5.3, so the two notebooks state the same thing. Rebuilt and re-executed: 66 cells, 14 figures,
+zero errors. Its conclusion — that only §5 carries the offset, because only §5 compares against an
+absolute per-cell bound — is unchanged.
 
 *Also corrected in §5:* the design Pfa was described with numerator/denominator columns as though it
 were measured; it is a **target probability** used to derive or calibrate α, and its cells now say
