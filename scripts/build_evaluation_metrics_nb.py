@@ -1856,38 +1856,71 @@ impossible-by-construction conditions in a benchmark.
 md("""---
 ## 11 · What this protocol shows, and what it does not
 
-**Shows.**
+**Shows.** Everything below concerns the pipeline **after** each detector has produced its score map;
+the score maps themselves are what the two methods are being compared on, so they are the one stage
+that is deliberately *not* shared.
 
-* **Fair post-processing** — one `all_peaks()` function object, one NMS radius, for both arms (§1).
+* **Fair post-processing** — the same `all_peaks()` implementation and the same NMS radius, for both
+  arms (§1).
 * **A common evaluation region** — the same border-excluded mask and the same Pfa denominator (§2).
 * **A common matching rule** — optimal one-to-one assignment, ±1 bin, pre-registered (§3).
 * **A common false-alarm burden** — matched *measured* post-NMS Pfa, with the achieved rate printed
   beside every operating point as a protocol check (§5, §7.1). On the reported split that check came
   back within 2% of target for every method on every condition
   (`results/dl/measured_pfa_frozen_ep021_test_tol1.csv`).
-* **Honest uncertainty** — paired frame bootstrap, with the choice of best classical variant carried
-  inside the interval rather than assumed (§8).
-* **Robustness to the matching tolerance** — every headline reported at ±1 and ±3 (§3).
-* **A working evaluator** — the checks in §10 run on every rebuild.
+* **Paired frame-sampling uncertainty** — a paired bootstrap over frames, quantifying how much the
+  measured difference depends on which frames happened to be generated (§8). Separately, a
+  **robustness check re-selects the best CFAR variant inside every bootstrap replicate** and confirms
+  that winner-selection uncertainty does not materially change the intervals (§8.1). The reported
+  intervals remain the fixed-winner ones.
+* **Robustness to the matching tolerance** — the pre-registered ±1 headline result is accompanied by
+  a ±3 robustness analysis (§3).
+* **Targeted evaluator checks** — the regression and sanity checks in §10 run on every rebuild. They
+  confirm the main behaviours; they do not prove the absence of every possible bug.
 
 **Does not show.**
 
-* **CFAR-like behaviour by the network.** The threshold is chosen per condition from labelled data.
-  Nothing here tests whether a *single fixed* threshold holds Pfa constant as clutter changes, which
-  is the property CFAR is named for (§7.2).
+* **CFAR-like behaviour by the network.** The threshold is chosen per method and per condition from
+  labelled data. Nothing here tests whether a *single fixed* threshold holds Pfa constant as clutter
+  changes, which is the property CFAR is named for (§7.2).
 * **Real-world generalization.** Every frame comes from one simulator. `bench2_test` shares a
   generator with `bench2_val` — different frames, different seed, no shared content, but not a
   different world. This establishes **sampling generalization only**, not survival under a different
   clutter model, a different sensor, or measured data.
-* **That a significant difference matters.** `unresolved` is the standing example: significant, one
-  percentage point, at a physics ceiling (§9.2).
-* **That ±1 is the only reasonable localization definition.** The gate censors the localization
-  metric at its own width, and a different gate would give a different — also defensible — number.
-  Both gates are reported because neither is privileged (§3.1, §6).
+* **That a significant difference matters.** `unresolved` is the standing example: statistically
+  significant, one percentage point, at a physics ceiling (§9.2).
+* **That ±1 is the only reasonable localization definition.** The per-axis error is bounded by the
+  gate width, and a different gate would give a different — also defensible — number. The ±1 gate is
+  the pre-registered headline definition, while ±3 is reported as a robustness check (§3.1, §6).
 * **That the guard convention is neutral.** Setting aside unmatched near-target detections is
-  generous to any
-  detector that clusters detections. §4.1 measures how much is actually being forgiven, which is the
-  evidence that it is not doing real work here — but it remains a convention, not a law.""")
+  generous to any detector that clusters detections. §4.1 measures how much is actually being
+  forgiven, which is the evidence that it is not doing real work here — but it remains a convention,
+  not a law.""")
+
+md("""### 11.1 In summary
+
+**What the protocol establishes.** This evaluation protocol makes the CFAR-versus-DL comparison as
+consistent as possible after each detector produces its score map. Both methods use the same peak
+extraction and NMS rules, are evaluated over the same valid region of the Range–Doppler map, use the
+same matching and false-alarm definitions, and are compared at approximately the same measured
+post-NMS Pfa. The main result uses the pre-registered ±1 matching gate, while ±3 is used as a
+robustness check. Frame-sampling uncertainty is measured using a paired bootstrap, and an additional
+robustness analysis checks whether uncertainty about which CFAR variant is best changes the
+conclusions. Together, these controls support a fair comparison of detector performance under the
+simulated test conditions.
+
+**What it does not establish.** These controls do not make the experiment more general than the data
+it uses. The DL threshold is chosen separately for each condition using labelled data, so the
+experiment does not show that one fixed DL threshold can maintain a constant false-alarm rate across
+changing environments. All training, validation and test frames also come from the same simulator
+family, so the test measures performance on new simulated samples rather than real-world
+generalization. Statistical significance must still be interpreted together with effect size and
+radar physics, localization results depend on the chosen matching gate, and the truth-guard treatment
+of nearby unmatched detections remains an evaluation convention rather than a universal rule.
+
+**In simple terms:** the protocol makes the CFAR-versus-DL comparison fair within this simulated
+experiment, but it does not prove that DL will behave like CFAR or perform the same way on a real
+radar.""")
 
 # ============================================================================== appendix
 md("""---

@@ -2916,6 +2916,35 @@ the plain statement that passing them does not prove the evaluator is bug-free.
 *Also:* gate monotonicity restated precisely as "for a **fixed set of detections**, widening the gate
 cannot remove an existing TP" — the previous phrasing did not say the detection set was held fixed.
 
+#### §11: two summary claims corrected against the sections they summarise
+
+**"Both gates are reported because neither is privileged" contradicted the pre-registration.** §3.1
+states that ±1 is the pre-registered headline gate and ±3 is a robustness check; §11's limitations
+list said neither is privileged. That is the paragraph a reader is most likely to quote, so it was
+quietly undoing the pre-registration in the most visible place. Corrected to: "The ±1 gate is the
+pre-registered headline definition, while ±3 is reported as a robustness check."
+
+**"The choice of best classical variant carried inside the interval" implied the re-selected CIs are
+the reported ones. They are not.** The headline intervals come from `bootstrap_comparison.py` with
+the winner fixed on the full condition; the re-selection is a separate robustness run
+(`bootstrap_best_cfar_reselect.py`). §11 now describes it as a robustness check that *confirms
+winner-selection uncertainty does not materially change the intervals*, and states explicitly that
+**the reported intervals remain the fixed-winner ones**. This also keeps §11 consistent with the
+narrowed §8.1 claim recorded above.
+
+*Also corrected:* the localization bullet still said the gate "censors the localization metric at its
+own width" — the phrasing §6 replaced with the precise per-axis bound. And three labels were made
+specific: "Honest uncertainty" → "Paired frame-sampling uncertainty"; "A working evaluator" →
+"Targeted evaluator checks", with §10's caveat that they cannot prove the absence of every bug;
+"one `all_peaks()` function object" → "the same `all_peaks()` implementation and the same NMS
+radius". The "Shows" list now opens by stating that everything in it concerns the pipeline **after**
+score-map generation — the score maps being the one stage deliberately not shared, since they are
+what is being compared.
+
+**Pattern worth noting.** Both corrections were summary text drifting from the section it summarises,
+and both drifted in the direction of claiming more. Worth re-reading the report's own summary
+sections against their bodies before submission for the same reason.
+
 #### Artefacts and how to regenerate
 
 `results/` is gitignored, so the three cached inputs are not in the repository:
