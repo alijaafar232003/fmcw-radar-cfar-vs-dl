@@ -232,112 +232,162 @@ md("""### 1.1 The four stages, in the order the code applies them
 
 **The question:** which cells survive, and why?
 
-Note the ordering, because it is easy to get backwards. **NMS runs first, on the raw score map, with
-no threshold applied.** The score cut comes afterwards. Shown for both detectors at once, each cut
-at a threshold it would really be used at: CFAR at its calibrated design threshold, the network at
-the operating point §7 derives for this condition.""")
+Note the ordering, because it is easy to get backwards. **NMS runs first, on the raw score map,
+before the operating threshold.** The score cut comes afterwards. Both arms are cut at the operating
+point they are really scored at — the matched *measured* Pfa threshold for that condition — so the
+two rows below differ only in the score map they start from.""")
 
-code('''ALPHA_CA = CFAR_CFG.resolved_alpha()      # calibrated, from configs/cfar_alpha_table.json
-# The operating points exported for section 7; used here only so the illustration sits at a
-# threshold the detector is really scored at, rather than an arbitrary one.
+code('''COND_DEMO = "masking"
 OPP = pd.read_csv(DLR / "roc_operating_points_val_tol1.csv")
-THR_DL = float(OPP[(OPP.condition == "masking") & (OPP.method == "DL")].threshold.iloc[0])
 
 
-def stages(score, thr):
-    """Stage 2 (NMS, unthresholded) then stage 3 (the score cut) -- the real order."""
-    pts = all_peaks(score, VALID, nms_size=NMS)        # every local max, NO threshold
+def matched_cut(method, cond=COND_DEMO):
+    """The threshold at which this method is actually scored on this condition (section 7)."""
+    return float(OPP[(OPP.condition == cond) & (OPP.method == method)].threshold.iloc[0])
+
+
+THR_CA, THR_DL = matched_cut("CA"), matched_cut("DL")
+
+# For contrast only: the DESIGN threshold CFAR theory derives, which is NOT where anything is
+# scored. The gap between the two is the point section 4.2 of cfar_baseline.ipynb makes.
+design = pd.DataFrame([
+    dict(variant=k, design_alpha=CfarConfig(kind=k).resolved_alpha(), matched=matched_cut(k))
+    for k in ("CA", "GO", "OS", "SO")]).set_index("variant")
+design["matched / design"] = design.matched / design.design_alpha
+display(design.round(4))
+print(f"Every variant is scored below its design alpha, by nearly the same factor "
+      f"({design['matched / design'].min():.3f}-{design['matched / design'].max():.3f}).")
+print("That common offset is the post-NMS-vs-per-cell effect of section 5.1, not miscalibration:")
+print("alpha is a per-cell threshold, while these cuts are matched on post-NMS detections.")
+print()
+print(f"cuts used below:  CA {THR_CA:.3f} (power ratio)   DL {THR_DL:.3f} (logits)")''')
+
+code('''def stages(score, thr):
+    """Stage 2 (NMS, before the cut) then stage 3 (the cut) -- the real order."""
+    pts = all_peaks(score, VALID, nms_size=NMS)       # every local max above the score>0 floor
     keep = pts[:, 2] >= thr if len(pts) else np.zeros(0, dtype=bool)
 
-    # The same primitives all_peaks() composes, kept only to show the peak test in the figure.
+    # The same primitives all_peaks() composes, kept to show the peak test and to size the floor.
     peak = score == maximum_filter(score, size=2 * NMS + 1, mode="nearest")
     survivors = _collapse_plateaus(VALID & peak & (score > 0))
     assert ({(int(r), int(c)) for r, c in np.argwhere(survivors)} ==
             {(int(q[0]), int(q[1])) for q in pts}), "stage 2 must reproduce all_peaks() exactly"
 
-    return pts, keep
+    # Diagnostic only, NOT a pipeline stage: local maxima before the score>0 floor.
+    no_floor = int(_collapse_plateaus(VALID & peak).sum())
+
+    return pts, keep, no_floor
 
 
-CF_PTS, CF_KEEP = stages(RATIO, ALPHA_CA)
-DL_PTS, DL_KEEP = stages(LOGIT, THR_DL)
+CF_PTS, CF_KEEP, CF_RAW = stages(RATIO, THR_CA)
+DL_PTS, DL_KEEP, DL_RAW = stages(LOGIT, THR_DL)
 
-print(f"CFAR score cut (calibrated alpha)     : {ALPHA_CA:.3f}")
-print(f"DL score cut (matched, this condition): {THR_DL:.3f} logits")
-print()
 summary = pd.DataFrame([
-    dict(arm="CFAR (CA)", candidate_peaks=len(CF_PTS), detections=int(CF_KEEP.sum()),
-         cells_over_tau=int(((RATIO > ALPHA_CA) & VALID).sum())),
-    dict(arm="TinyCNN", candidate_peaks=len(DL_PTS), detections=int(DL_KEEP.sum()),
-         cells_over_tau=int(((LOGIT > THR_DL) & VALID).sum())),
+    dict(arm="CFAR (CA)", local_maxima=CF_RAW, candidates=len(CF_PTS),
+         removed_by_floor=CF_RAW - len(CF_PTS), detections=int(CF_KEEP.sum()),
+         cells_over_cut=int(((RATIO > THR_CA) & VALID).sum())),
+    dict(arm="TinyCNN", local_maxima=DL_RAW, candidates=len(DL_PTS),
+         removed_by_floor=DL_RAW - len(DL_PTS), detections=int(DL_KEEP.sum()),
+         cells_over_cut=int(((LOGIT > THR_DL) & VALID).sum())),
 ]).set_index("arm")
 display(summary)
-print("`candidate_peaks` is stage 2 and does not depend on the cut -- it is computed once and")
-print("reused at every threshold the ROC sweeps. `cells_over_tau` is NOT a pipeline stage; it is")
-print("shown only to size what NMS removes, and for the network it is most of the map's response.")''')
+print("`candidates` is stage 2: computed once, reused at every threshold the ROC sweeps.")
+print("`cells_over_cut` is NOT a pipeline stage; it sizes what NMS removes.")
+cpd = summary.cells_over_cut / summary.detections.clip(lower=1)
+print(f"The two arms reach the same detection count from different score-map shapes. Above the")
+print(f"cut, CFAR has {cpd['CFAR (CA)']:.1f} cells per detection and the network {cpd['TinyCNN']:.1f}:")
+print("CFAR's above-threshold cells are already nearly isolated, while the network responds with")
+print("a blob that NMS has to collapse. `removed_by_floor` is explained in 1.1b.")''')
 
-code('''fig, axes = plt.subplots(2, 4, figsize=(15.0, 9.2))
-rows = [("CFAR (CA) ratio", RATIO, CF_PTS, CF_KEEP, ALPHA_CA),
-        ("TinyCNN logits", LOGIT, DL_PTS, DL_KEEP, THR_DL)]
+code('''fig, axes = plt.subplots(2, 4, figsize=(15.5, 9.0))
+rows = [("CFAR (CA) ratio map", RATIO, CF_PTS, CF_KEEP, THR_CA),
+        ("TinyCNN score map", LOGIT, DL_PTS, DL_KEEP, THR_DL)]
 
 for row, (name, score, pts, keep, thr) in zip(axes, rows):
     row[0].imshow(score, aspect="auto", origin="lower", cmap="magma")
-    row[0].set_title(f"1 · {name}", loc="left", fontsize=10)
+    row[0].set_title(f"1 - {name}", loc="left", fontsize=9.5)
 
-    for ax in row[1:]:
-        ax.imshow(score, aspect="auto", origin="lower", cmap="Greys", alpha=0.30)
+    row[1].scatter(pts[:, 1], pts[:, 0], s=24, facecolor="none", edgecolor=AQUA, linewidths=1.0)
+    row[1].set_title(f"2 - NMS candidates: {len(pts)}", loc="left", fontsize=9.5)
 
-    row[1].scatter(pts[:, 1], pts[:, 0], s=26, facecolor="none", edgecolor=AQUA, linewidths=1.0)
-    row[1].set_title(f"2 - local maxima, {2 * NMS + 1}x{2 * NMS + 1} NMS, "
-                     f"unthresholded: {len(pts)} candidates", loc="left",
-                     fontsize=9.5)
-
-    row[2].scatter(pts[~keep, 1], pts[~keep, 0], s=26, facecolor="none", edgecolor=GREY,
+    row[2].scatter(pts[~keep, 1], pts[~keep, 0], s=24, facecolor="none", edgecolor=GREY,
                    linewidths=1.0)
-    row[2].scatter(pts[keep, 1], pts[keep, 0], s=44, color=ORANGE, edgecolor=INK, linewidths=0.7)
-    row[2].set_title(f"3 - score cut at {thr:.2f}: "
-                     f"{int((~keep).sum())} candidates fall below (grey)",
-                     loc="left", fontsize=9.5)
+    row[2].scatter(pts[keep, 1], pts[keep, 0], s=46, color=ORANGE, edgecolor=INK, linewidths=0.7)
+    row[2].set_title(f"3 - cut at {thr:.2f}: {int(keep.sum())} clear", loc="left", fontsize=9.5)
 
-    row[3].scatter(pts[keep, 1], pts[keep, 0], s=60, color=ORANGE, edgecolor=INK, linewidths=0.8)
-    row[3].set_title(f"4 · detections ({int(keep.sum())})", loc="left", fontsize=10)
+    row[3].scatter(pts[keep, 1], pts[keep, 0], s=62, color=ORANGE, edgecolor=INK, linewidths=0.8)
+    row[3].set_title(f"4 - detections: {int(keep.sum())}", loc="left", fontsize=9.5)
 
-    for ax in row:
-        ax.scatter(TRUTHS[:, 1], TRUTHS[:, 0], s=190, facecolors="none",
-                   edgecolors="#00d0ff", linewidths=1.6, zorder=6)
-        ax.set_xlim(-0.5, SHAPE[1] - 0.5); ax.set_ylim(-0.5, SHAPE[0] - 0.5)
-        ax.grid(False); ax.tick_params(labelsize=8)
+    for k, ax in enumerate(row):
+        if k:                                  # stages 2-4: plain white, markers only
+            ax.set_facecolor("white")
+        ax.scatter(TRUTHS[:, 1], TRUTHS[:, 0], s=185, facecolors="none",
+                   edgecolors="#00b4d8", linewidths=1.7, zorder=6)
+        ax.set_xlim(-0.5, SHAPE[1] - 0.5)
+        ax.set_ylim(-0.5, SHAPE[0] - 0.5)
+        ax.grid(False)
+        ax.tick_params(labelsize=8)
     row[0].set_ylabel("Range bin")
 
 for ax in axes[-1]:
     ax.set_xlabel("Doppler bin")
-fig.suptitle("Score map to detections - NMS fixes the candidate set, THEN the score cut is "
-             "applied (rings are the two labelled targets)", x=0.005, ha="left", fontsize=12)
-plt.tight_layout(); plt.show()''')
+fig.suptitle("NMS fixes the candidate set, THEN the score cut is applied "
+             "(blue rings are the two labelled targets)", x=0.005, ha="left", fontsize=11.5)
+plt.tight_layout(rect=(0, 0, 1, 0.955))
+plt.show()''')
 
-cap("Panel 2 is the whole candidate set and it is the same at every threshold. Panel 3 is the only "
-    "thing the ROC sweep moves: the grey circles are candidates that did not clear this particular "
-    "cut, and raising or lowering it just re-colours them. On this frame both arms end up with the "
-    "strong target and no detection on the weak one - a threshold outcome, not an NMS one, since "
-    "the pair is 8 range bins apart and so outside the suppression radius.")
+cap("Stages 2-4 are drawn on plain white so only the markers carry information, and both rows are "
+    "built identically. Panel 2 is the whole candidate set and is the same at every threshold; "
+    "panel 3 is the only thing the ROC sweep moves, re-colouring candidates as the cut rises or "
+    "falls. Both arms find the strong target of the pair; the weak one is missing from panel 2 "
+    "onwards, and the cell below says why.")
 
-md("""### 1.1a Why NMS comes first
+md("""**Where did the weak target go?** The pair is 8 range bins apart, so the weak target's absence
+is *not* caused by the radius-5 NMS interaction between the two — 8 bins is outside that reach. It is
+tempting to conclude it was therefore rejected by the score cut, but that has to be checked rather
+than assumed: a target that never formed a local maximum never reaches the cut at all.""")
 
-**It fixes the candidate set once.** Peak extraction is the expensive part; the score cut is a
-comparison against a scalar. Extracting peaks unthresholded means the ROC sweeps a cut over a
-**fixed list of peaks** instead of re-running NMS at every one of ~95 thresholds, which is what
-makes a per-condition swept operating point affordable at all. It also means the candidate set
-cannot shift underneath the sweep — every point on the curve describes the same set of peaks,
-judged more or less strictly.
+code('''rows = []
+for arm, pts, thr in (("CFAR (CA)", CF_PTS, THR_CA), ("TinyCNN", DL_PTS, THR_DL)):
+    for name, (tr, tv) in zip(("strong", "weak"), TRUTHS):
+        near = pts[(np.abs(pts[:, 0] - tr) <= NMS) & (np.abs(pts[:, 1] - tv) <= NMS)]
+        rows.append(dict(arm=arm, target=name, bin=f"({int(tr)},{int(tv)})",
+                         candidates_within_5_bins=len(near),
+                         best_score=round(float(near[:, 2].max()), 3) if len(near) else np.nan,
+                         clears_cut=bool((near[:, 2] >= thr).any()) if len(near) else False))
+display(pd.DataFrame(rows).style.hide(axis="index"))
+print("Neither arm produced a candidate peak anywhere near the weak target, so it was not")
+print("rejected by the score cut -- it never became a local maximum in the first place. The")
+print("strong target 8 bins away cannot suppress it at radius 5, so this is neither the")
+print("pairwise NMS interaction nor the cut: the weak return simply never peaked.")''')
 
-**The consequence, which is a real cost.** Because suppression happens before the cut, **a strong
-peak suppresses a nearby weaker one whether or not either would have cleared the threshold.** The
-weaker target is not rejected for being too weak; it never becomes a candidate at all, so no
-threshold can recover it. With radius 5 the suppression reach is ±5 bins — 0.98 m in range,
-2.10 m/s in Doppler — and that is the mechanism behind the `masking` ceiling already recorded in the
-limitations (on clean maps only ~38% of masking pairs keep both targets, and 5.9% of pairs closer
-than 1 m).""")
+md("""### 1.1a Why NMS comes first — and what the NMS footprint costs
+
+These are two separate things, and it is worth keeping them apart.
+
+**Why NMS comes first: the reason is computational.** Candidate peaks are extracted once so the ROC
+can sweep many score thresholds without re-running the 11 × 11 maximum filter each time. For this
+max-filter implementation, applying the score threshold before or after NMS gives the same final
+detections over the reported operating range — appendix **A.1** checks it on real frames. The
+ordering is therefore a matter of cost, **not a methodological choice**, and it changes no result.
+
+A second, smaller benefit: the candidate set cannot shift underneath the sweep, so every point on
+the curve describes the same peaks judged more or less strictly.
+
+**What the NMS footprint costs: the reason is geometric.** Radius 5 means an **11 × 11 suppression
+neighbourhood**. Two genuinely resolvable targets whose peaks fall inside that neighbourhood
+suppress one another — only the stronger survives as a candidate, and no threshold can recover the
+other. The reach is ±5 bins: **0.98 m in range, 2.10 m/s in Doppler**.
+
+**This limitation is independent of whether thresholding happens before or after NMS.** It follows
+from the size of the window, not from the order of operations, and it is the mechanism behind the
+`masking` ceiling already recorded in the limitations (on clean maps only ~38% of masking pairs keep
+both targets, and 5.9% of pairs closer than 1 m).
+
+The synthetic pair below isolates exactly that geometry.""")
 
 code('''# Synthetic, not a measurement: two peaks on an empty map, both far above any threshold used.
+# Isolates the NMS footprint by removing every other effect -- no noise, no clutter, no cut.
 demo = []
 for sep in (3, 5, 6, 8):
     m = np.zeros((40, 40))
@@ -345,10 +395,29 @@ for sep in (3, 5, 6, 8):
     pk = all_peaks(m, np.ones_like(m, dtype=bool), nms_size=NMS)
     demo.append(dict(separation_bins=sep, separation_m=sep * RES_R,
                      candidates=len(pk),
-                     detections_at_tau_10=int((pk[:, 2] >= 10).sum())))
+                     detections_at_cut_10=int((pk[:, 2] >= 10).sum())))
 display(pd.DataFrame(demo).set_index("separation_bins").round(3))
-print("Both peaks (50 and 30) are far above the cut of 10, so nothing here is a threshold effect.")
-print(f"Within {NMS} bins the weaker one never becomes a candidate; from {NMS + 1} bins both do.")''')
+print("Both peaks (50 and 30) are far above the cut of 10, so the cut removes nothing here and")
+print("threshold ordering is irrelevant -- the only variable is separation.")
+print(f"Within {NMS} bins the weaker peak never becomes a candidate; from {NMS + 1} bins both do.")
+print("That is the NMS footprint acting alone, which is what makes it evidence about geometry")
+print("rather than about thresholding.")''')
+
+md("""### 1.1b "Candidate" means *before the operating cut*, not unfiltered
+
+`all_peaks()` keeps local maxima with **`score > 0`**. That floor is not the operating threshold, but
+it is not nothing either, and it lands very differently on the two arms — which is what the
+`removed_by_floor` column above is showing.
+
+* **CFAR: inert.** The ratio is CUT power over a noise estimate, positive by construction, so
+  nothing is removed.
+* **The network: dominant.** Scored on logits, `score > 0` means sigmoid > 0.5, and most local
+  maxima on a real frame sit below that. It removes the large majority of them.
+
+**No reported number is affected**, because everything the floor removes is at or below 0 while the
+operating cut sits well above it — those peaks would have failed the cut anyway. But it does mean
+the network's candidate count is *not* "every local maximum", and a DL ROC cannot be swept past that
+point toward higher Pfa. Quantified in appendix **A.2**.""")
 
 md("""### 1.2 Three details that are easy to get wrong
 
@@ -947,7 +1016,8 @@ md("""---
 **The question:** a detector's Pd depends entirely on how freely it is allowed to raise alarms. How
 do you compare two detectors that are not naturally at the same setting?""")
 
-md("""**Sweep the threshold.** `all_peaks()` returns every local maximum with its score, unthresholded.
+md("""**Sweep the threshold.** `all_peaks()` returns every local maximum with its score, before the
+operating threshold is applied (a `score > 0` floor does apply -- see 1.1b).
 Raising the threshold gives fewer detections, lower Pd and lower Pfa; lowering it does the reverse.
 Tracing that gives a curve, and the comparison is made at a chosen point on it rather than at
 whatever threshold each detector happens to come with.
@@ -1419,23 +1489,49 @@ md("""---
 
 Low-level detail, kept out of the main flow.""")
 
-md("""### A.1 The two detection paths agree
+md("""### A.1 The two detection paths agree, at the thresholds that are actually used
 
 `extract_detections(ratio, valid, alpha)` thresholds *inside* peak extraction; the ROC path calls
-`all_peaks()` unthresholded and filters afterwards. Every reported number uses the second. They
-should give the same detections at the same threshold — checked here on real frames.""")
+`all_peaks()` before the operating cut and filters afterwards. Every reported number uses the second.
 
-code('''agree = 0
+They are **not** identical by construction: `_collapse_plateaus` keeps one representative per
+connected region of the peak mask, and that region can differ between the two paths when a plateau
+straddles the threshold. So the equivalence §1.1a relies on is checked here — at each CFAR variant's
+own matched operating point, rather than at round numbers.
+
+The `detections` column matters: a threshold so high that both paths return nothing agrees
+trivially, and would prove nothing.""")
+
+code('''cfar_ops = (OPP[OPP.method != "DL"][["condition", "method", "threshold"]]
+            .sort_values("threshold").reset_index(drop=True))
 n_check = 15
-for fd in sorted((ROOT / "data" / "bench2_val" / "frames").iterdir())[:n_check]:
-    mag = np.load(fd / "rd_map_mag.npy")
-    ratio, valid, _ = cfar_ratio_map(mag ** 2, CFAR_CFG)
-    a = 10.0
-    one = {(int(r), int(v)) for r, v, _ in extract_detections(ratio, valid, a, NMS)}
-    two = all_peaks(ratio, valid, NMS)
-    two = {(int(p[0]), int(p[1])) for p in two[two[:, 2] > a]}
-    agree += (one == two)
-print(f"identical detections on {agree} of {n_check} bench2_val frames at alpha = 10.0")''')
+frames = sorted((ROOT / "data" / "bench2_val" / "frames").iterdir())[:n_check]
+cached = [cfar_ratio_map(np.load(fd / "rd_map_mag.npy") ** 2, CFAR_CFG)[:2] for fd in frames]
+
+rows = []
+for _, r in cfar_ops.iterrows():
+    a = float(r.threshold)
+    agree, n_det = 0, 0
+    for ratio, valid in cached:
+        one = {(int(rr), int(vv)) for rr, vv, _ in extract_detections(ratio, valid, a, NMS)}
+        pk = all_peaks(ratio, valid, NMS)
+        two = {(int(q[0]), int(q[1])) for q in pk[pk[:, 2] > a]}
+        agree += (one == two)
+        n_det += len(two)
+    rows.append(dict(condition=r.condition, method=r.method, alpha=round(a, 3),
+                     detections=n_det, frames_identical=agree))
+
+A1 = pd.DataFrame(rows)
+display(A1.style.hide(axis="index"))
+nontrivial = A1[A1.detections > 0]
+print(f"{len(A1)} operating points spanning alpha {A1.alpha.min():.2f}-{A1.alpha.max():.2f}, "
+      f"{n_check} frames each.")
+print(f"{len(nontrivial)} of them return at least one detection "
+      f"({nontrivial.detections.min()}-{nontrivial.detections.max()} over the {n_check} frames), "
+      f"so the agreement is not vacuous.")
+assert (A1.frames_identical == n_check).all(), "the two detection paths disagree somewhere"
+assert len(nontrivial) >= len(A1) - 2, "too many operating points return nothing to test"
+print("Identical detections on every frame at every operating point tested.")''')
 
 md("""### A.2 The `score > 0` floor in `all_peaks`, and why it binds on nothing
 
