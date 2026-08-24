@@ -1036,44 +1036,79 @@ md("""---
 
 **The question:** a detector found the target. How well did it place it?""")
 
-code('''fig, ax = plt.subplots(figsize=(6.6, 5.2))
-t_r, t_v = 8, 8
-d_r, d_v = 9, 6
+code('''# Two INVENTED truth/detection pairs on a small grid, scored by the project's own evaluate_frame.
+LOC_SHAPE = (20, 24)
+LOC_T = np.array([[8.0, 8.0], [8.0, 16.0]])      # A (matched), B (not matched at +/-1)
+LOC_D = np.array([[9.0, 7.0], [10.0, 16.0]])
+EV_LOC = evaluate_frame(LOC_D, LOC_T, LOC_SHAPE, GATE)
 
-for x in range(4, 14):
-    ax.axhline(x - 0.5, color=GRID, linewidth=0.8)
-    ax.axvline(x - 0.5, color=GRID, linewidth=0.8)
-ax.add_patch(Rectangle((t_v - 1.5, t_r - 1.5), 3, 3, facecolor=BLUE, alpha=0.12,
-                       edgecolor=BLUE, linestyle="--", linewidth=1.3))
-ax.scatter(t_v, t_r, marker="x", s=200, color=BLUE, linewidths=2.6, zorder=4)
-ax.scatter(d_v, d_r, marker="o", s=140, color=AQUA, edgecolor=INK, linewidths=0.8, zorder=4)
-ax.annotate("", xy=(d_v, d_r), xytext=(t_v, d_r),
-            arrowprops=dict(arrowstyle="<->", color=ORANGE, linewidth=1.6))
-ax.annotate("", xy=(t_v, d_r), xytext=(t_v, t_r),
-            arrowprops=dict(arrowstyle="<->", color=PURPLE, linewidth=1.6))
-ax.text((t_v + d_v) / 2, d_r + 0.28, f"dv = {d_v - t_v} bins = {(d_v - t_v) * RES_V:+.2f} m/s",
-        ha="center", fontsize=9, color=ORANGE)
-ax.text(t_v + 0.18, (t_r + d_r) / 2, f"dr = {d_r - t_r} bin = {(d_r - t_r) * RES_R:+.2f} m",
-        fontsize=9, color=PURPLE)
-ax.text(t_v + 0.3, t_r - 0.55, "truth", fontsize=9, color=BLUE)
-ax.text(d_v + 0.3, d_r + 0.35, "detection", fontsize=9, color="#0f6b4d")
-ax.text(t_v - 1.45, t_r + 1.7, "the +/-1 gate", fontsize=8.5, color=BLUE)
-ax.set_xlim(3.5, 13.5); ax.set_ylim(3.5, 13.5)
+fig, ax = plt.subplots(figsize=(9.6, 5.0))
+for x in range(4, 21):
+    ax.axvline(x - 0.5, color=GRID, linewidth=0.7)
+for y in range(5, 14):
+    ax.axhline(y - 0.5, color=GRID, linewidth=0.7)
+
+matched = set(EV_LOC.matched_truth_idx)
+for k, ((t_r, t_v), (d_r, d_v)) in enumerate(zip(LOC_T, LOC_D)):
+    is_tp = k in matched
+    ax.add_patch(Rectangle((t_v - GATE.tol_v - 0.5, t_r - GATE.tol_r - 0.5),
+                           2 * GATE.tol_v + 1, 2 * GATE.tol_r + 1, facecolor=BLUE,
+                           alpha=0.10, edgecolor=BLUE, linestyle="--", linewidth=1.3))
+    ax.scatter(t_v, t_r, marker="x", s=190, color=BLUE, linewidths=2.6, zorder=5)
+    ax.scatter(d_v, d_r, marker="o", s=130, color=AQUA if is_tp else RED,
+               edgecolor=INK, linewidths=0.8, zorder=5)
+
+    if is_tp:
+        j = EV_LOC.matched_truth_idx.index(k)
+        dr, dv = EV_LOC.dr[j], EV_LOC.dv[j]
+        ax.annotate("", xy=(t_v, d_r), xytext=(t_v, t_r),
+                    arrowprops=dict(arrowstyle="<->", color=PURPLE, linewidth=1.7))
+        ax.annotate("", xy=(d_v, d_r), xytext=(t_v, d_r),
+                    arrowprops=dict(arrowstyle="<->", color=ORANGE, linewidth=1.7))
+        ax.text(t_v - 1.9, (t_r + d_r) / 2, f"|dr| = {abs(dr)} bin\\n= {abs(dr) * RES_R:.2f} m",
+                fontsize=8.5, color=PURPLE, ha="right", va="center")
+        ax.text((t_v + d_v) / 2, d_r + 0.35,
+                f"|dv| = {abs(dv)} bin = {abs(dv) * RES_V:.2f} m/s",
+                fontsize=8.5, color=ORANGE, ha="center")
+        ax.text(t_v - 1.5, t_r + 2.1, "TP - CONTRIBUTES to the\\nlocalization average",
+                fontsize=8.5, color="#0f6b4d", weight="bold")
+    else:
+        ax.annotate("", xy=(d_v, d_r), xytext=(t_v, t_r),
+                    arrowprops=dict(arrowstyle="-", color=RED, linewidth=1.4, linestyle=":"))
+        ax.text(t_v + 1.4, (t_r + d_r) / 2,
+                f"|dr| = {int(abs(d_r - t_r))} bins - outside the gate",
+                fontsize=8.5, color=RED, va="center")
+        ax.text(t_v - 1.5, t_r + 2.1,
+                "NOT a TP - no localization measured.\\nTruth is an FN, detection an FP.",
+                fontsize=8.5, color=RED, weight="bold")
+
+ax.text(6.1, 6.6, "A", fontsize=11, color=BLUE, weight="bold")
+ax.text(14.1, 6.6, "B", fontsize=11, color=BLUE, weight="bold")
+ax.set_xlim(4.5, 20.0); ax.set_ylim(5.5, 13.2)
 ax.set_xlabel("Doppler bin"); ax.set_ylabel("Range bin")
-ax.set_title("Localization error is measured per matched TP pair", loc="left", fontsize=11)
+ax.set_title("Localization is measured only for detections that fall inside the matching gate",
+             loc="left", fontsize=11)
 ax.grid(False)
-plt.tight_layout(); plt.show()''')
+plt.tight_layout(); plt.show()
 
-cap("Note the detection here is 2 Doppler bins out — outside the ±1 gate, so at the headline gate "
-    "this pair would not be a TP at all. That is the metric's key property, below.")
+print(f"gate +/-{GATE.tol_r}:  TP={EV_LOC.tp}  FP={EV_LOC.fp}  FN={EV_LOC.fn}")
+print(f"localization pairs recorded: {len(EV_LOC.dr)}  "
+      f"(dr={EV_LOC.dr}, dv={EV_LOC.dv})")
+print("Pair B contributes nothing to the localization average -- it is not a TP.")''')
+
+cap("The left detection falls inside the ±1 matching gate and is therefore a TP; its range and "
+    "Doppler offsets contribute to the localization average. The right detection lies outside the "
+    "gate, so the pair is not included in localization error. Instead, the target is missed and the "
+    "unmatched detection is handled by the FP/FN counting rules.")
 
 md("""**Three properties of this metric that must be stated when it is quoted.**
 
 1. **It is computed over matched TP pairs only.** A target nobody detected contributes nothing.
-2. **It is bounded by the gate.** A detection displaced further than the tolerance is not a large
-   error — it is a *miss plus a false alarm*. Severe displacement therefore shows up as lost Pd, not
-   as a large localization number, and the metric is censored at ±1 bin (±3 at the robustness gate).
-   Both gates are reported for that reason.
+2. **It is bounded by the gate.** A detection displaced further than the tolerance is not recorded as
+   a large error — the pair simply fails to match, and shows up as lost Pd instead. Concretely, the
+   per-axis localization errors are bounded by 1 bin at the ±1 gate, or 3 bins at the ±3 gate. Note
+   this is a *per-axis* bound: the combined Euclidean distance can exceed it, reaching √2 ≈ 1.41 bins
+   at the ±1 gate when both axes are off by one. Both gates are reported for this reason.
 3. **It is conditioned on detection**, which makes it vulnerable to a selection effect: a detector
    that only finds easy targets is measuring its precision on easy targets. That is §6.1.""")
 
@@ -1082,7 +1117,23 @@ conv = pd.DataFrame({"bins": bins,
                      "range (m)": bins * RES_R,
                      "Doppler (m/s)": bins * RES_V}).set_index("bins")
 display(conv.round(3))
-print(f"1 range bin = {RES_R:.4f} m,  1 Doppler bin = {RES_V:.4f} m/s")''')
+print(f"1 range bin = {RES_R:.4f} m,  1 Doppler bin = {RES_V:.4f} m/s")
+print(f"per-axis bound at the +/-1 gate: 1 bin; worst combined Euclidean distance: "
+      f"{np.hypot(1, 1):.3f} bins")
+print(f"per-axis bound at the +/-3 gate: 3 bins; worst combined Euclidean distance: "
+      f"{np.hypot(3, 3):.3f} bins")''')
+
+md("""### 6.2 In summary
+
+Localization error asks where the detector placed a target after it successfully found it, rather
+than whether the target was detected at all. For every detection that is successfully matched to a
+ground-truth target, we calculate the absolute difference in range and Doppler bins. These errors are
+collected across all matched targets in the evaluated data and then averaged, so the metric is
+target-weighted rather than frame-weighted: a frame containing three matched targets contributes
+three localization measurements, while a frame with no matched targets contributes none. A target
+whose detection falls outside the matching gate does not contribute a large localization error;
+instead, it fails to match and is handled through the detection metrics. Localization error is
+therefore measured only over true-positive pairs and is bounded by the matching tolerance used.""")
 
 md("""### 6.1 Does the localization gap survive on the common detected subset?
 
@@ -1174,6 +1225,18 @@ Two details worth carrying into the write-up:
 
 ⚠️ Post-hoc, so it belongs beside the pre-registered number as a robustness check, never in place of
 it.""")
+
+md("""### 6.1a In summary
+
+Because localization is calculated only for targets that a detector successfully finds, the two
+methods may initially be averaging their errors over different sets of targets. For example, if DL
+detects some difficult targets that CFAR misses, DL's localization average may include harder
+examples while CFAR's does not. To check whether this explains the localization gap, we repeat the
+calculation using only the targets that both CFAR and DL detected. This gives both methods exactly
+the same target population. The localization gap remains on this common detected subset, showing that
+CFAR's better localization is not simply caused by it detecting an easier set of targets. This
+common-subset analysis is a post-hoc robustness check and therefore supports the original
+localization result rather than replacing it.""")
 
 # ============================================================================== 7
 md("""---
