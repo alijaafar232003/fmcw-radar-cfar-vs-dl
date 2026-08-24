@@ -1395,15 +1395,26 @@ md("""---
 
 **The question:** the measured difference in Pd is some number. How much of it is real?""")
 
-md("""**The idea.** Both detectors are scored on *the same frames*, so resample **frames**, jointly:
-draw a resample of frame indices with replacement, recompute both arms' Pd on exactly those frames,
-take the difference, repeat 2,000 times. The spread of those 2,000 differences is the sampling
-uncertainty of the difference.
+md("""**The idea.** The original test compares CFAR and DL on exactly the same test frames. The
+bootstrap is not used because the two methods saw different data; it is used to check how much the
+measured difference depends on the particular test frames that happened to be generated. To do this,
+the existing test frames are repeatedly resampled with replacement, creating many slightly different
+versions of the test set. For every resample, CFAR and DL are evaluated on the exact same selected
+frames, and the difference in Pd is calculated again. Repeating this 2,000 times shows whether the
+observed DL-versus-CFAR difference is stable or whether it changes a lot when the mix of test frames
+changes.
 
-**Pairing is the point.** Frame difficulty is shared between the arms, so it cancels in the
-difference instead of adding noise to both sides independently. The alternative previously used here
-— a one-sample t-test of the DL seeds against CFAR's Pd as a *constant* — treated CFAR as exact when
-it is one draw over the same finite frames, and produced overconfident p-values throughout.""")
+**Why "paired".** The bootstrap is called paired because both detectors always use the same
+resampled frame indices. If a difficult frame appears several times in one bootstrap sample, it
+appears several times for both CFAR and DL. This keeps the comparison fair and prevents differences
+in frame difficulty from being mistaken for differences between the detectors.
+
+The spread of those 2,000 differences is **the uncertainty in the Pd difference caused by using a
+finite sample of test frames**.
+
+*(The approach this replaced — a one-sample t-test of the DL seeds against CFAR's Pd as a
+**constant** — treated CFAR as exact when it is one draw over the same finite frames, and produced
+overconfident p-values throughout.)*""")
 
 code('''fig, ax = plt.subplots(figsize=(12.4, 3.2))
 ax.set_xlim(0, 100); ax.set_ylim(0, 10); ax.axis("off")
@@ -1442,9 +1453,19 @@ and not to bootstrap noise.
 ⚠️ Re-selection is **conservative for DL by construction**: taking a maximum over four variants on
 the same frames used to score them biases the CFAR arm slightly up. It cannot manufacture a DL win.
 
-⚠️ Neither procedure propagates the variability of *choosing the threshold* — that is computed once
-per condition and would need the sweep redone per replicate (~200× the compute). Both intervals are
-mildly optimistic for that reason, and the same was true of the original.""")
+⚠️ **What the bootstrap does and does not cover.** It only changes which test frames are sampled.
+The detector models and the operating thresholds remain fixed, so the interval mainly measures
+uncertainty caused by the finite test dataset. It does not include all possible uncertainty from
+retraining the network or choosing a new threshold — in particular the threshold is computed once per
+method per condition and is not re-derived inside each replicate, which would cost roughly 200× the
+compute.""")
+
+md("""**In plain terms.** For each condition, DL is compared with the best-performing CFAR variant.
+However, when two CFAR variants have very similar Pd values, the identity of the best one may change
+if the test frames change slightly. To check this, the best CFAR variant is selected again inside
+every bootstrap resample. DL is then compared with whichever CFAR variant performs best on that
+particular resampled set of frames. This makes the check conservative for DL because CFAR is always
+given its strongest variant in each resample.""")
 
 code('''RES = pd.read_csv(DLR / "bootstrap_reselect_frozen_ep021_test_tol1.csv").set_index("condition")
 RES = RES.reindex([c for c in ORDER if c in RES.index])
@@ -1516,10 +1537,24 @@ slightly *tighter*. Two things are happening, and they are worth separating:
   other*, where swapping one for another changes Pd by almost nothing. The uncertainty about which
   variant is best turns out to be uncertainty about a choice that barely matters.
 
-So the honest conclusion is not "the original intervals were fine by luck". It is that **the
-original procedure's assumption was not load-bearing**: the fixed-winner intervals were not
-overconfident, because the quantity they conditioned on is insensitive to the condition. That is a
-result worth reporting, and it is the kind of check that is only convincing when it is run.""")
+So the honest conclusion is not "the original intervals were fine by luck", nor is it that they are
+now proven sound. It is the narrower statement that **accounting for uncertainty in which CFAR
+variant is best did not materially change the confidence intervals** — because the quantity being
+conditioned on is one the comparison is insensitive to. The intervals remain optimistic in the way
+flagged above, since threshold-selection uncertainty is still not propagated. This is the kind of
+check that is only convincing when it is actually run.""")
+
+md("""**In plain terms.** The winning CFAR variant does change in some bootstrap samples, but the
+final confidence intervals barely change. This happens because the CFAR variants usually switch
+places only when their Pd values are already very close. Therefore, there is some uncertainty about
+which CFAR method is technically the best, but that uncertainty has very little effect on the overall
+DL-versus-CFAR comparison.
+
+---
+
+**The takeaway for §8 as a whole.** In simple terms, the bootstrap asks: *if our test dataset had
+contained a slightly different mix of frames from the same generator, would we still reach roughly
+the same conclusion about DL versus CFAR?*""")
 
 # ============================================================================== 9
 md("""---

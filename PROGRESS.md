@@ -2818,6 +2818,32 @@ bullet-and-figure form the notebook uses for explanation. The §5.3 and §7.2a p
 are the clearest statements of the two fairness arguments — matching at the final post-NMS Pfa, and
 the oracle-threshold scope limit — and should go into the report close to as-written.
 
+#### ⚠️ The best-CFAR re-selection claim narrowed — how to state it in the report
+
+The 24 Aug entry above concluded from the re-selection bootstrap that "**the original procedure's
+assumption was not load-bearing**: the fixed-winner intervals were not overconfident". **That is
+broader than the evidence supports and is narrowed here.**
+
+The re-selection experiment varied exactly one thing: which CFAR variant the difference is taken
+against. It found that varying it changes nothing material. That licenses a statement about *that*
+source of uncertainty, and no more. It does **not** license a statement about whether the intervals
+are well calibrated overall, because a second source — **the variability of choosing the operating
+threshold** — is still not propagated by either procedure. The threshold is computed once per method
+per condition; re-deriving it inside each replicate would cost roughly 200× the compute and has not
+been done.
+
+**Correct wording for the report:** *accounting for uncertainty in which CFAR variant is best did not
+materially change the confidence intervals.* Not: *the intervals are not overconfident.*
+
+The reasoning error is one worth naming, because it is the same shape as the `unresolved` Bonferroni
+error recorded above: concluding that a quantity is sound because the one thing tested about it came
+back clean. Both times the fix was to state what was measured rather than what it seemed to imply.
+The measured result itself is unchanged — 0 of 7 verdicts changed, width ratios 0.952–1.000.
+
+*Also in §8:* the plain-English rewrite makes explicit what the bootstrap resamples (frames only —
+models and thresholds stay fixed), and what "paired" means (both arms use the same resampled frame
+indices, so a difficult frame drawn twice is drawn twice for both).
+
 #### Artefacts and how to regenerate
 
 `results/` is gitignored, so the three cached inputs are not in the repository:
