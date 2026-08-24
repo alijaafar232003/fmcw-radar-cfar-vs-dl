@@ -1698,9 +1698,27 @@ md("""---
 
 **The question:** every number above depends on one function. What has been checked?
 
-The checks below run live, against `src/eval/detection.py` itself. There is no separate pytest suite
-in this project — these cells *are* the regression check, which is why they live in the notebook and
-run on every rebuild. Detailed demonstrations of each case are in the appendix.""")
+The cells below are **targeted regression and sanity checks**, not a proof of correctness. Each one
+constructs a small case whose answer is known in advance and confirms the evaluator returns it. They
+run live against `src/eval/detection.py` and `src/cfar/detect.py`; there is no separate pytest suite
+in this project, so these cells *are* the regression suite and run on every rebuild. Detailed
+demonstrations of each case are in the appendix.""")
+
+md("""The evaluation code is responsible for turning detector outputs into every result reported in
+this study, so several simple cases are tested where the correct answer is known in advance. These
+checks verify that empty frames are handled correctly, one detection cannot match multiple targets,
+detections outside the matching gate are not counted as true positives, guard and valid-mask cells
+are handled correctly in the false-alarm calculation, localization errors are converted correctly,
+and threshold and ROC behavior is consistent. If any of these checks fails, the notebook stops rather
+than continuing with results that may be invalid. Passing the checks does not prove that the
+evaluator contains no possible bugs, but it confirms the main behaviors and protects against
+important failure modes encountered during development.
+
+**In simple terms**, this section tests the ruler before using it to measure the detectors. If the
+evaluator counted targets, false alarms or localization errors incorrectly, even perfectly working
+CFAR and DL models would produce misleading results. Small examples with known answers therefore
+provide a direct way to check that the scoring rules implemented in code behave the way the
+experiment says they should.""")
 
 code('''checks = []
 
@@ -1724,6 +1742,24 @@ dup = evaluate_frame(np.array([[5.0, 5.0], [5.0, 5.0], [5.0, 6.0]]),
                      np.array([[5.0, 5.0]]), TOY_SHAPE, GATE)
 check("duplicate detections -> exactly one TP", dup.tp == 1 and dup.fp == 0,
       f"3 detections on 1 truth -> TP={dup.tp}, FP={dup.fp}, {3 - dup.tp - dup.fp} forgiven")
+
+# PLATEAU COLLAPSE, tested at the point it actually happens: all_peaks(), before matching.
+# The duplicate test above covers how duplicates are COUNTED; this covers whether they are
+# PRODUCED. Milestone 16's defect was here, not in the counting.
+_flat_ok, _flat_detail = True, []
+for _sz in (1, 3, 5):
+    _m = np.zeros((30, 30))
+    _m[10:10 + _sz, 10:10 + _sz] = 5.0                # one connected, perfectly flat plateau
+    _n = len(all_peaks(_m, np.ones_like(_m, dtype=bool), nms_size=NMS))
+    _flat_ok &= (_n == 1)
+    _flat_detail.append(f"{_sz}x{_sz}->{_n}")
+_two = np.zeros((40, 40))
+_two[8:11, 8:11] = 5.0
+_two[28:31, 28:31] = 7.0
+_n_two = len(all_peaks(_two, np.ones_like(_two, dtype=bool), nms_size=NMS))
+check("one flat score plateau -> exactly ONE candidate (all_peaks)",
+      _flat_ok and _n_two == 2,
+      f"plateau size->candidates: {', '.join(_flat_detail)}; two separated plateaus -> {_n_two}")
 
 # one detection between two truths
 btw = evaluate_frame(np.array([[5.0, 6.0]]), np.array([[5.0, 5.0], [5.0, 7.0]]), TOY_SHAPE, GATE)
@@ -1767,15 +1803,21 @@ check("threshold keeps exactly the peaks at or above it",
       f"{int((_pk[:, 2] >= _hi).sum())} of {len(_pk)} peaks survive")
 
 # ROC monotonicity
-_r = ROC[(ROC.condition == COND) & (ROC.method == "CA")].sort_values("threshold")
-check("ROC is monotone: raising the threshold cannot raise Pd or Pfa",
-      bool((_r.pd.diff().dropna() <= 1e-12).all()
-           and (_r.pfa_per_cell.diff().dropna() <= 1e-12).all()),
-      f"{len(_r)} swept thresholds on {COND}/CA")
+_viol = []
+for (_c, _m), _g in ROC.groupby(["condition", "method"]):
+    _g = _g.sort_values("threshold")
+    if (_g.pd.diff().dropna() > 1e-12).any() or (_g.pfa_per_cell.diff().dropna() > 1e-12).any():
+        _viol.append(f"{_c}/{_m}")
+check("ROC is monotone on EVERY exported curve: raising the threshold cannot raise Pd or Pfa",
+      not _viol,
+      f"{ROC.groupby(['condition', 'method']).ngroups} curves "
+      f"({ROC.condition.nunique()} conditions x {ROC.method.nunique()} methods), "
+      f"{len(ROC)} swept points; violations: {_viol or 'none'}")
 
 # gate monotonicity
-check("widening the gate cannot lose a TP", EV3.tp >= EV1.tp,
-      f"TP {EV1.tp} (+/-1) -> {EV3.tp} (+/-3)")
+check("for a FIXED set of detections, widening the gate cannot remove an existing TP",
+      EV3.tp >= EV1.tp,
+      f"same detections scored twice: TP {EV1.tp} (+/-1) -> {EV3.tp} (+/-3)")
 check("widening the gate also widens the guard (they share one MatchConfig)",
       int(_guard_mask(TOY_TRUTHS, TOY_SHAPE, GATE3).sum())
       > int(_guard_mask(TOY_TRUTHS, TOY_SHAPE, GATE).sum()),
@@ -1787,11 +1829,28 @@ display(CHECKS.style.hide(axis="index"))
 assert (CHECKS.result == "PASS").all(), "an evaluator check FAILED -- do not trust results above"
 print(f"{len(CHECKS)} checks, all PASS")''')
 
-md("""**Two of these were live bugs, not hypotheticals.** The duplicate-detection case is Milestone
-16's non-maximum-suppression defect — `all_peaks` marked every cell of a plateau as a local maximum,
-so one target produced several detections which the guard rule then forgave, inflating Pd at no
-false-alarm cost. The ROC-monotonicity and threshold cases cover the three interpolation bugs found
-in Milestone 20b, one of which recovered a threshold 4× too high on `isolated`.""")
+md("""**Several of these cover failure modes that actually occurred.**
+
+**The plateau check guards Milestone 16's defect directly.** `all_peaks` used
+`score == maximum_filter(score)`, which marks *every* cell of a flat region as a local maximum. A
+CFAR ratio is continuous and rarely ties; a network's output has genuinely flat regions, so one
+target could emit several detections — and because unmatched detections inside a truth's guard region
+are set aside (§4), the duplicates cost nothing while inflating Pd. The check above tests the stage
+where that happened: whether `all_peaks` *produces* one candidate per plateau.
+
+**The duplicate-detection check is a different test, and the difference is worth being precise
+about.** It feeds ready-made duplicate detections to `evaluate_frame` and confirms they are *counted*
+correctly — one TP, the rest set aside. It would have passed throughout the Milestone 16 period,
+because the counting was never the broken part. The two checks cover the production and the counting
+halves of one failure mode, and only together do they cover it.
+
+**How the defect was actually caught is the more useful lesson**, and it was neither check: DL scored
+0.547 on `unresolved`, above the ~0.5 two-targets-in-one-mainlobe ceiling. A physics sanity check
+found what a unit test had no reason to look for (§9.2). That is the argument for keeping
+impossible-by-construction conditions in a benchmark.
+
+**The ROC-monotonicity and threshold checks** cover the three interpolation bugs found in Milestone
+20b, one of which recovered a threshold 4× too high on `isolated`.""")
 
 # ============================================================================== 11
 md("""---

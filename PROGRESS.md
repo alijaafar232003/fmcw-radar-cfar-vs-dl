@@ -2883,6 +2883,39 @@ number it produces.
 of 2,000 landed on the opposite side, not that the probability is zero — with the reporting rule
 (`p < 0.001`) tied to the two-sided resolution 2/2000.
 
+#### §10: a missing regression test found, and a claim about the existing one corrected
+
+**The plateau fix had no regression test, despite a note claiming otherwise.** §10 stated that its
+duplicate-detection check "is Milestone 16's non-maximum-suppression defect". It is not. That check
+feeds *ready-made* duplicate detections to `evaluate_frame` and confirms they are **counted**
+correctly — one TP, the rest set aside. **It would have passed throughout the Milestone 16 period**,
+because the counting was never the broken part: the defect was upstream in `all_peaks`, which marked
+every cell of a flat plateau as a local maximum and so *produced* the duplicates.
+
+So the project believed it had a guard against its most consequential evaluator bug and did not.
+
+**Now added** (14 checks, up from 13): a plateau-collapse regression test calling `all_peaks`
+directly. Flat plateaus of 1×1, 3×3 and 5×5 must each yield exactly one candidate, and two separated
+plateaus must yield two. The two checks now cover the *production* and the *counting* halves of the
+same failure mode; only together do they cover it.
+
+**And the more useful lesson, now stated in §10:** neither check is how the defect was actually
+caught. It was caught by DL scoring 0.547 on `unresolved`, above the ~0.5 physical ceiling — a
+physics sanity check finding what a unit test had no reason to look for. Worth making this point in
+the report: unit tests confirm the rules you thought to write down, and impossible-by-construction
+benchmark conditions catch the ones you did not.
+
+**ROC monotonicity widened from one curve to all of them.** It previously checked a single
+`masking`/CA curve. It now runs over every exported curve — 3 conditions × 5 methods, all swept
+points — and names any violator. Zero violations, verified before the assert was written.
+
+**Framing corrected:** the section described its checks in terms that implied they establish
+correctness. They are targeted regression and sanity checks, and the text now says so, along with
+the plain statement that passing them does not prove the evaluator is bug-free.
+
+*Also:* gate monotonicity restated precisely as "for a **fixed set of detections**, widening the gate
+cannot remove an existing TP" — the previous phrasing did not say the detection set was held fixed.
+
 #### Artefacts and how to regenerate
 
 `results/` is gitignored, so the three cached inputs are not in the repository:
