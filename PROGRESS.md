@@ -2945,6 +2945,62 @@ what is being compared.
 and both drifted in the direction of claiming more. Worth re-reading the report's own summary
 sections against their bodies before submission for the same reason.
 
+#### `dl_development.ipynb` — the DL side rebuilt as an explanation; `PLAN.md` created
+
+**New notebook, old one preserved.** `notebooks/dl_development.ipynb` (70 cells, built by
+`scripts/build_dl_development_nb.py`) reorganises the DL material as a design narrative: why a
+deliberately small network, what it receives, what it predicts, the architecture, the receptive
+field, training, sanity checks, seed variability, epoch selection, localization, the decision
+history, the frozen card, and what the work does and does not establish.
+`cnn_development_log.ipynb` is **unchanged** and remains the dated research log — the new notebook is
+the record of *why*, the old one of *when*.
+
+**Everything recomputed from source rather than copied**: 5,041 parameters (verified layer by layer),
+receptive field analytic (21,9) **equal to** measured, growth 3x3 → 7x5 → 13x7 → 21x9, the
+`pos_weight` ablation from `checkpoint_history.csv`, and the epoch rule from
+`epoch_sweep_epsweep_selection.csv`.
+
+**Two findings sharpened by recomputing rather than quoting.**
+
+*The `pos_weight` ablation is 5 better / 1 tied / 1 worse, not "6 of 7".* `masking` is an exact tie
+(0.0000) and `unresolved` the single loss (−0.0013, at the physics ceiling). More useful: the three
+largest gains from pw974 → pw100 are **`mixed` +0.0292, `clutter_edge` +0.0264, `clutter` +0.0190** —
+all three clutter-bearing conditions. That is the mechanism behind Correction C3: exact class
+balancing degraded precisely the clutter conditions, so the "DL loses in clutter" reading was a
+property of the loss weighting rather than of the detector.
+
+*The epoch-21 margin is tight.* Stopping at 21 rather than the plateau at 23 gives up **+0.0018** Pd
+against a 1 SE tolerance of **0.0023**. The rule is satisfied, but only just — worth knowing when
+defending the choice rather than presenting it as comfortable.
+
+**Localization degradation quantified over the full sweep:** Doppler error **0.201 → 0.421 bins**
+(2.1x) and range **0.310 → 0.457** from epoch 1 to 25, while Pd rises only **+0.057**. The clearest
+single statement of the detection/localization trade in the project.
+
+**Contradictions found and reported, not silently fixed:**
+
+1. ⚠️ **`src/dl/models.py` docstring overclaims.** It states the two detectors "see identical context
+   and differ only in the DECISION RULE". Matched *extent* is not matched *information* — CFAR
+   excludes its guard region by design and the network need not. The notebook states the correct,
+   weaker version throughout; **the source docstring is still wrong and should be corrected.**
+2. ⚠️ **Stale dimension in the same docstring**: "the output must stay 256x128". The map is 256x64.
+3. The epoch sweep uses **4 seeds**, not the 8 of the frozen arm; stated in the notebook.
+4. **`TinyCNNPool` has never been trained or scored.** The model exists and its RF is measured
+   (13x13, differing from TinyCNN on both axes) but there is no pooling *experiment*. Presented as
+   built-not-run, not as a completed control.
+
+**`PLAN.md` created** — future work only, in priority order: (1) label/localization attribution,
+(2) mainlobe/information-access attribution, (3) fixed-threshold CFAR-ness, (4) secondary ablations;
+then the CARRADA roadmap R0–R4, beginning with a domain audit and a frozen zero-shot evaluation.
+⚠️ This reintroduces a file previously deleted, when `PROGRESS.md` was made "the single roadmap
+record". `PLAN.md` opens by reconciling that: it holds **only** work not yet done, and `PROGRESS.md`
+remains authoritative for everything completed.
+
+*Two notebook bugs worth remembering:* a figure loop bound `M` and silently overwrote
+`FROZEN["model"]`, failing nine cells later; and a filtered DataFrame kept its original index, so
+`iterrows()` produced out-of-range list lookups. Both are runtime faults the builder's compile check
+cannot catch — only executing the notebook finds them.
+
 #### Artefacts and how to regenerate
 
 `results/` is gitignored, so the three cached inputs are not in the repository:
