@@ -79,28 +79,47 @@
 >    chances vs theory's one), so theory is a bound only at gate 0. The ±1 panel alone would show
 >    five detectors beating physics. Bonus finding: at gate 0 DL plateaus at **Pd 0.41** where CFAR
 >    reaches ~0.85 — the localization deficit as a detection number, on a third split.
-> 4. **Six evaluation-methodology fixes — STARTED, THEN PARKED 22 Aug.** None applied; nothing is
->    half-done. `scripts/localization_common_subset.py` exists but has **never completed a run** and
->    is unverified. The queue, in the order given:
->    1. **Localization on the common detected subset** — restrict both arms to targets *both*
->       detected, gate ±1, per condition and pooled. Tests whether the 3.83× Doppler gap survives
->       when neither arm gets credit for what the other missed. ⚠️ **Post-hoc** — it is listed in the
->       pre-registration and comparison notebook §9.4 as a limitation deliberately *not* run, so it
->       must be reported as post-hoc, not as part of the pre-registered result.
->    2. **Re-select best CFAR inside each bootstrap replicate**, so "OS is best on masking" stops
->       being treated as certain. Expect wider CIs; report the widening per condition. Do not
->       resample the 8 DL seeds.
->    3. **Define the three Pfa notions once** in Methods: per-cell, post-NMS, guard-excluded — and
->       state that the matched operating point is post-NMS + guard-excluded while the §5 theory
->       comparison is per-cell.
+> 4. **Six evaluation-methodology fixes — ✅ FOUR CLOSED 24 Aug**, in
+>    `notebooks/evaluation_metrics_overview.ipynb` (built by
+>    `scripts/build_evaluation_metrics_nb.py`). Full record: `PROGRESS.md` 24 Aug.
+>    1. ~~Localization on the common detected subset~~ ✅ **DONE 24 Aug** —
+>       `scripts/localization_common_subset.py` completed its first run. **The gap survives:**
+>       pooled Doppler **3.83× → 3.63×**, range 2.40× → 2.31×, on a common subset that is 94.3% of
+>       the CFAR arm's detected targets. Shrinks on 5 of 7 conditions — that is the selection
+>       effect, measured, and it is small. **`clutter` moves the other way (6.44× → 8.80×)**: the
+>       arms overlap least there and tie on Pd, so the intersection is a different population and
+>       the ratio is unstable. ⚠️ Still **post-hoc** — report beside the pre-registered number,
+>       never instead of it. → notebook §6.1,
+>       `results/dl/localization_common_frozen_ep021_test.csv`.
+>    2. ~~Re-select best CFAR inside each bootstrap replicate~~ ✅ **DONE 24 Aug** —
+>       `scripts/bootstrap_best_cfar_reselect.py` (new). **The prediction was wrong: 0 of 7 verdicts
+>       changed and the intervals did NOT widen** (ratios 0.952–1.000). Selection uncertainty is
+>       real — the winner is displaced in 29% of replicates on `unresolved`, 21% on `clutter` — but
+>       immaterial, because the ranking only flips when the variants are within noise of each other,
+>       where swapping them changes Pd by almost nothing. The original procedure's assumption was
+>       not load-bearing. → notebook §8.1.
+>    3. ~~Define the three Pfa notions once~~ ✅ **DONE 24 Aug** — notebook §5.1, with the
+>       per-cell/post-NMS relation measured (NMS survival 0.66–0.83) rather than asserted.
 >    4. **Precise wording:** "Detector discrimination is compared at matched measured Pfa = 1e-4,
 >       obtained independently from each condition's ROC" — plus a clause noting a per-condition
 >       threshold is an oracle a deployed system lacks, which frames the fixed-threshold experiment
->       as closing a stated gap.
->    5. **Never print `p = 0`** — the floor is 1/2000, so report `p < 0.001`.
+>       as closing a stated gap. **Written up as notebook §7.2; still to land in the Method chapter.**
+>    5. ~~Never print `p = 0`~~ ✅ **DONE 24 Aug** — `fmt_p()` in the notebook reports below the
+>       two-sided floor (2/2000) as `p < 0.001`, used at every p-value site.
 >    6. **Confirm Bonferroni on the DL side** and state it in Methods rather than applying it
->       silently. Note `unresolved` (+0.012) does not survive correction, which supports the
->       existing "tie at the physics cap" reading for a second, independent reason.
+>       silently. **Written up as notebook §9; still to land in the Method chapter.**
+>       ⚠️ **This item previously said `unresolved` (+0.012) "does not survive correction". That was
+>       WRONG and is retracted (24 Aug).** Measured: p = 0.001 < α = 0.0071 at **both** gates, and
+>       the `sig (Bonf)` column of `bootstrap_frozen_ep021_test_tol{1,3}.csv` has said `True` since
+>       19 Aug. The reasoning error was inferring a statistical property from a physical one — the
+>       tie-at-the-cap reading is right, so the note assumed the statistics would agree.
+>       **The correct reading:** `unresolved` is **statistically significant and physically a tie**
+>       — ~1 percentage point against a ~0.5 ceiling both arms are pinned against, p sitting at the
+>       bootstrap's own resolution floor. Still not a win, and still not in a win list. This is the
+>       *stronger* version for the report: the correction does **not** rescue the reading, so
+>       judgement about effect size has to. No published number changes, so it is **not** a new
+>       Corrections-log entry (C1–C8 are retractions of reported results; this was a to-do note).
+>       → notebook §9.2.
 >
 > 5. **WRITING — the whole critical path now.** All experiments are done. `SCHEDULE.md` targeted
 >    20 Aug; nothing is drafted; the realistic target is the **1 Sep hard deadline**. Order:
@@ -129,7 +148,13 @@
 > edge of the range) · ~~nothing below epoch 15 tested~~ **closed 16 Aug — epochs 1–25 all
 > measured** · localization degrades *asymmetrically* between range and Doppler, which a symmetric
 > 3×3 label does not predict (notebook Open/O4) · one simulator only (criterion 8) ·
-> `clutter_edge` stratum 34% diluted · H1/H2 attribution (Milestone 18) not started.
+> `clutter_edge` stratum 34% diluted · H1/H2 attribution (Milestone 18) not started ·
+> **the DL ROC cannot be swept past sigmoid 0.5** — `all_peaks` keeps `score > 0`, which on
+> logits removes 67 of 80 local maxima on a sample frame (0 of 115 for CFAR, whose ratio is
+> positive by construction). No reported number is affected: operating cuts sit at 1.39–1.70
+> logits, so everything removed would have failed the cut anyway. It would only matter for a
+> **high-Pfa** DL operating point, which the fixed-threshold / CFAR-ness experiment might need
+> (added 24 Aug; notebook appendix A.2).
 
 ---
 
@@ -442,4 +467,5 @@ superseded and kept as the experimental record.
 | Radar config derivation | `docs/radar_config_carrada.md` |
 | DL design record | `docs/dl_design.md` |
 | 19-paper corpus review | `docs/literature_corpus_review.md` |
-| Scripts | `scripts/measure_psf.py`, `verify_clutter.py`, `cfar_sanity.py`, `cfar_calibrate.py`, `cfar_geometry_sweep.py`, `cfar_geometry_percondition.py`, `verify_splits.py`, `preview_strata.py` |
+| Scripts | `scripts/measure_psf.py`, `verify_clutter.py`, `cfar_sanity.py`, `cfar_calibrate.py`, `cfar_geometry_sweep.py`, `cfar_geometry_percondition.py`, `verify_splits.py`, `preview_strata.py`, `roc_curve_export.py`, `bootstrap_best_cfar_reselect.py`, `localization_common_subset.py` |
+| Evaluation protocol | `notebooks/evaluation_metrics_overview.ipynb` (built by `scripts/build_evaluation_metrics_nb.py`) |
