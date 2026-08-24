@@ -1287,9 +1287,23 @@ axes[0].set_title(f"ROC - {COND} (bench2_val, illustration)", loc="left", fontsi
 axes[1].set_title(f"FROC - {COND}", loc="left", fontsize=10.5)
 plt.tight_layout(); plt.show()''')
 
-cap("Each dot is where that method is scored. They sit on one vertical line in the left panel — "
-    "that is what 'matched measured Pfa' means, and the vertical spread between the dots is the "
-    "only thing the comparison reads off.")
+cap("Each dot is where that method is scored. They sit on approximately the same vertical line in "
+    "the left panel — the achieved Pfa is close to 1e-4 rather than exactly it, which is why §7.1 "
+    "reports the achieved value beside every operating point. That near-alignment is what 'matched "
+    "measured Pfa' means, and the vertical spread between the dots is the only thing the comparison "
+    "reads off.")
+
+md("""### 7.0 In summary
+
+A detector's Pd cannot be interpreted without considering how many false alarms it is allowed to
+produce. Lowering the score threshold generally lets more detections through, increasing both the
+opportunity to detect real targets and the number of false alarms, while raising the threshold does
+the opposite. We therefore sweep the threshold for each detector to obtain a curve relating Pd to its
+measured false-alarm burden. The CFAR and DL methods are not compared at the same numerical score
+threshold, because their scores have different meanings and scales. Instead, each method is placed at
+approximately the same measured post-NMS Pfa of $10^{-4}$, and their Pd values are compared there.
+The corresponding FROC shows the same threshold sweep using false alarms per frame, which expresses
+the false-alarm burden in a more operational form.""")
 
 md("""### 7.1 How the operating point is chosen, and why Pd is measured rather than interpolated
 
@@ -1333,9 +1347,21 @@ print(f"worst deviation from the 1e-4 target: "
 cap("Every entry within a couple of percent of 1.0 — the operating points genuinely matched, so the "
     "Pd comparisons are like-for-like. This is the check that licenses everything else.")
 
+md("""### 7.1a In summary
+
+Because the threshold sweep evaluates only a finite set of score values, there is not always a
+sampled threshold that produces exactly the target Pfa of $10^{-4}$. The operating threshold is
+therefore estimated by interpolating between nearby points using log Pfa, which better reflects the
+approximately exponential relationship between threshold and false-alarm rate. Only the threshold is
+interpolated: once it is chosen, the detector is evaluated again at that actual threshold and Pd is
+measured directly from the resulting detections. The achieved Pfa is then checked against the
+$10^{-4}$ target to verify that the different methods really are being compared at essentially the
+same false-alarm burden.""")
+
 md("""### 7.2 ⚠️ The threshold is an evaluation oracle
 
-**The threshold is selected separately for each condition, using that condition's own measured ROC.**
+**The threshold is selected separately for each method and each condition, using that
+method-condition pair's own measured ROC.**
 
 That makes it an **evaluation-oracle operating point**. It answers a specific, legitimate question —
 *given that both detectors are placed at the same false-alarm burden, which discriminates better?* —
@@ -1350,6 +1376,18 @@ whether the network has it.
 That gap is the motivation for the fixed-threshold / CFAR-ness experiment: run every method at a
 **single** threshold across all conditions and measure how far the achieved Pfa wanders. Until that
 is done, no claim of CFAR-like behaviour by the network is supported by this protocol.""")
+
+md("""### 7.2a In summary
+
+The matched-Pfa threshold used here is an evaluation operating point rather than a deployment
+threshold. A separate threshold is selected for each method and each condition using that
+method-condition pair's measured ROC, which allows the experiment to ask a controlled question: if
+the methods are given the same observed false-alarm burden, which one detects more targets? This
+isolates discrimination ability from threshold-setting ability. However, a deployed detector does not
+know the true scenario or have labelled data available to rebuild its ROC and adjust its threshold
+for every environment. The matched-Pfa results therefore do not show that DL can maintain a constant
+false-alarm rate on its own; that would require a separate fixed-threshold experiment across changing
+conditions.""")
 
 # ============================================================================== 8
 md("""---

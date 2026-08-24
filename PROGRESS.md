@@ -2796,6 +2796,28 @@ now stated only where it holds: **target-free frames**, where there is no guard 
 notions share a denominator. That is the pure-noise calibration setting the survival fractions are
 measured in.
 
+#### Two protocol descriptions corrected in §7, and plain-prose summaries added throughout
+
+**The matched threshold is chosen per METHOD per CONDITION, not per condition.** §7.2 said "the
+threshold is selected separately for each condition, using that condition's own measured ROC". That
+understates the oracle: `_at_measured_pfa` is called once for every (condition, method) pair, so each
+*method* also gets its own threshold on each condition. The evaluation-oracle warning is
+correspondingly stronger than it read — a deployed system would need not just per-scene retuning but
+per-scene retuning *of that particular detector*. Corrected wording: "selected separately for each
+method and each condition, using that method-condition pair's own measured ROC."
+
+**"The dots sit on one vertical line" overclaimed.** The achieved Pfa is close to 1e-4, not equal to
+it — 0.977–1.012 of target on `bench2_val` (§7.1), 0.981–1.017 on `bench2_test` (T4). The caption now
+says "approximately the same vertical line" and points at the achieved values printed beside each
+operating point. This matters because the whole comparison rests on that near-alignment, so the
+figure should not imply a precision the table does not support.
+
+**Plain-prose summaries added** at the end of §§4, 5, 6, 6.1, 7, 7.1 and 7.2, written to be liftable
+into the Method chapter. They restate each section's protocol in continuous prose rather than in the
+bullet-and-figure form the notebook uses for explanation. The §5.3 and §7.2a paragraphs in particular
+are the clearest statements of the two fairness arguments — matching at the final post-NMS Pfa, and
+the oracle-threshold scope limit — and should go into the report close to as-written.
+
 #### Artefacts and how to regenerate
 
 `results/` is gitignored, so the three cached inputs are not in the repository:
