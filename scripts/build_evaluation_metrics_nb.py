@@ -139,16 +139,15 @@ ax.set_xlim(0, 100); ax.set_ylim(0, 10); ax.axis("off")
 
 stages = [
     ("score map", "cfar_ratio_map()\\npredict_heatmap()", BLUE),
-    ("local maxima\\n+ NMS", "all_peaks()\\nradius 5", BLUE),
-    ("valid region", "cfar_valid_mask()", AQUA),
+    ("local maxima\\n+ NMS", "all_peaks(score, valid)\\nradius 5", BLUE),
     ("score\\nthreshold", "score >= tau\\nswept", AQUA),
     ("one-to-one\\nmatching", "evaluate_frame()\\nHungarian, +/-1 bin", PURPLE),
-    ("TP / FP / FN", "FrameEval", PURPLE),
-    ("metrics", "aggregate()\\nPd · Pfa · error", ORANGE),
+    ("TP / FP / FN", "FrameEval\\n+ valid mask again", PURPLE),
+    ("metrics", "aggregate()\\nPd - Pfa - error", ORANGE),
 ]
-w, gap = 11.6, 2.1
+w, gap = 14.2, 2.4
 for i, (title, fn, c) in enumerate(stages):
-    x = 1.0 + i * (w + gap)
+    x = 1.4 + i * (w + gap)
     ax.add_patch(Rectangle((x, 3.0), w, 4.4, facecolor=c, alpha=0.13,
                            edgecolor=c, linewidth=1.5))
     ax.text(x + w / 2, 6.4, title, ha="center", va="center", fontsize=10.5, weight="bold")
@@ -160,14 +159,14 @@ for i, (title, fn, c) in enumerate(stages):
                                      color=MUTED, linewidth=1.2))
 
 ax.text(1.0, 1.5, "identical for CFAR and DL  -->", fontsize=9, color=MUTED, style="italic")
-ax.annotate("", xy=(97, 1.9), xytext=(28, 1.9),
+ax.annotate("", xy=(98.6, 1.9), xytext=(17.6, 1.9),
             arrowprops=dict(arrowstyle="-", color=GRID, linewidth=6))
 ax.text(1.0, 8.8, "One frame, one detector", fontsize=12, weight="bold")
 plt.show()''')
 
-cap("The threshold is applied AFTER peak extraction, not before it — peaks are extracted once, "
-    "unthresholded, so the whole ROC can be swept without re-running the detector. §1 shows why "
-    "that is equivalent to thresholding first.")
+cap("Note the order: NMS runs on the raw score map and the score cut comes after it, so the "
+    "candidate set is fixed once and the ROC sweep only moves the cut. Section 1.1a explains why, "
+    "and appendix A.1 checks the result against thresholding inside peak extraction.")
 
 md("""### The choices that define the comparison
 
@@ -229,12 +228,14 @@ cap("Two different statistics on two different scales — but structurally the s
     "per cell. White rings are the two labelled targets. Everything downstream treats these maps "
     "identically.")
 
-md("""### 1.1 The four stages, on the real map
+md("""### 1.1 The four stages, in the order the code applies them
 
 **The question:** which cells survive, and why?
 
-Shown for both detectors at once, each at a threshold it would really be used at: CFAR at its
-calibrated design threshold, the network at the operating point §7 derives for this condition.""")
+Note the ordering, because it is easy to get backwards. **NMS runs first, on the raw score map, with
+no threshold applied.** The score cut comes afterwards. Shown for both detectors at once, each cut
+at a threshold it would really be used at: CFAR at its calibrated design threshold, the network at
+the operating point §7 derives for this condition.""")
 
 code('''ALPHA_CA = CFAR_CFG.resolved_alpha()      # calibrated, from configs/cfar_alpha_table.json
 # The operating points exported for section 7; used here only so the illustration sits at a
@@ -244,81 +245,110 @@ THR_DL = float(OPP[(OPP.condition == "masking") & (OPP.method == "DL")].threshol
 
 
 def stages(score, thr):
-    """The four stages, built from the SAME primitives all_peaks() composes."""
-    above = score > thr
+    """Stage 2 (NMS, unthresholded) then stage 3 (the score cut) -- the real order."""
+    pts = all_peaks(score, VALID, nms_size=NMS)        # every local max, NO threshold
+    keep = pts[:, 2] >= thr if len(pts) else np.zeros(0, dtype=bool)
+
+    # The same primitives all_peaks() composes, kept only to show the peak test in the figure.
     peak = score == maximum_filter(score, size=2 * NMS + 1, mode="nearest")
     survivors = _collapse_plateaus(VALID & peak & (score > 0))
-
-    pts = all_peaks(score, VALID, nms_size=NMS)
     assert ({(int(r), int(c)) for r, c in np.argwhere(survivors)} ==
-           {(int(p[0]), int(p[1])) for p in pts}), "stage 3 must reproduce all_peaks() exactly"
+            {(int(q[0]), int(q[1])) for q in pts}), "stage 2 must reproduce all_peaks() exactly"
 
-    return above, peak, pts[pts[:, 2] >= thr] if len(pts) else pts
+    return pts, keep
 
 
-CF_ABOVE, CF_PEAK, CF_DET = stages(RATIO, ALPHA_CA)
-DL_ABOVE, DL_PEAK, DL_DET = stages(LOGIT, THR_DL)
+CF_PTS, CF_KEEP = stages(RATIO, ALPHA_CA)
+DL_PTS, DL_KEEP = stages(LOGIT, THR_DL)
 
-print(f"CFAR threshold (calibrated alpha) : {ALPHA_CA:.3f}")
-print(f"DL threshold (matched, this condition): {THR_DL:.3f} logits")
+print(f"CFAR score cut (calibrated alpha)     : {ALPHA_CA:.3f}")
+print(f"DL score cut (matched, this condition): {THR_DL:.3f} logits")
 print()
 summary = pd.DataFrame([
-    dict(arm="CFAR (CA)", above_threshold=int((CF_ABOVE & VALID).sum()),
-         local_maxima=int((CF_PEAK & VALID).sum()), detections=len(CF_DET)),
-    dict(arm="TinyCNN", above_threshold=int((DL_ABOVE & VALID).sum()),
-         local_maxima=int((DL_PEAK & VALID).sum()), detections=len(DL_DET)),
+    dict(arm="CFAR (CA)", candidate_peaks=len(CF_PTS), detections=int(CF_KEEP.sum()),
+         cells_over_tau=int(((RATIO > ALPHA_CA) & VALID).sum())),
+    dict(arm="TinyCNN", candidate_peaks=len(DL_PTS), detections=int(DL_KEEP.sum()),
+         cells_over_tau=int(((LOGIT > THR_DL) & VALID).sum())),
 ]).set_index("arm")
-display(summary)''')
+display(summary)
+print("`candidate_peaks` is stage 2 and does not depend on the cut -- it is computed once and")
+print("reused at every threshold the ROC sweeps. `cells_over_tau` is NOT a pipeline stage; it is")
+print("shown only to size what NMS removes, and for the network it is most of the map's response.")''')
 
-code('''# Zoom on the strongest target so individual cells are visible (clamped to the map).
-r0, v0 = TRUTHS[int(np.argmax([RATIO[int(r), int(v)] for r, v in TRUTHS]))].astype(int)
-rlo, rhi = max(0, r0 - 14), min(SHAPE[0], r0 + 15)
-vlo, vhi = max(0, v0 - 9), min(SHAPE[1], v0 + 10)
-RSL, VSL = slice(rlo, rhi), slice(vlo, vhi)
-ext = [vlo - 0.5, vhi - 0.5, rlo - 0.5, rhi - 0.5]
+code('''fig, axes = plt.subplots(2, 4, figsize=(15.0, 9.2))
+rows = [("CFAR (CA) ratio", RATIO, CF_PTS, CF_KEEP, ALPHA_CA),
+        ("TinyCNN logits", LOGIT, DL_PTS, DL_KEEP, THR_DL)]
 
-fig, axes = plt.subplots(2, 4, figsize=(16.4, 8.4))
-rows = [("CFAR (CA) ratio", RATIO, CF_ABOVE, CF_PEAK, CF_DET, ALPHA_CA, "magma"),
-        ("TinyCNN logits", LOGIT, DL_ABOVE, DL_PEAK, DL_DET, THR_DL, "magma")]
-
-for row, (name, score, above, peak, det, thr, cmap) in zip(axes, rows):
-    row[0].imshow(score[RSL, VSL], aspect="auto", origin="lower", cmap=cmap, extent=ext)
+for row, (name, score, pts, keep, thr) in zip(axes, rows):
+    row[0].imshow(score, aspect="auto", origin="lower", cmap="magma")
     row[0].set_title(f"1 · {name}", loc="left", fontsize=10)
 
-    row[1].imshow(above[RSL, VSL].astype(float), aspect="auto", origin="lower", cmap="Blues",
-                  vmin=0, vmax=1.5, extent=ext)
-    row[1].set_title(f"2 · score > {thr:.2f}   ({int((above & VALID).sum())} cells)",
-                     loc="left", fontsize=10)
+    for ax in row[1:]:
+        ax.imshow(score, aspect="auto", origin="lower", cmap="Greys", alpha=0.30)
 
-    row[2].imshow(peak[RSL, VSL].astype(float), aspect="auto", origin="lower", cmap="Greens",
-                  vmin=0, vmax=1.5, extent=ext)
-    row[2].set_title(f"3 · local max of {2 * NMS + 1}x{2 * NMS + 1}", loc="left", fontsize=10)
+    row[1].scatter(pts[:, 1], pts[:, 0], s=26, facecolor="none", edgecolor=AQUA, linewidths=1.0)
+    row[1].set_title(f"2 - local maxima, {2 * NMS + 1}x{2 * NMS + 1} NMS, "
+                     f"unthresholded: {len(pts)} candidates", loc="left",
+                     fontsize=9.5)
 
-    row[3].imshow(np.zeros_like(score[RSL, VSL]), aspect="auto", origin="lower",
-                  cmap="Greys", vmin=0, vmax=1, extent=ext)
-    if len(det):
-        row[3].scatter(det[:, 1], det[:, 0], s=95, color=ORANGE, edgecolor=INK, linewidths=0.8,
-                       zorder=4)
-    row[3].set_title(f"4 · detections ({len(det)} in the full map)", loc="left", fontsize=10)
+    row[2].scatter(pts[~keep, 1], pts[~keep, 0], s=26, facecolor="none", edgecolor=GREY,
+                   linewidths=1.0)
+    row[2].scatter(pts[keep, 1], pts[keep, 0], s=44, color=ORANGE, edgecolor=INK, linewidths=0.7)
+    row[2].set_title(f"3 - score cut at {thr:.2f}: "
+                     f"{int((~keep).sum())} candidates fall below (grey)",
+                     loc="left", fontsize=9.5)
+
+    row[3].scatter(pts[keep, 1], pts[keep, 0], s=60, color=ORANGE, edgecolor=INK, linewidths=0.8)
+    row[3].set_title(f"4 · detections ({int(keep.sum())})", loc="left", fontsize=10)
 
     for ax in row:
-        ax.scatter(TRUTHS[:, 1], TRUTHS[:, 0], s=150, facecolors="none",
-                   edgecolors="#00d0ff", linewidths=1.5, zorder=5)
-        ax.set_xlim(ext[0], ext[1]); ax.set_ylim(ext[2], ext[3])
+        ax.scatter(TRUTHS[:, 1], TRUTHS[:, 0], s=190, facecolors="none",
+                   edgecolors="#00d0ff", linewidths=1.6, zorder=6)
+        ax.set_xlim(-0.5, SHAPE[1] - 0.5); ax.set_ylim(-0.5, SHAPE[0] - 0.5)
         ax.grid(False); ax.tick_params(labelsize=8)
     row[0].set_ylabel("Range bin")
 
 for ax in axes[-1]:
     ax.set_xlabel("Doppler bin")
-fig.suptitle("Score map to point detections - same four stages, same code, both arms "
-             "(zoomed on the strong target)", x=0.005, ha="left", fontsize=12)
+fig.suptitle("Score map to detections - NMS fixes the candidate set, THEN the score cut is "
+             "applied (rings are the two labelled targets)", x=0.005, ha="left", fontsize=12)
 plt.tight_layout(); plt.show()''')
 
-cap("Stage 2 is the reason NMS exists, and the two arms need it to different degrees: the network "
-    "puts a broad blob of cells above threshold where CFAR's ratio crosses in only a few. Stage 4 "
-    "shows both collapse to a single point on the target - the object the evaluator actually "
-    "scores. Rings are the two labelled targets; the weak one of the masking pair is found by "
-    "neither arm here.")
+cap("Panel 2 is the whole candidate set and it is the same at every threshold. Panel 3 is the only "
+    "thing the ROC sweep moves: the grey circles are candidates that did not clear this particular "
+    "cut, and raising or lowering it just re-colours them. On this frame both arms end up with the "
+    "strong target and no detection on the weak one - a threshold outcome, not an NMS one, since "
+    "the pair is 8 range bins apart and so outside the suppression radius.")
+
+md("""### 1.1a Why NMS comes first
+
+**It fixes the candidate set once.** Peak extraction is the expensive part; the score cut is a
+comparison against a scalar. Extracting peaks unthresholded means the ROC sweeps a cut over a
+**fixed list of peaks** instead of re-running NMS at every one of ~95 thresholds, which is what
+makes a per-condition swept operating point affordable at all. It also means the candidate set
+cannot shift underneath the sweep — every point on the curve describes the same set of peaks,
+judged more or less strictly.
+
+**The consequence, which is a real cost.** Because suppression happens before the cut, **a strong
+peak suppresses a nearby weaker one whether or not either would have cleared the threshold.** The
+weaker target is not rejected for being too weak; it never becomes a candidate at all, so no
+threshold can recover it. With radius 5 the suppression reach is ±5 bins — 0.98 m in range,
+2.10 m/s in Doppler — and that is the mechanism behind the `masking` ceiling already recorded in the
+limitations (on clean maps only ~38% of masking pairs keep both targets, and 5.9% of pairs closer
+than 1 m).""")
+
+code('''# Synthetic, not a measurement: two peaks on an empty map, both far above any threshold used.
+demo = []
+for sep in (3, 5, 6, 8):
+    m = np.zeros((40, 40))
+    m[20, 20], m[20 + sep, 20] = 50.0, 30.0          # strong peak, weaker neighbour
+    pk = all_peaks(m, np.ones_like(m, dtype=bool), nms_size=NMS)
+    demo.append(dict(separation_bins=sep, separation_m=sep * RES_R,
+                     candidates=len(pk),
+                     detections_at_tau_10=int((pk[:, 2] >= 10).sum())))
+display(pd.DataFrame(demo).set_index("separation_bins").round(3))
+print("Both peaks (50 and 30) are far above the cut of 10, so nothing here is a threshold effect.")
+print(f"Within {NMS} bins the weaker one never becomes a candidate; from {NMS + 1} bins both do.")''')
 
 md("""### 1.2 Three details that are easy to get wrong
 
@@ -722,8 +752,8 @@ code('''fig, ax = plt.subplots(figsize=(12.4, 3.9))
 ax.set_xlim(0, 100); ax.set_ylim(0, 10); ax.axis("off")
 
 bars = [("all valid cells", 78, GREY, "denominator of notions 1 and 2"),
-        ("cells above threshold", 30, BLUE, "numerator of notion 2  (design target = notion 1)"),
-        ("surviving local maxima", 20, AQUA, "NMS keeps ~66-83% of them"),
+        ("cells over the cut", 30, BLUE, "numerator of notion 2  (design target = notion 1)"),
+        ("...that are also NMS peaks", 20, AQUA, "NMS keeps ~66-83% of them"),
         ("outside every truth's gate", 15, ORANGE, "numerator of notion 3")]
 for i, (label, w, c, note) in enumerate(bars):
     y = 8.0 - i * 2.1
@@ -731,7 +761,8 @@ for i, (label, w, c, note) in enumerate(bars):
                            edgecolor=c, linewidth=1.4))
     ax.text(13, y, label, ha="right", va="center", fontsize=9.5)
     ax.text(14 + w + 1.5, y, note, va="center", fontsize=8.3, color=MUTED, style="italic")
-ax.text(14, 9.6, "narrowing, at a fixed threshold  (widths schematic, not to scale)",
+ax.text(14, 9.6, "nested sets at ONE fixed threshold - not pipeline order, since NMS runs first "
+        "(widths schematic)",
         fontsize=9, color=MUTED)
 plt.show()''')
 
