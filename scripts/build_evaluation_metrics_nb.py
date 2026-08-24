@@ -671,7 +671,7 @@ They cover the same cells, but they do opposite jobs:
 | | question it answers | effect |
 |---|---|---|
 | **matching gate** | is this detection close enough to count as a **hit**? | sets TP and FN |
-| **guard region** | is this *unmatched* detection a near-miss to be **forgiven**, or a false alarm? | sets FP, and removes those cells from the Pfa **denominator** |
+| **guard region** | is this *unmatched* detection a **near-target detection** to be set aside, or a false alarm? | sets FP, and removes those cells from the Pfa **denominator** |
 
 **They are not independent.** `evaluate_frame` builds the guard from the *same* `MatchConfig` that
 defines the gate, so **widening the gate widens the guard too**, and the false-alarm denominator
@@ -707,11 +707,11 @@ the rate is computed over a slightly different background. So the ±3 row is a *
 protocol* at a looser tolerance, which is exactly what makes it a robustness check. What you must
 never do is read a Pd from one gate against a Pfa from the other.
 
-**In practice the guard convention is doing almost nothing.** §4.1 measures it at the matched
-operating point on real data: **0 forgiven detections out of 6,519**, across every condition and
-method tested. NMS has already removed the duplicates the guard rule exists to excuse. The
-convention is a safety net that currently catches nothing — which is the strongest form of the
-argument that it is not quietly doing work in the results.""")
+**In practice the guard convention is doing almost nothing**, and §4.1 measures exactly how little
+at the matched operating point across every condition and method — the count is computed there
+rather than quoted here. NMS and plateau collapse remove the duplicate responses the guard rule
+exists to set aside, so it is a safety net that catches essentially nothing. That measurement is the
+strongest form of the argument that the convention is not quietly doing work in the results.""")
 
 md("""### 3.2 The three matching properties, executed""")
 
@@ -762,20 +762,29 @@ md("""### The counting rules
 | **TP** | a detection assigned to a truth by the one-to-one matching |
 | **FN** | a truth with no assigned detection |
 | **FP** | an unassigned detection that lies **outside** every truth's gate |
-| *(forgiven)* | an unassigned detection **inside** some truth's gate — ignored, counted as neither |
+| *(forgiven)* | an unassigned **near-target detection** — unassigned but inside some truth's gate — ignored, counted as neither |
 
 **And the false-alarm denominator excludes those same cells.** `cells_tested = (valid & ~guard).sum()`
 — every cell within the gate of any truth is removed from the background over which Pfa is measured.
 
-**The rationale.** A second detection one bin from a real target is not a spurious alarm on empty
-noise; it is a near-miss of something that is genuinely there. Counting it as a false alarm would
-charge the detector for finding the target twice, and would put target energy into the "background"
-whose false-alarm rate is being measured.
+**One geometry, two purposes.** The guard region is built from the *same* tolerance as the matching
+gate (§3.1a), so the two cover identical cells. They are still different things: the **gate** decides
+whether a detection counts as a hit; the **guard** decides whether an *unmatched* detection is set
+aside or charged as a false alarm, and which cells form the false-alarm background. Sharing the
+geometry is deliberate — a cell close enough to a target to count as a hit is also close enough that
+its contents are not nominal background.
 
-**The cost, stated plainly.** This is an evaluation *convention*, not a law, and it is generous: a
-detector that sprays extra detections around each true target pays nothing for them. That is exactly
-the failure mode the plateau collapse in §1 was added to contain, and it is why the check below is
-part of the protocol rather than an afterthought.""")
+**The rationale.** The measurement being made is the rate at which *background* raises alarms. A
+detection one bin from a real target is not sampling background — the cell carries target energy —
+so counting it as a false alarm would put target-contaminated cells into the very population whose
+false-alarm rate is being estimated.
+
+**This is a convention, and a defensible alternative exists.** Penalising duplicate responses around
+a target is a perfectly legitimate choice: a detector that reports one target three times is
+producing output an operator has to deal with, and a protocol that charges for that is measuring
+something real. This protocol does not, so the convention is generous to a detector that clusters
+detections around targets — which is why it is (a) applied identically to both arms and (b) checked
+at the operating point rather than assumed harmless. §4.1 does the checking.""")
 
 code('''guard_toy = _guard_mask(TOY_TRUTHS, TOY_SHAPE, GATE)
 valid_toy = np.ones(TOY_SHAPE, dtype=bool)
@@ -792,13 +801,14 @@ rows = [
 ]
 display(pd.DataFrame(rows, columns=["", "count"]).style.hide(axis="index"))''')
 
-md("""### 4.1 Protocol sanity check — is the forgiveness actually being used?
+md("""### 4.1 Protocol sanity check — how much is the convention actually doing?
 
-**The question:** the convention only matters if detectors exploit it. At the operating point the
-comparison is made at, how many detections are being forgiven?
+**The question:** the convention is only generous if detectors exploit it. At the operating point the
+comparison is actually made at, how many detections are being forgiven?
 
-This is a check on the **protocol**, not a detector result: a healthy answer is "essentially none",
-which would mean NMS has already removed the duplicates the guard rule would otherwise excuse.""")
+This is a check on the **protocol**, not a detector result. A healthy answer is "essentially none",
+which would mean NMS and plateau collapse have already removed the duplicate responses the guard
+rule would otherwise set aside.""")
 
 code('''PEAKS = {m: load_peaks(CV / f"peaks_{m}.npz") for m in ("CA", "GO", "OS", "SO")}
 PEAKS["DL"] = load_peaks(DLR / "peaks_val_frozen_s0_ep021.npz")
@@ -821,14 +831,38 @@ for _, r in OPP.iterrows():
                      forgiven_pct=100 * n_forgiven / max(n_det, 1)))
 
 FORGIVEN = pd.DataFrame(rows)
-display(FORGIVEN.round(4).style.hide(axis="index"))
-print(f"forgiven detections: {FORGIVEN.forgiven.sum()} of {FORGIVEN.detections.sum():,} "
-      f"({100 * FORGIVEN.forgiven.sum() / FORGIVEN.detections.sum():.3f}%), "
-      f"max {FORGIVEN.forgiven_per_frame.max():.4f} per frame on any condition/method")''')
+TOT_FORGIVEN = int(FORGIVEN.forgiven.sum())
+TOT_DET = int(FORGIVEN.detections.sum())
+
+bar = "=" * 78
+print(bar)
+print(f"  {TOT_FORGIVEN} detections forgiven out of {TOT_DET:,}"
+      f"   ({100 * TOT_FORGIVEN / TOT_DET:.3f}%)")
+print(f"  across {FORGIVEN.condition.nunique()} conditions x {FORGIVEN.method.nunique()} methods, "
+      f"at each method's own matched operating point")
+print(f"  worst case on any condition/method: "
+      f"{FORGIVEN.forgiven_per_frame.max():.4f} forgiven per frame")
+print(bar)
+print()
+display(FORGIVEN.round(4).style.hide(axis="index"))''')
 
 cap("Computed live from cached `bench2_val` detections at each method's matched operating point. "
-    "The guard rule is a safety net that, at this operating point, catches almost nothing — which "
-    "is the intended state: NMS removes duplicates before the evaluator has to forgive them.")
+    "The guard rule is a safety net that, at this operating point, catches nothing at all — NMS and "
+    "plateau collapse remove the duplicate responses before the evaluator ever has to set one "
+    "aside. The convention is therefore generous in principle and inert in practice.")
+
+md("""### 4.2 In summary
+
+In this evaluation, a detection matched one-to-one to a ground-truth target is counted as a TP,
+while an unmatched target becomes an FN. Unmatched detections are normally counted as FPs, except
+when they fall inside the same tolerance region surrounding a real target. Those near-target
+detections are ignored rather than treated as background false alarms, and the same guard cells are
+also excluded from the Pfa denominator. The purpose is to keep the false-alarm measurement focused
+on detections arising from nominal background rather than from target-contaminated cells. Because
+this convention can be generous to a detector that produces duplicate responses around a target, it
+is applied identically to CFAR and DL and is explicitly checked at the matched operating point. In
+practice, almost no detections are forgiven after NMS and plateau collapse, so the convention has
+negligible influence on the reported comparison.""")
 
 # ============================================================================== 5
 md("""---
@@ -1562,7 +1596,8 @@ md("""---
 * **That ±1 is the only reasonable localization definition.** The gate censors the localization
   metric at its own width, and a different gate would give a different — also defensible — number.
   Both gates are reported because neither is privileged (§3.1, §6).
-* **That the guard convention is neutral.** Forgiving near-miss duplicates is generous to any
+* **That the guard convention is neutral.** Setting aside unmatched near-target detections is
+  generous to any
   detector that clusters detections. §4.1 measures how much is actually being forgiven, which is the
   evidence that it is not doing real work here — but it remains a convention, not a law.""")
 
