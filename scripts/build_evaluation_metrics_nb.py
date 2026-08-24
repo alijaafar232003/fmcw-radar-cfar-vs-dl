@@ -875,9 +875,9 @@ code('''defs = [
     ("Pd", "TP / (TP + FN)",
      "fraction of labelled targets found",
      "pooled over frames within a condition, not averaged per frame"),
-    ("Pfa (per cell)", "FP / cells_tested",
-     "chance a background cell raises an alarm",
-     "cells_tested = valid & ~guard, summed over frames"),
+    ("Pfa (post-NMS, guard-excluded)", "FP / cells_tested",
+     "false detections per tested background cell",
+     "cells_tested = valid & ~guard, summed over frames; notion 3 of 5.1"),
     ("FA / frame", "FP / frames",
      "operational false-alarm burden",
      "the same FP count, a denominator a system integrator can use"),
@@ -909,19 +909,24 @@ same number. Which is which?
 
 They differ in **what is counted** and **what it is counted over**, and conflating them has caused a
 real error in this project before (the CFAR-loss figure was understated by 0.1–0.2 dB for exactly
-this reason).""")
+this reason).
+
+Note that the first is a *design target*, not a measurement: notions 2 and 3 are ratios computed
+from data, while notion 1 is the probability α is chosen to achieve.""")
 
 code('''three = [
     ("1 · design / nominal per-cell",
-     "the Pfa a CFAR threshold multiplier alpha is derived for",
-     "every cell that crosses alpha", "all valid cells",
-     "CFAR theory and Monte-Carlo alpha calibration (configs/cfar_alpha_table.json)"),
+     "a TARGET probability, not a measurement -- the per-cell false-alarm rate the threshold "
+     "multiplier alpha is derived (or Monte-Carlo calibrated) to achieve",
+     "n/a - not a ratio computed from data",
+     "n/a",
+     "CFAR theory and alpha calibration (configs/cfar_alpha_table.json)"),
     ("2 · measured per-cell",
-     "the rate actually achieved before NMS",
+     "the rate actually achieved, counted over cells before NMS",
      "every cell above threshold", "all valid cells",
      "validating alpha calibration; comparing against square-law theory (Pd = Pfa^(1/(1+SNR)))"),
     ("3 · measured post-NMS, guard-excluded",
-     "the rate achieved by reported detections",
+     "the rate achieved by the detections that are actually reported",
      "surviving local maxima outside every truth's gate",
      "valid cells outside every truth's gate",
      "THE OPERATING POINT for every CFAR-vs-DL number in this project"),
@@ -933,24 +938,38 @@ display(pd.DataFrame(three, columns=["notion", "what it is", "numerator counts",
 code('''fig, ax = plt.subplots(figsize=(12.4, 3.9))
 ax.set_xlim(0, 100); ax.set_ylim(0, 10); ax.axis("off")
 
-bars = [("all valid cells", 78, GREY, "denominator of notions 1 and 2"),
+bars = [("all valid cells", 78, GREY, "denominator of notion 2"),
         ("cells over the cut", 30, BLUE, "numerator of notion 2  (design target = notion 1)"),
-        ("...that are also NMS peaks", 20, AQUA, "NMS keeps ~66-83% of them"),
-        ("outside every truth's gate", 15, ORANGE, "numerator of notion 3")]
+        ("...that are also NMS peaks", 20, AQUA, "NMS keeps ~66-83% of them (on pure noise)"),
+        ("outside every truth's gate", 15, ORANGE, "numerator of notion 3"),
+        ("valid cells outside every gate", 71, "#b08968", "denominator of notion 3 - SMALLER")]
 for i, (label, w, c, note) in enumerate(bars):
-    y = 8.0 - i * 2.1
-    ax.add_patch(Rectangle((14, y - 0.65), w, 1.3, facecolor=c, alpha=0.45,
+    y = 8.4 - i * 1.75
+    ax.add_patch(Rectangle((14, y - 0.55), w, 1.1, facecolor=c, alpha=0.45,
                            edgecolor=c, linewidth=1.4))
-    ax.text(13, y, label, ha="right", va="center", fontsize=9.5)
-    ax.text(14 + w + 1.5, y, note, va="center", fontsize=8.3, color=MUTED, style="italic")
-ax.text(14, 9.6, "nested sets at ONE fixed threshold - not pipeline order, since NMS runs first "
-        "(widths schematic)",
-        fontsize=9, color=MUTED)
+    ax.text(13, y, label, ha="right", va="center", fontsize=9)
+    ax.text(14 + w + 1.5, y, note, va="center", fontsize=8.1, color=MUTED, style="italic")
+ax.text(14, 9.7, "numerators nest at ONE fixed threshold - but notions 2 and 3 use DIFFERENT "
+        "denominators (widths schematic)", fontsize=9, color=MUTED)
 plt.show()''')
 
-cap("Each notion counts a strictly narrower set than the one above it at the same threshold. So for "
-    "one fixed threshold, notion 3 ≤ notion 2 — matching detectors at a post-NMS Pfa of 1e-4 places "
-    "them at a per-cell rate *above* 1e-4.")
+cap("The NUMERATORS nest: every notion-3 false alarm is also a notion-2 one at the same threshold. "
+    "The DENOMINATORS do not match, because notion 3 removes the guard cells. So the two rates "
+    "cannot be ordered in general — see below for the case where they can.")
+
+md("""**⚠️ When notion 3 ≤ notion 2, and when that does not follow.** The *numerator* of notion 3 is a
+subset of notion 2's at the same threshold — a surviving local maximum outside every gate is also a
+cell above threshold. But notion 3 also uses a **smaller denominator**, since guard cells are
+removed. Two ratios whose numerator *and* denominator both shrink cannot be ordered without knowing
+by how much.
+
+**The ordering holds when the denominators are equal**, which is exactly the case on **target-free
+frames**: with no truths there is no guard region, so both notions divide by the same count and
+notion 3 ≤ notion 2 follows directly. That is the pure-noise calibration setting the survival
+fractions below are measured in, and it is where the comparison is made.
+
+On target-bearing frames both effects are present and the relationship has to be measured rather
+than assumed.""")
 
 code('''AUD = pd.read_csv(ROOT / "results" / "cfar_alpha_audit.csv").set_index("method")
 surv = (AUD.pfa_peaks_verifyseed_at_current / AUD.pfa_cells_verifyseed_at_current)
@@ -964,16 +983,38 @@ display(rel.style.format({"measured per-cell (notion 2)": "{:.3e}",
                           "measured post-NMS (notion 3)": "{:.3e}",
                           "NMS survival fraction": "{:.3f}",
                           "per-cell rate behind a post-NMS 1e-4": "{:.3e}"}))
-print("Measured on pure-noise frames at a held-out seed (scripts/cfar_alpha_audit.py).")
-print(f"NMS survival runs {surv.min():.2f}-{surv.max():.2f}, so a post-NMS Pfa of 1e-4 is a")
-print(f"per-cell rate of {(TARGET_PFA / surv).min():.2e}-{(TARGET_PFA / surv).max():.2e}.")''')
+print("Measured on PURE-NOISE frames at a held-out seed (scripts/cfar_alpha_audit.py) -- no")
+print("targets, so no guard region, so both notions share a denominator and are comparable.")
+print(f"Survival runs {surv.min():.2f}-{surv.max():.2f}, so a post-NMS Pfa of 1e-4 sits behind a")
+print(f"per-cell rate of {(TARGET_PFA / surv).min():.2e}-{(TARGET_PFA / surv).max():.2e}.")
+print()
+print("NOTE the SPREAD across these four. All four call the same all_peaks() at the same NMS")
+print(f"radius, and their survival fractions still differ by a factor of {surv.max() / surv.min():.2f}.")
+print("Sharing the NMS implementation does NOT imply sharing a survival fraction -- it depends on")
+print("how peaked the score map is, which is a property of the detector. See 5.2.")''')
 
-md("""**When the distinction bites, and when it cancels.** It bites whenever a measured rate is
-compared against an *absolute* per-cell reference — the square-law theory curve in
-`cfar_baseline.ipynb` §5, which is why the CFAR-loss number is quoted both as plotted and as
-corrected. It **cancels** in every CFAR-vs-DL comparison, because both arms run the same
-`all_peaks()` at the same NMS radius and are matched at the same post-NMS rate: the offset is
-common-mode and divides out of the difference.
+md("""### 5.2 Where the distinction bites — and why the CFAR-vs-DL comparison is unaffected
+
+**It bites whenever a measured rate is compared against an *absolute* per-cell reference.** The
+square-law theory curve in `cfar_baseline.ipynb` §5 is a statement about one cell crossing a
+threshold at a per-cell rate, so comparing a post-NMS rate against it understates the CFAR loss.
+That is why the number is quoted both as plotted and as corrected.
+
+**It does not affect the CFAR-vs-DL comparison — but not for the reason one might assume.** It would
+be wrong to argue that the NMS offset is common-mode and divides out because both arms run the same
+`all_peaks()` at the same radius. **Running the same NMS does not imply the same survival fraction.**
+Survival depends on how peaked a detector's score map is, not on the suppression code: the table
+above shows four CFAR variants sharing one `all_peaks()` call whose survival fractions still differ
+substantially, and §1.1 showed the network's above-threshold response is far broader than CFAR's
+(≈10 cells per detection against ≈2), so there is every reason to expect its survival fraction to
+differ again.
+
+**The actual argument is simpler and needs no such assumption.** Both detectors are matched
+**directly at the same final post-NMS, guard-excluded Pfa** — notion 3 is the quantity being
+equalised, measured on each arm's own reported detections. Whatever per-cell rates sit behind those
+matched post-NMS rates may well differ between the arms; that is irrelevant, because no reported
+comparison is made at the per-cell level. The fairness comes from equalising the quantity that is
+actually reported, not from a cancellation.
 
 **Rule for the write-up:** never write "Pfa" unqualified. Say which of the three.""")
 

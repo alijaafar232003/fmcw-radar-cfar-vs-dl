@@ -2756,6 +2756,45 @@ range bin (0.195 m) and a Doppler bin (0.420 m/s) are different physical quantit
 be collapsed into one phrase. It now reads "±1-bin tolerance in each axis, forming a 3×3 gate", with
 the physical asymmetry stated as a consequence to be aware of.
 
+#### ⚠️ Retracted: the "NMS offset is common-mode" fairness argument
+
+Notebook §5.1 argued that the post-NMS-vs-per-cell Pfa offset **cancels** in the CFAR-vs-DL
+comparison "because both arms run the same `all_peaks()` at the same NMS radius". **The reasoning is
+invalid.** Running the same NMS code does not imply the same NMS *survival fraction*: survival
+depends on how peaked a detector's score map is, which is a property of the detector, not of the
+suppression routine.
+
+**The project's own data already refuted it.** All four CFAR variants call the same `all_peaks()`
+at the same radius, and their measured survival fractions on pure noise still span **0.66–0.83** — a
+factor of 1.26. §1.1 separately shows the network's above-threshold response is far broader than
+CFAR's (~10 cells per detection against ~2), so its survival fraction has every reason to differ
+again.
+
+**The conclusion stands; only the justification was wrong.** The DL-vs-CFAR comparison is unaffected
+for a simpler reason that needs no cancellation assumption: **both arms are matched directly at the
+same final post-NMS, guard-excluded Pfa** (notion 3), measured on each arm's own reported
+detections. Whatever per-cell rates sit behind those matched post-NMS rates may differ; that is
+irrelevant, because no reported comparison is made at the per-cell level. Fairness comes from
+equalising the quantity that is actually reported.
+
+⚠️ **The same flawed justification is still in `build_cfar_notebook.py` (line ~1111)** —
+"the offset is common-mode and cancels in the difference", with the same "same `all_peaks()`, same
+`nms_size`" reasoning. Its conclusion is also correct and its §5 theory discussion is unaffected, but
+the wording needs the same replacement. **Not yet fixed** — it needs `cfar_baseline.ipynb` rebuilt
+and re-executed.
+
+*Also corrected in §5:* the design Pfa was described with numerator/denominator columns as though it
+were measured; it is a **target probability** used to derive or calibrate α, and its cells now say
+so. The post-NMS Pfa's interpretation changed from "chance a background cell raises an alarm" to
+"false detections per tested background cell", and its row is now named for the notion it is.
+
+*And a claim narrowed:* "notion 3 ≤ notion 2" was stated generally. It does not hold generally — the
+numerators nest, but notion 3 also divides by a **smaller** denominator (guard cells removed), and
+two ratios shrinking top and bottom cannot be ordered without knowing by how much. The ordering is
+now stated only where it holds: **target-free frames**, where there is no guard region and both
+notions share a denominator. That is the pure-noise calibration setting the survival fractions are
+measured in.
+
 #### Artefacts and how to regenerate
 
 `results/` is gitignored, so the three cached inputs are not in the repository:
