@@ -2718,6 +2718,44 @@ the point.
    radius 5. Three candidate explanations were on the table and the true one was none of them. The
    assertion is replaced by a computed check.
 
+#### The matching gate and the guard region are COUPLED — measured, and it affects how ±3 is described
+
+Found while writing notebook §3.1. `evaluate_frame` builds the guard region from the **same
+`MatchConfig` that defines the matching gate**, so the two are not independent knobs: widening the
+gate from ±1 to ±3 also widens the guard, and the false-alarm denominator shrinks with it.
+
+| | gate ±1 | gate ±3 | change |
+|---|---|---|---|
+| guard cells, one truth | 9 | 49 | 5.4× |
+| `cells_tested`, `isolated` (`bench2_val`) | 5,282,800 | 5,266,800 | **−0.30%** |
+| `cells_tested`, `multi` | 5,270,065 | 5,197,517 | **−1.38%** |
+
+The size of the effect scales with target density, as it must — `multi` carries 4–5 targets a frame
+against `isolated`'s one.
+
+**This does not invalidate anything, and the reason matters.** Within a single gate the denominator
+depends only on the truths, the valid mask and the tolerance — **never on the detector** — so both
+arms are measured against identical denominators and the matched operating point is genuinely
+matched. No number reported at ±1 is affected by what ±3 would have done.
+
+**What it does mean is a wording change for the report.** ±1 and ±3 are **two different operating
+points**, not one result viewed two ways: the threshold achieving a measured Pfa of 1e-4 differs
+slightly between them, because the background it is measured over differs. The ±3 row is therefore a
+*re-run of the entire protocol at a looser tolerance*, which is a stronger robustness check than it
+would be if the two shared a denominator. **The rule: never read a Pd from one gate against a Pfa
+from the other.** Any sentence in the report that describes ±3 as "the same experiment re-scored"
+needs correcting to that.
+
+A §10 check now asserts the coupling exists, so it cannot change silently (13 checks, all pass).
+
+*Also corrected in §3 while there:* the caption claimed the ±3 gate converts **two** misses into hits
+in the toy example. It converts **one** (TP 2→3, and one FP reclassified as forgiven). The count is
+now computed from the figure's own `FrameEval` objects rather than written by hand. And "±1 bin is
+one resolution cell in each dimension" was wrong twice over — the region is **nine** cells, and a
+range bin (0.195 m) and a Doppler bin (0.420 m/s) are different physical quantities that should not
+be collapsed into one phrase. It now reads "±1-bin tolerance in each axis, forming a 3×3 gate", with
+the physical asymmetry stated as a consequence to be aware of.
+
 #### Artefacts and how to regenerate
 
 `results/` is gitignored, so the three cached inputs are not in the repository:

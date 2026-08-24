@@ -123,6 +123,19 @@ def fmt_p(p, n_boot=2000):
     return f"< {floor:.3f}" if p < floor else f"{p:.3f}"
 
 
+# Cached ground truth for bench2_val, shared by sections 3.1a, 4.1 and 10. Reading a cached
+# detection file is not a read of a split -- no frame data is opened here.
+CV = ROOT / "results" / "cfar_val"
+FM_VAL = pd.read_csv(CV / "frames.csv")
+TB = {f: g[["range_bin", "velocity_bin"]].to_numpy(float)
+      for f, g in pd.read_csv(CV / "truths.csv").groupby("frame")}
+
+
+def load_peaks(path):
+    a = np.load(path)["peaks"]
+    return {int(f): a[a[:, 0] == f][:, 1:] for f in np.unique(a[:, 0])}
+
+
 print(f"RD map {SHAPE[0]} x {SHAPE[1]}   bin = {RES_R:.3f} m x {RES_V:.3f} m/s")
 print(f"CFAR window {2 * CFAR_CFG.half_width_r + 1} x {2 * CFAR_CFG.half_width_d + 1}"
       f"   NMS radius {NMS}   headline gate +/-{GATE.tol_r} bin")''')
@@ -551,19 +564,23 @@ print(f"gate +/-1 :  TP={ev1.tp}  FP={ev1.fp}  FN={ev1.fn}   matched truths={ev1
 print(f"            localization errors  dr={ev1.dr}  dv={ev1.dv}")''')
 
 code('''def draw_toy(ax, cfg, title):
+    """One toy frame at one tolerance. The GATE and the GUARD are drawn separately."""
     guard = _guard_mask(TOY_TRUTHS, TOY_SHAPE, cfg)
     ev = evaluate_frame(TOY_DETS, TOY_TRUTHS, TOY_SHAPE, cfg)
 
-    ax.imshow(guard, origin="lower", cmap="Blues", alpha=0.30, vmin=0, vmax=1.6)
+    # GUARD (amber fill): cells excluded from the false-alarm background.
+    ax.imshow(np.ma.masked_where(~guard, guard.astype(float)), origin="lower",
+              cmap="autumn_r", alpha=0.22, vmin=0, vmax=1.4)
+
     for (r, v), name in zip(TOY_TRUTHS, TOY_LABELS):
+        # GATE (blue dashed outline): which detection counts as a hit.
         ax.add_patch(Rectangle((v - cfg.tol_v - 0.5, r - cfg.tol_r - 0.5),
                                2 * cfg.tol_v + 1, 2 * cfg.tol_r + 1,
-                               facecolor="none", edgecolor=BLUE, linewidth=1.3, linestyle="--"))
+                               facecolor="none", edgecolor=BLUE, linewidth=1.4, linestyle="--"))
         ax.scatter(v, r, marker="x", s=110, color=BLUE, linewidths=2.2, zorder=4)
         ax.text(v + cfg.tol_v + 0.7, r + cfg.tol_r + 0.4, name, fontsize=9, color=BLUE)
 
     matched_det = set()
-    # Re-derive which DETECTION index each match used, from the project's own output.
     d = np.asarray(TOY_DETS, float)
     for j, k in enumerate(ev.matched_truth_idx):
         t = TOY_TRUTHS[k]
@@ -582,46 +599,119 @@ code('''def draw_toy(ax, cfg, title):
         ax.text(v + 0.45, r - 0.95, lab, fontsize=7.5, color=c, zorder=6)
 
     ax.set_title(f"{title}   TP={ev.tp}  FP={ev.fp}  FN={ev.fn}", loc="left", fontsize=10.5)
-    ax.set_xlim(-0.5, TOY_SHAPE[1] - 0.5); ax.set_ylim(-0.5, TOY_SHAPE[0] - 0.5)
-    ax.set_xlabel("Doppler bin"); ax.grid(False)
+    ax.set_xlim(-0.5, TOY_SHAPE[1] - 0.5)
+    ax.set_ylim(-0.5, TOY_SHAPE[0] - 0.5)
+    ax.set_xlabel("Doppler bin")
+    ax.grid(False)
+    return ev
 
 
 fig, axes = plt.subplots(1, 2, figsize=(12.6, 5.4))
-draw_toy(axes[0], GATE, "headline gate +/-1")
-draw_toy(axes[1], GATE3, "robustness gate +/-3")
+EV1 = draw_toy(axes[0], GATE, "headline gate +/-1")
+EV3 = draw_toy(axes[1], GATE3, "robustness gate +/-3")
 axes[0].set_ylabel("Range bin")
-fig.suptitle("Toy example - crosses are truths, circles are (invented) detections; "
-             "shading is the guard region", x=0.005, ha="left", fontsize=11.5)
-plt.tight_layout(); plt.show()''')
 
-cap("Left: A and B are hits; the second detection near B is *forgiven* rather than counted against "
-    "the detector (§4); the detection 2 bins from C is a miss AND a false alarm; D is a plain miss. "
-    "Right: widening the gate to ±3 converts two of those into hits — which is why the gate is a "
-    "reported choice, not a detail.")
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+axes[1].legend(handles=[
+    Line2D([0], [0], color=BLUE, ls="--", lw=1.4, label="matching GATE - is it a hit?"),
+    Patch(facecolor="#ffb347", alpha=0.5, label="GUARD region - excluded from the Pfa background"),
+    Line2D([0], [0], marker="x", color=BLUE, lw=0, markersize=8, label="truth"),
+], loc="upper left", fontsize=7.5, frameon=False)
+
+fig.suptitle("Toy example - circles are INVENTED detections, not measurements. "
+             "The gate and the guard cover the same cells but do different jobs.",
+             x=0.005, ha="left", fontsize=11)
+plt.tight_layout(rect=(0, 0, 1, 0.95))
+plt.show()''')
+
+cap("A and B are hits; the second detection near B is *forgiven* rather than counted against the "
+    "detector (§4); the detection 2 bins from C is a miss AND a false alarm at ±1; D is a plain "
+    "miss. The right panel is the same frame judged more leniently — the table below counts "
+    "exactly what changes, rather than asking you to take a number on trust.")
 
 md("""### 3.1 Why ±1 is the headline and ±3 is only a check
 
-±1 bin is one resolution cell in each dimension. It was **pre-registered** as the headline gate
-before the test split was read, and it is the tight definition: a detection has to land essentially
-on the target.
+The headline tolerance is **±1 bin in each axis, forming a 3 × 3 gate** — nine cells, not one. The
+two axes are deliberately given the same *bin* tolerance even though a range bin and a Doppler bin
+are different physical quantities (0.195 m against 0.420 m/s); the gate is defined in bins because
+that is the grid the detectors and the labels live on, and the physical asymmetry is a consequence
+to be aware of rather than a mistake.
 
-±3 is reported beside it because a matching rule that is too tight can flatter a detector that
-detects well but localises badly — the loose gate forgives displacement. Reporting both makes that
-visible instead of leaving it as an assumption. The relationship is one-directional and worth
-stating plainly: **widening the gate can only turn misses into hits**, never the reverse, so Pd is
-monotone in the gate. What it does *not* do is fix the localization metric — see §6.""")
+±1 was **pre-registered** as the headline before the test split was read. ±3 is reported beside it
+because a rule that is too tight can flatter a detector that detects well but localises badly.
+Widening the gate can only turn misses into hits, never the reverse, so Pd is monotone in the
+gate.""")
 
-code('''ev3 = evaluate_frame(TOY_DETS, TOY_TRUTHS, TOY_SHAPE, GATE3)
-widen = pd.DataFrame(
-    [dict(gate="+/-1", TP=ev1.tp, FP=ev1.fp, FN=ev1.fn,
-          cells_in_gate=(2 * GATE.tol_r + 1) * (2 * GATE.tol_v + 1)),
-     dict(gate="+/-3", TP=ev3.tp, FP=ev3.fp, FN=ev3.fn,
-          cells_in_gate=(2 * GATE3.tol_r + 1) * (2 * GATE3.tol_v + 1))]
+code('''widen = pd.DataFrame(
+    [dict(gate="+/-1", TP=EV1.tp, FP=EV1.fp, FN=EV1.fn,
+          gate_cells=(2 * GATE.tol_r + 1) * (2 * GATE.tol_v + 1),
+          guard_cells=int(_guard_mask(TOY_TRUTHS, TOY_SHAPE, GATE).sum()),
+          cells_tested=EV1.cells_tested),
+     dict(gate="+/-3", TP=EV3.tp, FP=EV3.fp, FN=EV3.fn,
+          gate_cells=(2 * GATE3.tol_r + 1) * (2 * GATE3.tol_v + 1),
+          guard_cells=int(_guard_mask(TOY_TRUTHS, TOY_SHAPE, GATE3).sum()),
+          cells_tested=EV3.cells_tested)]
 ).set_index("gate")
 display(widen)
-print(f"The +/-3 gate accepts a detection anywhere in {widen.cells_in_gate.iloc[1]} cells - "
-      f"{widen.cells_in_gate.iloc[1] / widen.cells_in_gate.iloc[0]:.1f}x the +/-1 gate's "
-      f"{widen.cells_in_gate.iloc[0]}.")''')
+
+d_tp, d_fp = EV3.tp - EV1.tp, EV1.fp - EV3.fp
+print(f"Widening to +/-3 converts {d_tp} miss{'' if d_tp == 1 else 'es'} into "
+      f"{d_tp} hit{'' if d_tp == 1 else 's'}, and reclassifies {d_fp} false "
+      f"alarm{'' if d_fp == 1 else 's'} as forgiven.")
+print(f"The gate grows from {widen.gate_cells.iloc[0]} cells to {widen.gate_cells.iloc[1]} "
+      f"({widen.gate_cells.iloc[1] / widen.gate_cells.iloc[0]:.1f}x the area) --")
+print(f"and the guard grows with it, from {widen.guard_cells.iloc[0]} to "
+      f"{widen.guard_cells.iloc[1]} cells. That is the subject of 3.1a.")''')
+
+md("""### 3.1a The gate and the guard are different things — and they are *coupled*
+
+They cover the same cells, but they do opposite jobs:
+
+| | question it answers | effect |
+|---|---|---|
+| **matching gate** | is this detection close enough to count as a **hit**? | sets TP and FN |
+| **guard region** | is this *unmatched* detection a near-miss to be **forgiven**, or a false alarm? | sets FP, and removes those cells from the Pfa **denominator** |
+
+**They are not independent.** `evaluate_frame` builds the guard from the *same* `MatchConfig` that
+defines the gate, so **widening the gate widens the guard too**, and the false-alarm denominator
+shrinks with it. That is visible in the toy table above and it is measurable on real data:""")
+
+code('''rows = []
+for cond in ("isolated", "multi"):
+    ids = FM_VAL.loc[FM_VAL.condition == cond, "frame"].to_numpy()
+    cells = {}
+    for tol, cfg in ((1, GATE), (3, GATE3)):
+        cells[tol] = sum(
+            evaluate_frame(np.zeros((0, 2)), TB.get(i, np.zeros((0, 2))), SHAPE, cfg,
+                           valid_mask=VALID).cells_tested for i in ids)
+    rows.append(dict(condition=cond, frames=len(ids),
+                     cells_tested_gate1=cells[1], cells_tested_gate3=cells[3],
+                     change=cells[3] / cells[1] - 1))
+G = pd.DataFrame(rows).set_index("condition")
+display(G.style.format({"cells_tested_gate1": "{:,}", "cells_tested_gate3": "{:,}",
+                        "change": "{:+.2%}"}))
+print("The denominator shrinks because more cells sit inside some truth's (wider) guard.")
+print("The effect scales with target density -- `multi` has 4-5 targets per frame, `isolated` 1.")''')
+
+md("""**Why this does not invalidate the matched-Pfa comparison — and what it does mean.**
+
+Each gate is a **self-contained analysis**. Within one gate, the denominator depends only on the
+truths, the valid mask and the tolerance — never on the detector — so both arms are measured against
+*identical* denominators and the matched operating point is genuinely matched. Nothing about the
+comparison at ±1 is affected by what ±3 would have done.
+
+What it does mean is that **±1 and ±3 are two different operating points**, not one result viewed
+two ways: the threshold that achieves a measured Pfa of 1e-4 differs slightly between them, because
+the rate is computed over a slightly different background. So the ±3 row is a *re-run of the whole
+protocol* at a looser tolerance, which is exactly what makes it a robustness check. What you must
+never do is read a Pd from one gate against a Pfa from the other.
+
+**In practice the guard convention is doing almost nothing.** §4.1 measures it at the matched
+operating point on real data: **0 forgiven detections out of 6,519**, across every condition and
+method tested. NMS has already removed the duplicates the guard rule exists to excuse. The
+convention is a safety net that currently catches nothing — which is the strongest form of the
+argument that it is not quietly doing work in the results.""")
 
 md("""### 3.2 The three matching properties, executed""")
 
@@ -710,23 +800,12 @@ comparison is made at, how many detections are being forgiven?
 This is a check on the **protocol**, not a detector result: a healthy answer is "essentially none",
 which would mean NMS has already removed the duplicates the guard rule would otherwise excuse.""")
 
-code('''CV = ROOT / "results" / "cfar_val"
-fm_val = pd.read_csv(CV / "frames.csv")
-tr_val = pd.read_csv(CV / "truths.csv")
-TB = {f: g[["range_bin", "velocity_bin"]].to_numpy(float) for f, g in tr_val.groupby("frame")}
-
-
-def load_peaks(p):
-    a = np.load(p)["peaks"]
-    return {int(f): a[a[:, 0] == f][:, 1:] for f in np.unique(a[:, 0])}
-
-
-PEAKS = {m: load_peaks(CV / f"peaks_{m}.npz") for m in ("CA", "GO", "OS", "SO")}
+code('''PEAKS = {m: load_peaks(CV / f"peaks_{m}.npz") for m in ("CA", "GO", "OS", "SO")}
 PEAKS["DL"] = load_peaks(DLR / "peaks_val_frozen_s0_ep021.npz")
 
 rows = []
 for _, r in OPP.iterrows():
-    ids = fm_val.loc[fm_val.condition == r.condition, "frame"].to_numpy()
+    ids = FM_VAL.loc[FM_VAL.condition == r.condition, "frame"].to_numpy()
     pk, thr = PEAKS[r.method], r.threshold
     n_det = n_forgiven = tp = fp = 0
     for i in ids:
@@ -1418,7 +1497,7 @@ check("localization sign and unit conversion",
       f"{agg['mean_abs_vel_err_mps']:.4f} m/s")
 
 # threshold application
-_pk = PEAKS["CA"][int(fm_val.frame.iloc[0])]
+_pk = PEAKS["CA"][int(FM_VAL.frame.iloc[0])]
 _hi = float(np.quantile(_pk[:, 2], 0.9))
 check("threshold keeps exactly the peaks at or above it",
       len(_pk[_pk[:, 2] >= _hi]) == int((_pk[:, 2] >= _hi).sum()) < len(_pk),
@@ -1432,9 +1511,13 @@ check("ROC is monotone: raising the threshold cannot raise Pd or Pfa",
       f"{len(_r)} swept thresholds on {COND}/CA")
 
 # gate monotonicity
-check("widening the gate cannot lose a TP",
-      evaluate_frame(TOY_DETS, TOY_TRUTHS, TOY_SHAPE, GATE3).tp >= ev1.tp,
-      f"TP {ev1.tp} (+/-1) -> {evaluate_frame(TOY_DETS, TOY_TRUTHS, TOY_SHAPE, GATE3).tp} (+/-3)")
+check("widening the gate cannot lose a TP", EV3.tp >= EV1.tp,
+      f"TP {EV1.tp} (+/-1) -> {EV3.tp} (+/-3)")
+check("widening the gate also widens the guard (they share one MatchConfig)",
+      int(_guard_mask(TOY_TRUTHS, TOY_SHAPE, GATE3).sum())
+      > int(_guard_mask(TOY_TRUTHS, TOY_SHAPE, GATE).sum()),
+      f"{int(_guard_mask(TOY_TRUTHS, TOY_SHAPE, GATE).sum())} -> "
+      f"{int(_guard_mask(TOY_TRUTHS, TOY_SHAPE, GATE3).sum())} guard cells")
 
 CHECKS = pd.DataFrame(checks)
 display(CHECKS.style.hide(axis="index"))
