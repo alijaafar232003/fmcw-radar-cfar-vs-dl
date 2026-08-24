@@ -1014,7 +1014,19 @@ differ again.
 equalised, measured on each arm's own reported detections. Whatever per-cell rates sit behind those
 matched post-NMS rates may well differ between the arms; that is irrelevant, because no reported
 comparison is made at the per-cell level. The fairness comes from equalising the quantity that is
-actually reported, not from a cancellation.
+actually reported, not from a cancellation.""")
+
+md("""### 5.3 In summary
+
+In practice, these three Pfa values describe three different stages of the same detector rather than
+three interchangeable numbers. The design Pfa is the target used to choose or calibrate a CFAR
+threshold; the measured pre-NMS Pfa tells us how many cells actually cross that threshold; and the
+measured post-NMS, guard-excluded Pfa tells us how many false target reports remain after the
+detector's full post-processing. The CFAR-versus-DL comparison is made using this final quantity,
+because it reflects the false-alarm burden of the detections that would actually be reported. The two
+methods therefore do not need to have the same raw cell-crossing rate or the same NMS survival
+fraction — they only need to be matched at the same final measured post-NMS Pfa before their Pd
+values are compared.
 
 **Rule for the write-up:** never write "Pfa" unqualified. Say which of the three.""")
 
