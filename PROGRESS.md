@@ -2844,6 +2844,45 @@ The measured result itself is unchanged — 0 of 7 verdicts changed, width ratio
 models and thresholds stay fixed), and what "paired" means (both arms use the same resampled frame
 indices, so a difficult frame drawn twice is drawn twice for both).
 
+#### §9 rewritten in plain English, and the `unresolved` bug story connected to the physics check
+
+**Two claims corrected.**
+
+*Bonferroni does not require independence.* §9 said "testing seven **independent** comparisons at
+α = 0.05 gives roughly a 30% chance of at least one spurious result", which reads as though the
+correction depends on the tests being independent. It does not — Bonferroni holds regardless of
+dependence; it is the ~30% figure that assumes independence. The two are now separated explicitly,
+because the seven conditions share a trained model and a generator and are certainly not independent.
+
+*"Significant non-difference" replaced.* That phrase was compact but obscure. `unresolved` is now
+described as a **statistically significant but practically negligible difference**, which says the
+same thing without needing decoding.
+
+**The `unresolved` bug story is now told where it belongs.** §10 mentioned the NMS plateau defect but
+never connected it to `unresolved` or to the number that exposed it. §9.2 now carries the full
+callout, verified against Milestone 16: DL scored **0.547** on `unresolved`, above the 0.5
+two-targets-in-one-mainlobe ceiling; the physics sanity check caught it; `all_peaks` was marking
+every cell of a plateau as a local maximum, so DL emitted 1.90 detections per single-target frame
+against CA's 0.83, each duplicate forgiven by the guard region; after `_collapse_plateaus` all four
+methods tied at **0.490**.
+
+⚠️ **Those two figures are pre-re-specification** (`bench_test`, the old 256×128 sensor, Milestone
+15/16) and are **not** comparable with the current 0.464 / 0.476. A bracketed note in §9.2 says so,
+because a reader would otherwise try to reconcile 0.490 with 0.476 and conclude something had
+drifted. The ceiling argument itself survives the re-specification: it follows from two targets
+sharing one mainlobe, not from the sensor.
+
+**Worth carrying into the report.** This is the strongest single piece of evidence that the
+`unresolved` stratum earns its place. It does not decide a winner — both arms sit at the cap — but it
+is the condition that turned a plausible-looking "sub-resolution recovery" claim into a retraction
+(the 19% → 8% correction, Milestone 16). A stratum whose job is to be impossible is how an
+implausible result gets caught, and that is a better justification for including it than any Pd
+number it produces.
+
+*Also in §9:* the p-value floor explanation is rewritten in plain terms — `p = 0` means no replicate
+of 2,000 landed on the opposite side, not that the probability is zero — with the reporting rule
+(`p < 0.001`) tied to the two-sided resolution 2/2000.
+
 #### Artefacts and how to regenerate
 
 `results/` is gitignored, so the three cached inputs are not in the repository:

@@ -1563,13 +1563,20 @@ md("""---
 **The question:** the comparison is made on seven scenarios. What does a p-value mean when you ask
 seven times?""")
 
-md("""**Bonferroni.** Testing seven independent comparisons at α = 0.05 gives roughly a 30% chance of
-at least one spurious "significant" result. The threshold is therefore divided:
+md("""**Bonferroni.** We compare DL and CFAR separately on seven conditions, so we are performing
+seven statistical tests rather than only one. Normally, a result with $p < 0.05$ may be called
+statistically significant. However, when several tests are performed, there are more chances for at
+least one result to appear significant just by random variation. We therefore use the Bonferroni
+correction and divide 0.05 by the seven comparisons:
 
 $$\\alpha_\\text{corrected} = \\frac{0.05}{7} \\approx 0.0071$$
 
-applied to the **scenario-wise** significance claims. It is stated in the method rather than applied
-silently, because it changes which conditions count as wins.""")
+A scenario-wise difference is therefore called statistically significant only when $p < 0.0071$. The
+commonly quoted roughly 30% chance of at least one false positive assumes seven *independent* tests;
+the Bonferroni correction itself does not require the tests to be independent.
+
+It is stated in the method rather than applied silently, because it changes which conditions count as
+wins.""")
 
 code('''BOOT1 = pd.read_csv(DLR / "bootstrap_frozen_ep021_test_tol1.csv").set_index("condition")
 BOOT1 = BOOT1.reindex([c for c in ORDER if c in BOOT1.index])
@@ -1601,56 +1608,89 @@ tab = pd.DataFrame({
 })
 display(tab.round(4))''')
 
+md("""**In simple terms.** The p-value helps us judge whether the measured DL-versus-CFAR difference
+is stable enough to be considered statistically detectable rather than just a result of which test
+frames happened to be sampled. A small p-value gives stronger evidence of a difference, while a large
+p-value means the data does not clearly separate the two methods. Because we perform this comparison
+on seven different conditions, we use a stricter significance limit of $p < 0.0071$ instead of the
+usual $p < 0.05$.""")
+
 md("""### 9.1 Never report `p = 0`
 
-The stored CSV contains `p_boot = 0.0` on several conditions. **That value must never appear in the
-report.** It does not mean the probability is zero — it means no replicate out of 2,000 fell on the
-other side of zero, so the p-value is below what 2,000 resamples can resolve.
-
-The statistic is two-sided (`2 × min(tail, tail)`), so its smallest non-zero value is 2/2000 =
-0.001. Anything smaller is reported as **`p < 0.001`**, which is what `fmt_p()` above prints.""")
+A stored bootstrap p-value of `0.0` does not mean that the true probability is literally zero. It
+only means that none of the 2,000 bootstrap resamples produced a result on the opposite side of the
+comparison. Because only a finite number of bootstrap samples were used, there is a limit to how
+small a p-value can be measured. For this two-sided test with 2,000 resamples, the smallest useful
+resolution is approximately $2/2000 = 0.001$. Therefore, a stored value of zero is reported as
+$p < 0.001$ rather than $p = 0$ — which is what `fmt_p()` above prints.""")
 
 code('''print("resolution floor with", N_BOOT, "resamples:", f"{2 / N_BOOT:.4f}")
 for p in [0.0, 0.0005, 0.001, 0.0071, 0.79]:
     print(f"  stored p = {p:<8} -> report as  p {fmt_p(p, N_BOOT)}")''')
 
-md("""### 9.2 Statistical significance is not physical significance
+md("""**In simple terms.** `p = 0` only means that the bootstrap did not observe an opposite result in
+the 2,000 samples it tried. It does not mean that an opposite result is mathematically impossible. We
+therefore report the result as $p < 0.001$, which reflects the resolution of the bootstrap
+experiment.""")
 
-**The question:** a difference is significant after correction. Does that make it a finding?
+md("""### 9.2 Statistical significance is not practical significance
 
-No — and this protocol has a live example, which is worth stating carefully because the statistics
-and the physics point in opposite directions.
+Statistical significance tells us whether a measured difference is consistently detectable in the
+data, but it does not tell us whether that difference is large or important. The `unresolved`
+condition is a good example. On the final test, DL reaches about 0.476 Pd while the best CFAR reaches
+about 0.464, a difference of only 0.012, or 1.2 percentage points. The difference has $p = 0.001$, so
+it passes the Bonferroni significance threshold, but the effect itself is very small. Both methods
+remain close to the expected 0.5 ceiling of the unresolved scenario. The correct interpretation is
+therefore that the difference is **statistically significant but practically negligible**, rather
+than a meaningful DL advantage.
 
-The `unresolved` scenario places two targets inside a single resolution cell. Both methods are
-pinned against a physics ceiling near Pd 0.5: separating two returns inside one mainlobe is
-super-resolution, and neither detector is doing it. The measured difference there is about **one
-percentage point** — and it **does** clear the Bonferroni threshold, at both gates. The correction
-does not rescue us here.
+**Why the `unresolved` condition exists.** It is mainly a physics and evaluator sanity check. It
+deliberately places two targets so close together that they fall inside one radar mainlobe and cannot
+normally produce two separate resolvable peaks. There are still two labelled targets, but usually
+only one physical return can be detected separately, so Pd naturally stays near 0.5. The purpose of
+this condition is therefore not mainly to find a winner between DL and CFAR, but to check that
+neither detector appears to overcome a physical resolution limit without a very strong reason.
 
-What makes it a non-finding is effect size and mechanism, not significance:
+**Why that sanity check matters — it has already caught a real bug.** Earlier in development, DL
+produced about **0.547** Pd on the `unresolved` condition, which appeared to exceed the expected
+physical ceiling. That suspicious result helped expose an NMS plateau bug: tied CNN output cells
+could produce multiple nearby detections, giving one target several matching attempts. After the
+plateau handling was fixed, the four methods returned to approximately **0.490** Pd on this
+condition. The `unresolved` scenario therefore served exactly as intended — an apparently impossible
+result triggered investigation rather than being interpreted as super-resolution. The plateau fix
+itself is `_collapse_plateaus` (§1.2), and the evaluator check that now guards against it is in §10.
 
-* the difference is ~0.01 Pd against a ceiling near 0.5 that both arms sit at, so there is no
-  mechanism by which it could be super-resolution;
-* with 800 targets contributing, an effect this small is *detectable*, which is a statement about
-  sample size rather than about the detectors;
-* its p-value sits at the bootstrap's own resolution floor, so the test is barely resolving it.
-
-**How to report it:** as a **significant non-difference** — significant, tiny, and at a ceiling. A
-win list that includes `unresolved` overstates the result. This is the case that shows a
-multiplicity correction is not a substitute for judgement about effect size: `unresolved` passes the
-correction and should still not be called a win.""")
+*(Those two figures come from the pre-re-specification benchmark, before the radar was re-specified
+to the CARRADA geometry, so they are not directly comparable with the 0.464 / 0.476 above. The
+ceiling argument is unchanged by the re-specification — it follows from two targets sharing one
+mainlobe, not from the sensor.)*""")
 
 code('''u = BOOT1.loc["unresolved"] if "unresolved" in BOOT1.index else None
 if u is not None:
-    print(f"unresolved: diff = {u['diff']:+.4f} Pd  ({100 * u['diff']:+.2f} percentage points)")
+    print(f"unresolved: best CFAR Pd {u.cfar_pd:.4f}   DL Pd {u.dl_pd:.4f}   "
+          f"difference {u['diff']:+.4f} ({100 * u['diff']:+.2f} percentage points)")
     print(f"            95% CI [{u.ci_lo:+.4f}, {u.ci_hi:+.4f}], p {fmt_p(u.p_boot, N_BOOT)}, "
-          f"Bonferroni alpha {alpha_c:.4f} -> survives correction: {bool(u.p_boot < alpha_c)}")
+          f"Bonferroni alpha {alpha_c:.4f} -> passes: {bool(u.p_boot < alpha_c)}")
     print(f"            p sits at the bootstrap resolution floor ({2 / N_BOOT:.4f}): "
           f"{'yes' if abs(u.p_boot - 2 / N_BOOT) < 1e-9 else 'no'}")
-    print(f"            targets contributing: {int(u.targets)}")
-    print(f"            both arms sit at Pd ~ {u.cfar_pd:.2f} (CFAR) and {u.dl_pd:.2f} (DL), "
-          f"against a ~0.5 two-targets-in-one-cell ceiling")
-    print(f"            -> statistically significant, physically a tie")''')
+    print(f"            {int(u.targets)} targets contributing, both arms near the ~0.5 "
+          f"two-targets-in-one-mainlobe ceiling")
+    print(f"            -> statistically significant, practically negligible")''')
+
+md("""**In simple terms.** A small p-value tells us that a difference is consistently visible in the
+data; it does not tell us that the difference is large or useful. We therefore interpret every result
+using both the p-value and the size of the Pd difference, together with the radar physics. A large
+and statistically significant difference can support a meaningful detector advantage, while a tiny
+but statistically significant difference, such as `unresolved`, should not automatically be called a
+win.""")
+
+md("""---
+
+**§9 in one paragraph.** Effect size tells us how big the difference is. The bootstrap tells us how
+stable it is to the finite test sample. The p-value tells us whether the difference is statistically
+detectable. Bonferroni makes that significance test stricter because we repeat it across seven
+conditions. Radar physics then tells us whether a statistically detectable difference is actually
+meaningful.""")
 
 # ============================================================================== 10
 md("""---
