@@ -3015,6 +3015,94 @@ Commits: `0b1c97d` (notebook + scripts), `15dec28` (stage figure reordered), `7e
 footprint separated, caption retracted, A.1 strengthened), on branch
 `evaluation-methodology-notebook`.
 
+### 2026-08-24 — Integrated CFAR: mainlobe energy explains NONE of the DL margin
+
+**Standalone attribution experiment.** Everything lives in `experiments/integrated_cfar/`; nothing in
+`src/`, `scripts/`, `notebooks/` or `results/` was modified, and **`bench2_test` was not touched**.
+This does not alter the project's primary results or conclusions. Pre-registered in
+`experiments/integrated_cfar/PREREGISTRATION.md`, written before any result was computed.
+
+**The question.** How much of TinyCNN's advantage over CFAR is explained by the CNN integrating
+neighbouring mainlobe energy that single-cell CFAR discards? Standard CFAR tests one cell; a CNN with
+a 21×9 receptive field can combine the whole mainlobe. If that is the mechanism, giving CFAR the same
+energy should close most of the gap.
+
+**Method.** Same CFAR noise estimate — the estimators are *imported* from `src/cfar/cfar.py` and
+called unchanged, verified by asserting `power / our_noise` reproduces the shipped `cfar_ratio_map`
+output to **0.000e+00** for all four variants — with an integrated CUT. Two statistics: uniform sum,
+and PSF-weighted (the matched filter). Scored through the unmodified protocol on `bench2_val`.
+
+**Region derived, not assumed.** Averaged normalised power patch over 50 high-SNR `isolated` targets:
+**1×1 captures 27.1%** of target energy, **3×3 captures 94.2%**, 5×5 captures 99.7%. 5×5 buys the last
+5.5 points with 16 more noise cells, and the guard is ±2, so 3×3 was chosen and sits strictly inside
+the guard — the numerator can never overlap the reference ring. The raw patch was 11.6% asymmetric
+(finite sampling over off-grid targets); the kernel is symmetrised and that figure reported.
+
+**Calibration.** No closed form applies to a sum of correlated cells, so alpha was Monte-Carlo
+calibrated on 300 pure-noise frames and verified on held-out seed 9000: achieved Pfa **0.96–1.13×**
+target across all eight (kind × statistic) combinations. Alpha affects only the design point; every
+Pd below is at matched *measured* Pfa, where the threshold is swept.
+
+#### The result: integration makes CFAR WORSE, on every condition
+
+| statistic | mean Δ_integration | negative on | significant (Bonferroni α = 0.0071) |
+|---|---|---|---|
+| uniform | **−0.0366** | **7 / 7** | 4 / 7 |
+| PSF-weighted | **−0.0246** | **7 / 7** | 4 / 7 |
+
+`delta_remaining` is therefore the entire original gap and slightly more. Measured Pfa across all
+arms 0.971–1.021× target, so the operating points genuinely matched.
+
+**Against the three pre-registered outcomes: "Integrated ≈ CFAR → integration explains none of it,
+and the learned decision rule is the live explanation."** Observed, and more strongly — integration
+is not merely neutral, it is harmful.
+
+**The registered prediction was correct and stronger than predicted.** Uniform summation was
+predicted to possibly lose; it loses everywhere. But the **PSF-weighted matched filter — the variant
+with the theoretical reason to help — also loses**, by less. Performance is monotone in how sharply
+the kernel concentrates on the centre cell:
+
+| kernel | centre weight | pooled Pd rank | pooled Doppler error |
+|---|---|---|---|
+| single-cell CFAR | 1.000 | best | 0.1228 bins |
+| PSF-weighted | 0.288 | middle | 0.1954 (×1.59) |
+| uniform | 0.111 | worst | 0.3065 (×2.50) |
+
+**Why.** The measured −3 dB width is ~1.6 bins, so the response is concentrated in very few cells and
+the centre dominates. Summing nine cells adds little signal and much noise — and because the Blackman
+window correlates adjacent cells, the noise sum grows faster than √K, so the deflection falls rather
+than rises. The matched filter loses less precisely because it down-weights the noisy outer cells.
+
+**What this means for the attribution programme.** The DL margin is **not** access to mainlobe energy
+CFAR discards. The **learned decision rule** is now the live explanation, and PLAN.md's E2 has
+returned its answer for zero training. Under the plan's own logic this raises the value of E4 (the
+guard-masked patch CNN), because the cheap explanation has been eliminated rather than confirmed.
+
+⚠️ **What it does not show.** Not that the CNN gains nothing from its receptive field — only that
+*this* form of integration, with the noise estimate held fixed, does not reproduce its advantage. A
+network can weight its 21×9 field in ways a fixed 3×3 kernel cannot, including adaptively.
+
+#### ⚠️ Unplanned finding — a lead for Open/O4
+
+A **symmetric** 3×3 kernel degrades **Doppler localization ×2.50 against range ×1.37**. Open/O4 asks
+why the CNN's localization degrades asymmetrically between range and Doppler when its 3×3 label is
+symmetric. Here the same asymmetry appears in a **purely classical detector with no learning
+involved**, produced by a symmetric operator.
+
+That makes "the network's training causes the asymmetry" less likely and points instead at something
+about the RD geometry. **Suggestive, not conclusive** — a fixed box filter is not what the network
+does, and this was not the experiment's question. Recorded as a lead, not an answer, and not chased
+(standing rule: it changes no published number).
+
+**Artefacts** (all inside `experiments/integrated_cfar/results/`, none in the project `results/`):
+`psf_patch.npy`, `psf_energy_capture.csv`, `kernels.npz`, `calibration.csv`,
+`peaks_int_{CA,GO,OS,SO}_{uniform,psf}.npz`, `summary_pd.csv`, `deltas.csv`, `localization.csv`.
+Notebook: `integrated_cfar_experiment.ipynb` (22 cells, 4 figures, zero errors).
+
+**Whether this warrants a `bench2_test` read is a separate decision**, to be recorded before it
+happens. The result is a *negative* one on the validation split, so there is a reasonable argument
+that it does not need the reported split at all.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
