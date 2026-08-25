@@ -31,35 +31,91 @@ nine adjacent cells are equally correct. That is a **hypothesis**, not a demonst
 **The comparison to run.** Train the same TinyCNN, unchanged in every other respect, under three
 label representations:
 
-| arm | label | what it tests |
-|---|---|---|
-| exact-cell | 1×1 — only the true target bin is positive | does removing the flat block sharpen the peak? |
-| current | 3×3 flat block | the incumbent, as a control |
-| soft | Gaussian / distance-weighted target | does a graded target sharpen it without losing Pd? |
+| arm | label | precedent | what it tests |
+|---|---|---|---|
+| point | 1×1 — only the true target bin is positive | RadCNN (Yavuz 2021) | does removing the flat block sharpen the peak? |
+| **current** | 3×3 flat block | the incumbent | control |
+| Gaussian | `y = min(1, Σ_k exp(−(r−r_k)²/2σ_r² − (d−d_k)²/2σ_d²))`, BCE-with-logits | CFARNet (Liang 2025) | does a graded target sharpen it *without* losing Pd? |
 
 **Purpose.** Determine whether the localization deficit comes from the supervision, and whether
 localization can be improved **without losing Pd**. A trade in either direction is a result.
 
-**Design notes to respect.** The 1×1 arm makes the class imbalance ~9× worse, so `pos_weight` is a
-confound unless handled — either re-derive it per arm or report the ablation across arms. All arms
-must use the frozen thread count and all eight seeds, and must be scored by the existing evaluation
-protocol without modification.
+**Why this ordering of evidence.** A recent literature review found no universal "radar CNNs use a
+window mask" rule — the label tracks what one output cell *means*. Point/CUT supervision is standard
+for CFAR-like peak detection; dense masks appear where the target is genuinely *extended* (Blackman
+2025, NeuroDet 2024). Our task is point-target peak detection, so the flat 3×3 block is the arm
+with the weakest justification, not the natural default.
+
+⚠️ **A Gaussian label is not a claim that nine cells are targets.** It is a smoother optimisation
+target whose maximum still marks the true bin; inference still reduces to peaks. That distinction is
+the whole point of the arm.
+
+**Confounds to handle, or the comparison means nothing.**
+
+* **Class imbalance changes with the label.** The 1×1 arm has ~1/9 the positive mass, so a fixed
+  `pos_weight` silently becomes a different experiment. Either re-derive `pos_weight` per arm, or
+  choose σ so the Gaussian's total positive mass ≈ 9 cells and state the residual mismatch for the
+  point arm. Do not leave it unaddressed.
+* **The stopping epoch is arm-specific.** Epoch 21 was selected for the 3×3 arm. Re-apply the
+  pre-registered rule ("earliest epoch whose pooled seed-mean Pd is within 1 SE of the plateau")
+  independently per arm; do not transplant 21.
+* **Everything else frozen:** all 8 seeds, `threads=2`, the same splits, and the unmodified
+  evaluation protocol (matched measured Pfa, ±1 headline with ±3 beside it).
+
+**Report even if null.** "Label shape does not explain the localization gap" is a publishable
+outcome and would redirect suspicion to capacity or to the gate itself.
 
 ### Priority 2 — Mainlobe / information-access attribution
 
-**The question.** TinyCNN and CFAR have the same 21×9 spatial extent, but a matching extent is not
-matching information *use*: CFAR imposes a fixed CUT / guard / reference-ring structure and computes
-one hand-designed statistic, while the network may use every cell in its receptive field however it
-learns to. The margin could therefore come from the learned decision rule, from access to mainlobe
-energy CFAR deliberately excludes, or from both. **This is currently unresolved and is the single
-biggest open question about the headline result.**
+**The question — and the actual contribution.** The literature establishes repeatedly that learned
+detectors beat CFAR; it very rarely establishes *why*. Our own result has the same hole. TinyCNN and
+CFAR share a 21 × 9 spatial extent, but matching extent is not matching information **use**: CFAR
+imposes a fixed CUT / guard / reference structure and **deliberately discards the mainlobe energy in
+the guard region**, while the network may use every cell in its receptive field. So the margin could
+be a better decision rule, or simply access to energy CFAR throws away.
 
-**Possible controls**, either of which narrows it from one side:
+**Decomposing that is the strongest available contribution of this project** — stronger than another
+detection-margin number, because it addresses a gap the field has left open.
 
-* a CNN architecturally prevented from using the cells CFAR treats as guard/CUT, so the learned rule
-  is denied the mainlobe energy CFAR excludes;
-* CFAR given an equivalent pre-integration step over the mainlobe, so the classical arm gets the
-  energy the network can use.
+**Four arms.**
+
+| arm | what it is | cost |
+|---|---|---|
+| **A** | TinyCNN, unchanged | already trained |
+| **B** | a detector denied the guard/mainlobe cells, as CFAR is | needs new training — see the design problem below |
+| **C** | CFAR, unchanged | already scored |
+| **D** | CFAR with mainlobe / PSF energy integration | **no training at all** |
+
+**Read it as a 2 × 2.** A vs C is the existing margin. D − C isolates what CFAR gains from the energy
+it currently discards. A − B isolates what the network loses when denied that same energy. If
+D ≈ A, the margin was energy integration. If B ≈ A and D ≈ C, the margin was the decision rule. Any
+other pattern is a mixture, and the size of each contrast is the answer.
+
+**⚠️ RUN D FIRST. It is cheap and it can make B unnecessary.** D requires no training: replace the
+single-cell CUT with a CUT integrated over the measured ~2-bin mainlobe, keep guard and reference
+geometry unchanged, **recalibrate alpha for the new statistic** (the existing
+`configs/cfar_alpha_table.json` does not apply to a different CUT statistic), and score through the
+unmodified protocol. If integrating the mainlobe closes most of the gap, the attribution question is
+substantially answered for a day of compute rather than several training runs.
+
+**⚠️ The design problem in arm B, stated before it is attempted.** "Hide the mainlobe from the
+input" is not well-defined for a fully-convolutional network. The guard region must be hidden
+*relative to each cell under test*, but TinyCNN emits all 16,384 outputs in one forward pass, so
+there is no per-output-cell input mask. Three options:
+
+1. **Blank the guard around the true target** — invalid. It uses labels at inference and is not a
+   detector.
+2. **Mask the convolution kernels** to punch a hole in the composite receptive field — the four
+   stacked dilated layers *compose*, so masking each centre tap does not yield a clean 5 × 5 hole.
+   Fiddly, and hard to verify that the hole is actually there.
+3. **Reformulate as a CUT-centred patch model** — feed a 21 × 9 patch, blank its centre, emit one
+   logit for the centre cell. **This is the correct control**, and it is precisely RadCNN's
+   formulation (Yavuz 2021), so there is precedent.
+
+Option 3 is the recommendation, with one consequence that must not be hidden: that arm is **no longer
+the same TinyCNN**. It is a different training and inference regime, so architecture becomes a
+confound — which means **arm B is two runs, not one**: a masked patch model *and* an unmasked patch
+model as its own control. Budget accordingly.
 
 **Purpose.** Separate "learned decision rule is better" from "the learned detector had access to
 information the classical one discards".
