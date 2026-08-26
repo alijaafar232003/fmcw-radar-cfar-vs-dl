@@ -3103,6 +3103,94 @@ Notebook: `integrated_cfar_experiment.ipynb` (22 cells, 4 figures, zero errors).
 happens. The result is a *negative* one on the validation split, so there is a reasonable argument
 that it does not need the reported split at all.
 
+### 2026-08-27 — Label ablation: the 3×3 label CAUSES the localization deficit, and it is fixable
+
+**Standalone attribution experiment** (PLAN.md E3), isolated in `experiments/label_ablation/`.
+Nothing in `src/`, `scripts/`, `data/`, `notebooks/` or `results/` was modified; **`bench2_test` was
+not touched**. Pre-registered in `experiments/label_ablation/PREREGISTRATION.md`, committed
+(`cc342c5`) **before any checkpoint existed**. This does not alter the project's primary results or
+conclusions.
+
+**The question.** The flat 3×3 label is the documented suspect behind three findings — DL localizes
+3.83× worse than CFAR in Doppler, localization degrades monotonically with training, and DL
+collapses to Pd 0.41 against CFAR's 0.85 at gate 0. All three share one explanation: the network is
+told nine cells are equally correct. Does a better label fix it?
+
+**Design.** Three arms × 8 seeds × 21 epochs, `threads=2`, otherwise identical to
+`configs/frozen_dl.yaml`: **point** (1×1), **flat3x3** (incumbent), **gaussian** (same 3×3 footprint,
+weights from the measured PSF — σ derived from `results/psf_profile.csv` as −3 dB width / 2.3548,
+off-bin worst case: σ_r 0.6895, σ_d 0.7007 bins). 24 runs, 9.95 h wall-clock at 6 concurrent
+processes.
+
+**`pos_weight` recomputed per arm, and the rule stated.** `BCEWithLogitsLoss` weights each cell's
+positive term by `w·y`, so total positive gradient mass ∝ `w·Σy`; that product is held constant,
+anchored to the incumbent: **point 899.37, flat3x3 100.00, gaussian 307.51**, constant to 0.000%.
+Anchored to 100 rather than re-derived from class frequency because exact class balancing was
+already measured worse here (Correction C3). The point arm's mass ratio is 0.1112× rather than
+exactly 1/9 — 3×3 blocks clip at the border and overlap between close targets.
+
+#### The control is verified twice, and both checks pass
+
+* **Labels:** `flat3x3` is built by the project's own `make_label_mask` and is byte-identical to
+  `data/bench2_train/nn_cache_y.npy` on 40 sampled frames.
+* **Weights:** retraining `flat3x3` at `threads=2` reproduces the frozen checkpoints **bit-for-bit
+  at epoch 21 on all 8 seeds** (max |ΔW| = **0.000e+00**).
+
+The second also validates the training driver, which writes into the experiment folder instead of
+`results/dl/` yet produces numerically identical models. **The control IS the frozen arm**, so any
+difference between arms is attributable to the label alone.
+
+#### Result — the deficit is caused by the label, and it is fixable at ~zero Pd cost
+
+Pooled, `bench2_val`, gate ±1, epoch 21, 8-seed means:
+
+| arm | Doppler error | vs best CFAR | range error | vs best CFAR | Pd | Δ Pd |
+|---|---|---|---|---|---|---|
+| flat 3×3 | 0.3933 bins | **4.57×** | 0.4729 | 2.65× | 0.5848 | — |
+| gaussian | 0.1708 | **1.99×** | 0.3105 | 1.74× | 0.5871 | **+0.0023** |
+| point | 0.1097 | **1.27×** | 0.2197 | 1.23× | 0.5750 | −0.0098 |
+
+**The mechanism is confirmed.** Doppler error from epoch 5 → 21 rises **×1.98** under the flat label,
+**×1.25** under the Gaussian, **×1.04** under the point label — monotone in how flat the supervision
+is. That was the pre-registered sharpest test and it lands exactly as the hypothesis predicted.
+
+**At gate 0 the incumbent gets WORSE with training**: exact-cell Pd falls **0.278 → 0.191** over 21
+epochs, while the Gaussian holds ~0.33 and the point label ~0.39. Flat supervision does not merely
+cap exact-cell accuracy — more training actively destroys it.
+
+#### The registered predictions
+
+1. **"Gaussian matches 3×3 on Pd while improving localization" — CONFIRMED.** +0.0023 Pd (within
+   noise, significant on 1 of 7 conditions), Doppler 4.57× → 1.99×.
+2. **"Point may train poorly at ~1:8500, which would be the first evidence the 3×3 choice was
+   reasonable" — FAILED PREDICTION.** Point trained stably on all 8 seeds and gave the *best*
+   localization and the *best* gate-0 Pd. **The 3×3 choice is not vindicated — the opposite.** Its
+   only cost is −0.0098 Pd at gate ±1, concentrated significantly in the clutter-bearing conditions
+   (`clutter` −0.025, `mixed` −0.024, `clutter_edge` −0.022), consistent with sparser supervision
+   giving less gradient signal where the task is hardest.
+3. **"A Pd gain from Gaussian would be unexpected — flag it."** Flagged. The +0.0023 at gate ±1 is
+   significant on `multi` only and is **not** reported as a detection win. The large gate-0 gains
+   (+0.06 to +0.31, significant on all 7 for both arms) are **the localization improvement expressed
+   as exact-cell Pd** — the same quantity measured differently, not an independent detection gain.
+
+#### What this changes
+
+The localization deficit is **caused by the supervision and is fixable**, which converts a documented
+limitation into a design choice with a measured alternative. It also retires the two competing
+explanations recorded alongside it: it is **not** the network's capacity, and **not** the matching
+gate.
+
+⚠️ **Scope.** Validation split only. No reported number changes and the frozen configuration is
+untouched. Whether to adopt a different label — and whether that would justify a second
+`bench2_test` read — is a separate decision to be recorded before it is taken. Note the arms differ
+in *where* they win: the Gaussian is the safe choice (localization halved, Pd unchanged), while the
+point label buys more localization at a real cost in clutter.
+
+**Artefacts** (all under `experiments/label_ablation/`, arm-tagged, none in the project `results/`):
+96 checkpoints, `epoch_curve.csv`, `per_condition.csv`, `deltas.csv`, `cfar_reference.csv`,
+`pos_weight_derivation.csv`, `sigma.json`, `DERIVED_VALUES.md`, and
+`label_ablation_experiment.ipynb` (17 cells, 4 figures, zero errors).
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
