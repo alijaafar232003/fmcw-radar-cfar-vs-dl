@@ -1,0 +1,4 @@
+checkpoints/
+logs/
+cache/
+# results/ and figures/ carry small artefacts; large ones are ignored above

@@ -1,0 +1,21 @@
+{
+  "git_status_at_start": "?? experiments/e4_cut_guard_mask/",
+  "protected": {
+    "src/dl/models.py": "b3ead680809383ba1933f82426500a332615fdd7a678f9e44321777bfe81e9d1",
+    "src/dl/train.py": "b55fdc45b24e1ba970af246b8e74a1d0f47db65e6887bd0291a2fd14a4faa53b",
+    "src/dl/dataset.py": "e8374c0c06ad4eb66713a5ce1bb7ca40a31f6d7adbe25fe29a429919bf5c1c91",
+    "src/dl/infer.py": "746174b923742dfff590235e68032432b8de02e17b557d14aff04e632c698aa5",
+    "src/cfar/cfar.py": "b3caa048efeb4512df48bb4b126e5f7a00dac935dd638056564a32cc941900ac",
+    "src/cfar/detect.py": "0ec9f10d6a436c820e7632f02b9afb4046b3402f0cbd34133f783f79ee8216dd",
+    "src/eval/detection.py": "daf2a4759496b3884dca7827223db5acec5efccfa717a3419061e72cf70dd921",
+    "configs/frozen_dl.yaml": "69fb6635ce55e9f13b4bf59ede1aac42a3a332e421a7cc07afde0f7456fcd6c8",
+    "results/dl/tinycnn_frozen_s0_ep021.pt": "b4014362d5fef658ef2f1ffdfbacd45a338243798080d03824f759cf2c23f05f",
+    "results/dl/tinycnn_frozen_s1_ep021.pt": "c5a0627617e4f4d8be33796fb091f81f179b07db0954c21b12aee471bf7cfe27",
+    "results/dl/tinycnn_frozen_s2_ep021.pt": "18292b7dd56b26f723701240c168097a3573d485cf8dbc2e2fdc48c2a740b8ad",
+    "results/dl/tinycnn_frozen_s3_ep021.pt": "9a51897bcbe3c7104853b1a47c198257cf6810707e13951ec5495d27233fb61b",
+    "results/dl/tinycnn_frozen_s4_ep021.pt": "cd28e47bcc5cb4eeb737b701b2f5aadfc3c903f6e5490767d17f778d4b0b6510",
+    "results/dl/tinycnn_frozen_s5_ep021.pt": "c10ea4e018fa5c774b8f38d90846c50def0c3c1bfaec802c5084742e6cdb1449",
+    "results/dl/tinycnn_frozen_s6_ep021.pt": "42be2a883368103b0b4ade7328b897a97b1e009aed69bac83ae802c08cca0a3a",
+    "results/dl/tinycnn_frozen_s7_ep021.pt": "5378e2497d9529bdba05b25904454d2583bac4f4447b9e57e54a49ca1198222f"
+  }
+}
