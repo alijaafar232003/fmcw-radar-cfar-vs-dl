@@ -3191,6 +3191,66 @@ point label buys more localization at a real cost in clutter.
 `pos_weight_derivation.csv`, `sigma.json`, `DERIVED_VALUES.md`, and
 `label_ablation_experiment.ipynb` (17 cells, 4 figures, zero errors).
 
+### 2026-08-28 — E4: guard access buys ~1.5 pp of Pd and costs a great deal of localization
+
+**Standalone attribution experiment** (PLAN.md E4), isolated in `experiments/e4_cut_guard_mask/`.
+Pre-registered before any masked model existed. **The frozen TinyCNN was never retrained**;
+16 protected files re-hashed unchanged, no git change outside the experiment folder. `bench2_test`
+never opened. Does not alter the project's primary results or conclusions.
+
+**Feasibility finding, reported before training.** CUT-relative guard masking is **impossible on a
+dense fully-convolutional network**: the guard is ±2, so cell (r+1,v) sits inside CUT (r,v)'s guard
+while being its own CUT, and one input map cannot hold it both hidden and visible. A decimated
+lattice blanks ~90% of the map; exact dense masking needs 189 passes per frame. The masked arm must
+therefore be a CUT-centred patch model — sound for inference (frozen dense logit = 21×9 patch-centre
+logit to **1.9e-06** in eval mode) but different in training (BatchNorm over 21×9 not 256×64; one
+supervised cell per patch, not 16,384 per frame). So the primary contrast is **masked-patch vs
+unmasked-patch**, making those differences common-mode, with the frozen model as a read-only
+reference. 16 new models trained (8+8), 20.4 h.
+
+#### The two gates disagree, and that is the result
+
+| | gate ±1 (registered primary) | gate 0 (exact cell) |
+|---|---|---|
+| mean ΔPd = Pd(unmasked) − Pd(masked) | **+0.0150** | **−0.157** |
+| sign | positive **7/7** | negative **7/7** |
+| significant (Bonferroni) | 3/7 | **7/7** |
+
+Measured Pfa 0.992–1.001× target across every arm and condition.
+
+**Registered outcome A holds at the headline gate**: guard/mainlobe information does contribute —
+significantly on `multi` (+0.038), `masking` (+0.025), `clutter` (+0.024). But the effect is
+**small**: removing 24 of 189 input cells — the ones carrying ~64% of the frozen model's occlusion
+sensitivity — costs ~1.5 percentage points of Pd.
+
+**The unregistered finding is larger than the registered one.** At gate 0 the sign reverses on every
+condition: the **masked** model is far better at putting its peak on the exact target cell
+(`isolated` 0.511 vs 0.260 — nearly double). Mainlobe energy in the guard cells makes the response
+**broad**: enough to match within ±1, not enough to identify the peak. Deny those cells and the
+response sharpens.
+
+**E3 and E4 have now found the same failure from opposite directions.** E3: flat 3×3 *labels*
+broaden the response. E4: access to mainlobe *input* broadens it too. Both are fine at ±1 and both
+collapse at gate 0. **The localization deficit has two independent contributing causes** — one in the
+supervision, one in the input.
+
+#### Combined with E2
+
+E2 gave CFAR the mainlobe energy and it **hurt** (7/7 worse). E4 takes it from the CNN and detection
+drops **slightly** while localization improves **sharply**. Together:
+
+> The guard cells carry information the learned detector genuinely uses for detection, but that
+> information is not simply *energy* — integrating the same energy into CFAR degrades it. And the
+> network's use of those cells is what makes it place targets imprecisely.
+
+**Explicitly not supported:** "the CNN wins because it sums more target energy." E2 rules it out, and
+E4 shows the guard cells buy only ~1.5 pp of Pd at a large localization cost.
+
+⚠️ **Limitations.** Both patch arms are undertrained relative to the frozen dense model — uniform
+256-CUT sampling preserves the class distribution (so `pos_weight` keeps its meaning) but gives ~67×
+fewer positives per epoch. Common-mode, so ΔPd is unbiased, but absolute Pd sits below the dense
+model's. Validation split only.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
