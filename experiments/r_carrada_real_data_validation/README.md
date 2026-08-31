@@ -6,9 +6,23 @@
 > **`15f3aab2c9690a22dcbe55799d78ab6d69451c09`**, the baseline from which Phase 2 isolation is
 > measured.
 >
-> **Phase 2 — R0 domain audit. COMPLETE.** See `r_carrada_real_data_validation.ipynb` §0–§16.
+> **Phase 2 — R0 domain audit. COMPLETE.** Committed as
+> **`a3a3b88e4f26dcffa14d97e2fc8f4c03e08eff04`** — the frozen R0 baseline. Notebook §0–§16.
 >
-> **No detector has been run. No model, configuration, or prior result has been modified.**
+> **Phase 3 — R1 pre-registration. FROZEN.** [`PREREGISTRATION.md`](PREREGISTRATION.md),
+> SHA-256 **`e800ad84af5a909d595a9c1a5b32bfe308efc4830a1bfe17d8ea793a1bba98a8`** (FINAL PRE-SCORING FREEZE),
+> frozen 2026-08-31T17:11:45Z. Notebook §17–§28; freeze record in
+> `results/preregistration_freeze.json`.
+>
+> **No detector has been run on CARRADA. No CARRADA label of any split has been used to choose any
+> quantity. No model, configuration, or prior result has been modified.**
+
+**Final rulings applied 31 Aug 2026 before any scoring** (`PREREGISTRATION.md` §14): the global
+TinyCNN threshold rule approved as proposed; **primary CFAR changed from OS to CA** (canonical
+baseline, continuity with the main benchmark, and it avoids picking the comparator because R0 hinted
+OS might suit CARRADA — OS stays as the highlighted robust secondary and is never promotable after
+results); NMS frozen at 5 with the extended-object multi-peak limitation registered; and objects
+spanning range blocks assigned by the median range index of their valid support.
 
 ## R0 headline
 
@@ -57,15 +71,20 @@ This decomposes into PLAN.md Part B:
 | **R3** | Does limited real-data adaptation help? Split by sequence, never by frame. |
 | **R4** | Do the mechanism findings themselves survive on real measurements? |
 
-## Current phase
+## Phase progression
 
-**Phase 1 — isolation, repository setup, and data integrity. Complete.**
+| phase | content | status |
+|---|---|---|
+| 1 | isolation, repository setup, data integrity | ✅ committed `15f3aab` |
+| 2 | R0 domain audit | ✅ committed `a3a3b88` |
+| 3 | R1 pre-registration | ✅ frozen, `e800ad84…` |
+| 4 | implementation + sanity checks | ✅ complete, no test scoring |
+| 5 | final detector evaluation on the CARRADA Test split | ⬜ not started |
+| 6 | interpretation / closeout | ⬜ not started |
 
-Phase 1 deliberately ran **no detector**, computed **no detection statistic**, and tuned **no
-threshold**. Its entire job was to make the later phases auditable.
-
-Next phase: **R0 — synthetic vs CARRADA domain audit**, which must complete before any detector
-touches a real frame.
+Phases 1–4 deliberately ran **no detector on the CARRADA Test split**, computed **no R1 detection
+statistic**, and tuned **nothing** against real data. Their job was to make Phase 5 auditable and
+un-gameable.
 
 ---
 

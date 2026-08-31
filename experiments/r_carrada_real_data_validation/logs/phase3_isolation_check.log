@@ -1,0 +1,11 @@
+reference manifest : experiments/r_carrada_real_data_validation/isolation_manifest.json
+files in reference : 628
+files re-hashed now: 628
+
+FROZEN FILES CHANGED : 0   <- must be 0
+MISSING              : 0
+NEW IN PROTECTED SET : 0
+APPEND-ONLY RECORDS CHANGED : 1   (expected; project convention)
+   PROGRESS.md  insertion-only vs HEAD: True  (+103 lines, 3511 -> 3614 lines)
+
+ISOLATION INTACT

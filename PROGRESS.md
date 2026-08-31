@@ -3461,6 +3461,109 @@ statistic was computed.
 
 **Next: R1 pre-registration — not yet written, and no detector runs until it is committed.**
 
+### 2026-08-31 — CARRADA real-data validation, Phase 3: R0 committed, R1 pre-registration frozen
+
+**Phase 3 of the real-data external-validation track.** Two deliverables only: commit the completed
+R0 audit, and freeze the R1 pre-registration. **No detector was run on CARRADA, and no CARRADA label
+of any split — train, validation or test — was used to choose any quantity.** No published number
+changes; no frozen asset was modified.
+
+**Phase 2 commit (the frozen R0 baseline):** `a3a3b88e4f26dcffa14d97e2fc8f4c03e08eff04`.
+Verified before committing: 0 frozen files changed, 0 missing, 0 new in the protected set, with
+`PROGRESS.md` confirmed insertion-only against `git show HEAD`.
+
+**Pre-registration:** `experiments/r_carrada_real_data_validation/PREREGISTRATION.md`,
+SHA-256 **`aaad1ff7d122bb41faad6bff40dfdcda2d9ca49f77c831df4d63316ad009ed85`**, 20,400 bytes, frozen
+2026-08-31T16:36:04Z against that baseline commit. Freeze record in
+`results/preregistration_freeze.json`; notebook §17–§28 (45 cells, executes with zero errors).
+
+**R1 research question.** *Do the already-frozen TinyCNN and classical CFAR detectors transfer
+zero-shot from the synthetic development domain to real CARRADA Range–Doppler data?* This is
+**external validation**: it does not replace or revise the synthetic benchmark, and a poor R1 result
+would retract no synthetic finding — it would bound its external validity.
+
+**Frozen truth definition.** The **CARRADA dense segmentation mask**. No point target is invented;
+centroid, box centre, brightest-cell-in-mask and sparse-point centroid are all explicitly rejected as
+primary, because each is a construct of this project rather than an annotation CARRADA supplies. R0
+established that the `box` field is not the bounding box of the dense mask (strictly smaller in
+8,750 of 8,750 instances). The detection question is *"did the detector place a peak inside the
+annotated object support?"*
+
+**Frozen eligibility and matching.** The unchanged frozen valid region — margin 10 range / 4 Doppler,
+236 × 56 = 13,216 cells; `valid_support = dense_mask ∩ valid_region`; an object is eligible if that
+intersection is non-empty. Matching is one-to-one and identical for both arms: maximum-cardinality
+bipartite assignment, tie-broken first on total detector score and then on deterministic
+`(range_bin, doppler_bin, object_id)` order. Seven matching unit tests must pass before any test
+scoring.
+
+**Primary metric.** **Mask-based object recall** — matched eligible objects over total eligible
+objects, overall and per class, identical definition for both arms. Tolerance ladder: exact mask is
+the headline, with ±1 and ±3 bin dilations secondary. **Support-distance is excluded from
+confirmatory metrics**: it is identically zero for any successful detection, so it cannot
+discriminate among successes, and a nearest-of-many rule would reward whichever detector emits more
+peaks. **No localization metric comparable to the synthetic one is reported at all**, because CARRADA
+supplies no point truth. Registered wording: synthetic Pd and CARRADA mask recall measure related
+capability under **different truth definitions** and are never differenced or shown in one column.
+
+**Unmatched-output terminology.** **Synthetic-style Pfa is not reported on CARRADA in any form.** R0
+measured that 5.85% of frames carry bright returns belonging to no annotation, and only the 77
+tracked objects are annotated at all, so a peak outside every mask is not a known false alarm. The
+burden metric is **unmatched detections per frame**, never renamed `Pfa`, `false-positive rate`,
+`false alarm rate` or `FPR`. Secondary: unmatched detections per **frame with no CARRADA
+tracked-object annotation** — described in exactly those words, never as "true background-only
+frames".
+
+**Detector threshold provenance.** ⚠️ **The frozen project has no global TinyCNN threshold** —
+`configs/frozen_dl.yaml` specifies *"matched MEASURED Pfa, swept per condition"*, an evaluation
+oracle that cannot transfer. One had to be defined, and this is recorded as a **new protocol choice,
+not a transcription**: one threshold **per seed**, derived on **`bench2_val` only**, pooled across
+all 8 scenario conditions, the lowest threshold whose pooled measured per-cell Pfa ≤ 1e-4, at the ±1
+gate, using frozen `all_peaks` and the frozen valid region. No CARRADA data enters the derivation.
+**Consequence registered in advance: R1 runs under a different operating-point protocol from the
+synthetic headline and its numbers are not poolable with the synthetic tables.** CFAR is **strict
+zero-shot** on frozen alpha, with the interpretation registered in advance that R0 showed those
+alphas were calibrated for single-look statistics while CARRADA sits near k ≈ 4.8, so **poor CFAR
+recall would not establish that CFAR is intrinsically inferior.** No alpha recalibration is
+performed, and none will be invented to improve CFAR's numbers.
+
+**Frozen NMS.** `all_peaks`, `nms_size = 5`, shared by both arms, not retuned on CARRADA. All four
+CFAR variants (CA/GO/OS/SO) are run and reported; the benchmark's "best CFAR per condition" cannot
+transfer because selecting it needs labels. **Primary CFAR arm is OS**, registered a priori on R0's
+heterogeneous-background finding.
+
+**Class analysis.** Car / pedestrian / cyclist on dense-mask truth, with the caveat registered now
+that class masks differ greatly in size (median support 18×13, 11×11, 9×9), so a larger mask is a
+larger area for a peak to land inside and **class differences must not be read as detector
+sensitivity alone.**
+
+**Secondary stratifications**, all fixed before scoring: range blocks reuse the **exact** R0 blocks
+(10–60, 60–110, 110–160, 160–210, 210–246); zero-Doppler uses the R0 common ±4 band (Doppler bins
+28–36), with the ridge **not** removed from the primary analysis; plus strict eligibility, sparse/box
+sensitivity, a recall–unmatched-burden curve (x-axis is **not** Pfa and it is **not** an ROC), and
+empty-frame burden.
+
+**Sequence-aware statistics.** The test split has **6 sequences, and that is the effective sample
+size.** Bootstrapping RD cells, or treating the 1,628 test object-frames as independent, is
+prohibited. Primary inference is a **paired bootstrap over the 6 test sequences**, 10,000
+replicates, percentile CI, with TinyCNN averaged over its 8 seeds per sequence. **Seed variability is
+reported separately and never merged with sequence variability into a single SE.** With n = 6 the
+emphasis is on effect sizes and CIs; low-n class comparisons are labelled exploratory.
+
+⚠️ **Two pre-registered choices are new and are flagged for confirmation** rather than silently
+adopted (`PREREGISTRATION.md` §14): the global TinyCNN threshold rule, and OS as the primary CFAR
+arm. Neither can be resolved by looking at CARRADA data without destroying the pre-registration.
+
+**Both real-vs-simulator RD comparison figures are preserved** for the final notebook —
+`r0_fig1_rd_examples.png` (bounding box plus statistical callouts) and
+`r0_fig1b_rd_examples_dense_overlay.png` (dense support drawn cell-by-cell). Both carry the label
+*ILLUSTRATIVE EXAMPLES — NOT STATISTICAL EVIDENCE*, with notebook §5 stating that CARRADA's
+background is smoother in the sense of **lower cell-to-cell fluctuation, not less physical clutter**,
+while simultaneously carrying stronger localized structure — so the real domain is **different**,
+not simply cleaner or harder.
+
+**No R1 detector result has been computed or viewed.** Next: Phase 4, implementation and sanity
+checks C1–C8, of which C8 uses CARRADA **Train** sequences only and is diagnostic, not reportable.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below

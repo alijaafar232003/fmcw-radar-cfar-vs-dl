@@ -241,6 +241,33 @@ examples are **manually selected and illustrative — not statistical evidence.*
            admin=geo["annotation_doppler_bin_min"], admax=geo["annotation_doppler_bin_max"],
            ac=geo["annotation_cells_total"]))
 md("![RD examples](figures/r0_fig1_rd_examples.png)")
+md("![RD examples, dense overlay](figures/r0_fig1b_rd_examples_dense_overlay.png)")
+
+md("""> ### ILLUSTRATIVE EXAMPLES — NOT STATISTICAL EVIDENCE
+>
+> Both figures above show two hand-picked frames. They are an aid to intuition. The statistical
+> evidence is Figures 2–6, computed over all 12,666 CARRADA and 1,600 simulator frames.
+
+**Reading the two panels.** Both use **identical physical axes** and **identical display
+normalization** — dB relative to each frame's own median — so every visible difference is real
+rather than a display artefact. The two variants differ only in how the annotation is drawn: the
+first as a bounding box with statistical callouts, the second cell-by-cell, which shows that the
+CARRADA support is an irregular blob rather than a rectangle.
+
+* CARRADA's **general background is visibly smoother and less speckled.**
+* **"Smoother" means lower cell-to-cell amplitude fluctuation — it does *not* mean less physical
+  clutter.** The measured quantity is background std 2.21 dB against 5.57 dB, i.e. effective Gamma
+  shape k ≈ 4.8 against ≈ 1.0.
+* At the same time CARRADA carries **stronger localized structured clutter** — most obviously its
+  **narrow, intense zero-Doppler ridge** (24 dB, half-width ±1 bin), plus range-sidelobe streaks
+  through the bright targets.
+* The simulator shows visibly **stronger grain-like single-look speckle**, and its zero-Doppler
+  clutter is **broader but weaker** (14.8 dB, half-width ±4 bins).
+
+**So the real domain is not simply "cleaner" or "harder" than the synthetic one — its background
+and clutter structure is *different*.** A detector tuned against fine-grained stationary speckle
+faces, on CARRADA, a smoother field interrupted by strong localized structure. Which of those two
+regimes is harder is a question for R1, and R0 deliberately does not answer it.""")
 
 # ---------------------------------------------------------------------------------- §6
 md("""## §6 Background-selection protocol
@@ -620,10 +647,13 @@ md("""## §15 R0 limitations
 """)
 
 # ---------------------------------------------------------------------------------- §16
-md("""## §16 Next step — R1 pre-registration. **NOT YET RUN.**
+md("""## §16 Next step — R1 pre-registration
 
-R1 is blocked on decisions that must be **pre-registered before any number exists**, because each
-is a definition this project invents rather than something CARRADA supplies:
+> ✅ **Written and frozen in Phase 3.** See `PREREGISTRATION.md` and §17–§28 below. This section
+> records what R0 identified as blocking, and each item is now resolved there.
+
+R1 was blocked on decisions that had to be **pre-registered before any number existed**, because
+each is a definition this project invents rather than something CARRADA supplies:
 
 1. **Truth-point definition.** Box centre, sparse centroid, or brightest cell within the mask —
    or abandon point matching for a "peak inside the annotated support" criterion. This determines
@@ -640,6 +670,271 @@ is a definition this project invents rather than something CARRADA supplies:
 
 No detector will be run until that pre-registration is committed.
 """)
+
+# ================================ PHASE 3 — R1 PRE-REGISTRATION ========================
+FREEZE = json.load(open(os.path.join(RESULTS, "preregistration_freeze.json")))
+
+md("""---
+
+# Phase 3 — R1 pre-registration
+
+> **Frozen. No detector has been run on CARRADA.**
+>
+> Full document: [`PREREGISTRATION.md`](PREREGISTRATION.md)
+> SHA-256 `{sha}`
+> Frozen {when} against R0 baseline commit `{commit}`
+
+⚠️ **Section numbering.** The prompt for this phase asked for §15–§26. R0 had already used §15
+(limitations) and §16 (next step) in the committed notebook, so the R1 sections run **§17–§28**
+rather than overwrite them. The mapping is one-to-one and in order: requested §15 → §17,
+§16 → §18, … §26 → §28.
+
+The experiment progression this notebook will hold end to end:
+
+| phase | content | status |
+|---|---|---|
+| 1 | isolation / integrity | complete, §2 |
+| 2 | R0 domain audit | complete, §4–§15 |
+| 3 | R1 pre-registration | **complete, §17–§28** |
+| 4 | implementation + sanity checks | not started |
+| 5 | final detector evaluation | not started |
+| 6 | interpretation / closeout | not started |
+""".format(sha=FREEZE["sha256"], when=FREEZE["frozen_utc"][:19] + "Z",
+           commit=FREEZE["r0_baseline_commit"][:12]))
+
+md("""## §17 R1 motivation *(requested §15)*
+
+> **Do the already-frozen TinyCNN and classical CFAR detectors transfer zero-shot from the
+> synthetic development domain to real CARRADA Range–Doppler data?**
+
+This is **external validation**. It does not replace or revise the synthetic benchmark and cannot:
+the synthetic study answers controlled questions about performance and mechanism under a truth
+definition CARRADA does not supply. R1 asks whether the frozen behaviour survives the domain shift
+R0 measured.
+
+**A poor R1 result would retract no synthetic finding.** It would bound its external validity.""")
+
+md("""## §18 Pre-registered ground truth *(requested §16)*
+
+**Primary truth is the CARRADA dense segmentation mask.** No point target is invented.
+
+Rejected as primary, explicitly: centroid, box centre, brightest cell in mask, sparse-point
+centroid — each would be a construct of this project rather than an annotation CARRADA supplies.
+
+R0 measured that the `box` field is **not** the bounding box of the dense mask: it is strictly
+smaller in **8,750 of 8,750** instances, so it bounds the sparse annotation instead.
+
+The detection question is: **did the detector place a peak inside the annotated object support?**""")
+
+md("""## §19 Eligibility region *(requested §17)*
+
+Unchanged from the frozen convention (`configs/frozen_dl.yaml`, *"margin 10 range / 4 Doppler"*):
+
+```
+valid_region  = rows 10…245 × cols 4…59        (236 × 56 = 13,216 cells)
+valid_support = dense_mask ∩ valid_region
+eligible      = |valid_support| >= 1
+```
+
+Total, eligible, and excluded object counts are all reported. A stricter variant — mask entirely
+inside the region — is registered as secondary S4, not primary.""")
+
+md("""## §20 One-to-one matching *(requested §18)*
+
+One prediction may not detect two objects. Identical code for both arms.
+
+Edge: peak `p` → object `o` iff `p ∈ valid_support(o)`. Objective, in strict order:
+
+1. maximise matched objects (maximum-cardinality bipartite matching);
+2. tie-break on greater total detector score;
+3. tie-break on deterministic `(range_bin, doppler_bin, object_id)` order.
+
+Seven unit tests must pass before any test scoring: one/one, one/many, two objects sharing a peak,
+two/two, overlapping masks, no peaks, empty frame.""")
+
+md("""## §21 Primary metrics *(requested §19)*
+
+**Primary: mask-based object recall.** For each eligible object, detected iff an assigned peak lies
+inside its `valid_support`.
+
+```
+object recall = matched eligible objects / total eligible objects
+```
+
+**Tolerance ladder** (identical dilation for both arms): exact mask = **headline**; ±1 bin and
+±3 bins secondary.
+
+**Support-distance is excluded from confirmatory metrics.** For a successful detection it is
+identically zero by construction, so it cannot discriminate among successes, and a nearest-of-many
+rule would reward whichever detector emits more peaks. **No localization metric comparable to the
+synthetic one is reported at all** — CARRADA supplies no point truth. That is a limitation of the
+transfer, not an omission.
+
+> ⚠️ Synthetic Pd and CARRADA mask recall measure related detection capability under **different
+> truth definitions**. They are never placed in the same column, differenced, or called the same
+> quantity.""")
+
+md("""## §22 Unmatched-detection terminology *(requested §20)*
+
+**Synthetic-style Pfa is not reported on CARRADA in any form.**
+
+R0 measured that 5.85% of frames carry bright returns belonging to no annotation, and only the 77
+tracked objects are annotated at all. A peak outside every mask may be infrastructure, static
+clutter, multipath, another reflector, an unannotated object — or a genuine false alarm.
+
+The burden metric is **unmatched detections per frame** (mean, median, p90, per sequence). It is
+never renamed `Pfa`, `false-positive rate`, `false alarm rate`, or `FPR`.
+
+Secondary: unmatched detections per **frame with no CARRADA tracked-object annotation** — described
+in exactly those words, never as "true background-only frames".""")
+
+md("""## §23 Detector operating points *(requested §21)*
+
+**TinyCNN — a new protocol choice, declared as such.** The frozen project has **no** global
+threshold: `frozen_dl.yaml` specifies *"matched MEASURED Pfa, swept per condition"*, an oracle that
+cannot transfer. Registered rule:
+
+> one threshold **per seed**, derived on **`bench2_val` only**, **pooled across all 8 conditions**,
+> the lowest threshold whose pooled measured per-cell Pfa ≤ 1e-4, at the ±1 gate, frozen `all_peaks`
+> and frozen valid region.
+
+No CARRADA data of any split enters this derivation. **Consequence registered in advance:** R1 runs
+under a *different operating-point protocol* from the synthetic headline, so its numbers are **not
+poolable** with the synthetic tables.
+
+**CFAR — strict zero-shot.** Frozen alpha unchanged. Registered interpretation: R0 established these
+alphas were calibrated for single-look statistics while CARRADA sits near k ≈ 4.8, so the achieved
+operating point will move. **If CFAR recall is poor, that does not establish CFAR is intrinsically
+inferior.** No recalibration is performed, and none will be invented merely to improve CFAR's
+numbers.""")
+
+md("""## §24 TinyCNN frozen provenance *(requested §22)*
+
+`results/dl/tinycnn_frozen_s{{0..7}}_ep021.pt` — TinyCNN, 5,041 params, RF 21×9, epoch 21,
+`threads=2`, hash-pinned in `isolation_manifest.json`.
+
+**Prohibited:** retraining, fine-tuning, architecture change, label change, BatchNorm adaptation,
+CARRADA-specific learned normalization, any edit to `src/dl/`. All 8 seeds evaluated independently;
+**not ensembled**, because the frozen benchmark does not ensemble them.
+
+Experiment-local adapter only:
+
+```
+relative_db = D - median(D)          # D = range_doppler_numpy, already power in dB
+relative_db = clip(relative_db, -10, +60)
+x           = relative_db / 20
+```
+
+Algebraically identical to the frozen `10*log10(P / median P)`, because dB is monotone in power so
+`median(P) = 10**(median(D)/10)` exactly. Check C1 verifies this numerically to < 1e-9 before any
+CARRADA inference.""")
+
+md("""## §25 CFAR frozen provenance *(requested §23)*
+
+Frozen 21×9 window, guard 2/2, train 8/2, `os_rank_frac` 0.75, `go_axis` 1, calibrated alphas from
+`configs/cfar_alpha_table.json`. Source, geometry, statistic and alpha unchanged.
+
+Input `P' = 10**((D - c)/10)` is permitted for any constant `c`; CFAR is a ratio test so the
+constant cancels. Check C2 unit-tests that invariance.
+
+**All four variants — CA, GO, OS, SO — are run and reported.** The benchmark's "best CFAR per
+condition" cannot transfer: selecting it needs labels, which is an oracle on real data.
+
+**Primary CFAR arm: CA** *(final ruling, before any scoring)*. CA is the canonical classical
+baseline, it preserves continuity with the main synthetic benchmark, and it **avoids choosing the
+primary comparator because R0 hinted another variant might suit CARRADA** — which would import a
+data-driven preference into a strict zero-shot transfer.
+
+GO, SO and OS run as secondary. **OS is highlighted as the robust heterogeneous-background
+comparison** (R0 found non-stationary background, a narrow 24 dB ridge, bright unannotated
+reflectors — what an order-statistic estimator exists to tolerate) but **is never promoted to
+primary after results are seen.**
+
+**Frozen NMS:** `all_peaks`, `nms_size = 5`, shared by both arms. Not retuned on CARRADA.
+
+> ⚠️ **Registered limitation — extended objects under a point-target NMS.** The 11×11 suppression
+> window was sized for a ~2-bin synthetic point target. A CARRADA car spans a median 18 × 13 bins —
+> **larger than the window** — so one real object can produce several surviving peaks inside its own
+> support. Object recall stays valid (one-to-one matching assigns exactly one peak per object), but
+> the surplus peaks become *unmatched*, so **unmatched detection burden ≠ pure detector noise**: part
+> of it is a metric-transfer artefact. It is common-mode in the TinyCNN−CFAR *difference*, but not in
+> the absolute burden. Phase 4 quantifies how often it happens on non-test frames; **NMS is not
+> altered in response.**""")
+
+md("""## §26 Secondary stratifications *(requested §24)*
+
+| # | analysis |
+|---|---|
+| S1 | per class — car / pedestrian / cyclist |
+| S2 | range blocks — the **exact** R0 blocks: 10–60, 60–110, 110–160, 160–210, 210–246 |
+| S3 | zero-Doppler — near-zero if `valid_support` meets Doppler bins 28–36 (the R0 ±4 band), else away. **The ridge is not removed from the primary analysis** |
+| S4 | strict eligibility — mask entirely inside the valid region |
+| S5 | sparse / box truth — sensitivity only, never replacing dense |
+| S6 | recall–unmatched-burden curve — full curve, x-axis is **not** Pfa, **not** an ROC |
+| S7 | empty-frame burden |
+
+> ⚠️ **Per-class recall caveat, registered now.** Class masks differ greatly in size (median
+> support: car 18×13, cyclist 11×11, pedestrian 9×9). A larger mask is a larger area for a peak to
+> land inside, so **class differences must not be read as detector sensitivity alone.**""")
+
+md("""## §27 Statistical plan *(requested §25)*
+
+**The test split has 6 sequences. That is the effective sample size.**
+
+**Prohibited:** bootstrapping RD cells; treating the 1,628 test object-frames as independent; any
+interval whose n is a frame or object count.
+
+Unit of analysis is the test sequence (n = 6). Per sequence: TinyCNN recall averaged over the 8
+seeds, CFAR recall from the primary arm, and their paired difference. **Primary inference is a
+paired bootstrap over the 6 test sequences**, 10,000 replicates, percentile CI.
+
+**Seed variability is reported separately and never merged with sequence variability** into one
+standard error — they answer different questions.
+
+With n = 6, emphasis is on effect sizes, CIs, and the per-sequence table shown directly. p-values
+are de-emphasised; low-n class comparisons are labelled **exploratory**.""")
+
+md("""## §28 Pre-registration freeze record *(requested §26)*
+
+| | |
+|---|---|
+| file | `PREREGISTRATION.md` |
+| SHA-256 | `{sha}` |
+| size | {size:,} bytes |
+| frozen (UTC) | {when} |
+| R0 baseline commit | `{commit}` |
+| detector scoring performed | **{scored}** |
+| CARRADA labels used for any choice | **{used}** |
+
+Departures go to `DEVIATIONS.md` with date, reason, whether results had been seen, and scientific
+consequence. **This file is not edited after the freeze.**
+
+### Final rulings, applied before any scoring
+
+The two items flagged at Phase 3 review are now decided and incorporated. Both were settled with
+**no CARRADA detector output in existence**:
+
+1. **Global TinyCNN threshold (§23) — approved as proposed.** Per seed, `bench2_val` only, pooled
+   over all 8 conditions, lowest threshold with pooled measured per-cell Pfa ≤ 1e-4. Declared a
+   **new zero-shot operating protocol**, never mixed numerically with the per-condition synthetic
+   benchmark.
+2. **Primary CFAR (§25) — changed from OS to CA.** Canonical baseline, continuity with the main
+   benchmark, and it avoids picking the comparator because R0 hinted OS might suit CARRADA. OS stays
+   as the highlighted robust secondary, never promotable after results.
+3. **NMS frozen at 5**, with the extended-object multi-peak limitation registered.
+4. **Range-stratum assignment** for objects spanning blocks: median range index of `valid_support`
+   — annotation-only, so no detector output can influence it.
+
+This draft supersedes an earlier one (SHA-256 `{prior}`) that named OS primary.
+
+---
+
+## Next: Phase 4 — implementation and sanity checks. **No detector has been scored.**
+""".format(sha=FREEZE["sha256"], size=FREEZE["size_bytes"], when=FREEZE["frozen_utc"][:19] + "Z",
+           prior=FREEZE.get("supersedes_draft_sha256", "n/a")[:16],
+           commit=FREEZE["r0_baseline_commit"][:12],
+           scored="NO" if not FREEZE["detector_scoring_performed"] else "YES",
+           used="NO" if not FREEZE["carrada_labels_used_for_any_choice"] else "YES"))
 
 nb = nbf.v4.new_notebook(cells=cells)
 nb.metadata.update({"kernelspec": {"display_name": "Python 3", "language": "python",
