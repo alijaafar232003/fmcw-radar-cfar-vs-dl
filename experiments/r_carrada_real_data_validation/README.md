@@ -1,7 +1,30 @@
 # CARRADA Real-Data External Validation
 
-> **Phase 1 — isolation and setup. COMPLETE.**
+*Real-data experiment — R0 domain audit + R1 zero-shot validation.*
+
+> **Phase 1 — isolation and setup. COMPLETE.** Committed as
+> **`15f3aab2c9690a22dcbe55799d78ab6d69451c09`**, the baseline from which Phase 2 isolation is
+> measured.
+>
+> **Phase 2 — R0 domain audit. COMPLETE.** See `r_carrada_real_data_validation.ipynb` §0–§16.
+>
 > **No detector has been run. No model, configuration, or prior result has been modified.**
+
+## R0 headline
+
+| statistic | CARRADA | simulator | single-look ideal |
+|---|---|---|---|
+| CV(power) | 0.4734 ± 0.0157 | 1.0053 ± 0.0032 | 1.000 |
+| Gamma shape k | 4.771 ± 0.223 | 0.990 ± 0.006 | 1.00 |
+| background std [dB] | 2.212 ± 0.011 | 5.573 ± 0.005 | 5.57 |
+| lag-1 range corr | 0.5635 ± 0.0031 | 0.5731 ± 0.0010 | — |
+| lag-1 Doppler corr | 0.2265 ± 0.0055 | 0.5740 ± 0.0029 | — |
+| zero-Doppler ridge | 24.0 dB (±1 bin) | 14.8 dB (±4 bins) | — |
+
+Geometry and representation transfer cleanly; the background does not. The simulator is
+single-look to within measurement error — an independent validation of its clutter model.
+**Every preliminary R0 value is superseded** (see `PROGRESS.md`, 31 Aug Phase 2 entry); two of
+them reversed direction once the background mask was defined correctly.
 
 This folder is an **isolated external-validation experiment**. It is self-contained: everything it
 produces lives under `experiments/r_carrada_real_data_validation/`. It reads the frozen synthetic

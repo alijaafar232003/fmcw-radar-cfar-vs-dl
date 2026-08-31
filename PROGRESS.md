@@ -3320,6 +3320,147 @@ real-data counterpart.
 
 **Next phase: R0**, the synthetic-vs-CARRADA domain audit, before any detector touches a real frame.
 
+### 2026-08-31 — CARRADA real-data validation, Phase 2 (R0): the domain audit, and no detector run
+
+**Phase 2 of the real-data external-validation track.** Everything lives in
+`experiments/r_carrada_real_data_validation/`. **No detector was run** — no TinyCNN inference, no
+CFAR pass, no threshold, no Pd, no Pfa, no alpha recalibration. No published number changes and no
+frozen asset was modified.
+
+**Name resolved.** The Phase 1 folder was briefly `e5_carrada_real_data_validation`, which collided
+with the **E5** that `PLAN.md` reserves for the unbuilt Part-A four-way comparison. It is now
+`r_carrada_real_data_validation` — `r_` marks the real-data track, and it is deliberately not called
+`R1` because it holds both R0 and R1. `PLAN.md` was **not** edited.
+
+**Phase 1 commit:** `15f3aab2c9690a22dcbe55799d78ab6d69451c09`.
+
+#### Representation — `range_doppler_numpy` is the primary input, and the conversion is exact
+
+240 frames across all 30 sequences. Per-frame regression of `numpy` on `10log10(raw)`:
+slope **2.0046 ± 0.0183**, intercept −47.42 dB, residual **0.330 dB** with essentially no level
+dependence (r = +0.091) and no range/Doppler structure. Slope 2 is the signature of `20log10`, so
+**`_raw` is an amplitude and `_numpy` is power in dB**. Confirmed independently on the eligible
+background: CV of `10^(numpy/10)` matches CV of `raw²` to **10.6%** but differs from CV of `raw` by
+**252%**.
+
+* **CFAR input:** `P ∝ 10^(numpy/10)` is valid; the unknown constant cancels because CFAR is a ratio
+  test.
+* **TinyCNN input:** the frozen preprocessing is `10log10(P / median P)`. Because dB is monotone in
+  power, `median(P) = 10^(median(dB)/10)` **exactly**, so this equals `dB − median(dB)` — the
+  adapter is exact in the dB domain and the unknown constant cancels identically.
+* `_raw` offers no advantage (identical noise statistics; peak lands inside the annotated mask
+  97.34% vs 96.28% over 752 instances) and is **kept on disk** as a cross-check.
+
+#### Geometry transfers cleanly
+
+CARRADA RD is `(256, 64)` float64 on all 12,666 frames; annotation coordinates span range bins
+0–255 and Doppler bins 0–63, indexing the array directly. **No resampling or interpolation.**
+
+#### R0 background statistics — FINAL, and they supersede every preliminary value
+
+Protocol (`src/r0_background.py`): object support dilated ±3 bins, zero-Doppler band ±4 bins, and
+the 21×9 detector border all excluded. **No percentile trimming anywhere.** Frames combined by
+**median within group**, then mean ± SE **across groups** — 30 CARRADA sequences, 8 simulator
+conditions — never across correlated frames. CARRADA uses all 12,666 frames; the simulator uses all
+1,600 frames of `bench2_val` (**`bench2_test` was not opened**).
+
+| statistic | CARRADA | simulator | single-look ideal |
+|---|---|---|---|
+| CV(power) | **0.4734 ± 0.0157** | **1.0053 ± 0.0032** | 1.000 |
+| Gamma shape k (moments) | **4.771 ± 0.223** | **0.990 ± 0.006** | 1.00 |
+| Gamma shape k (log-moment) | 4.269 ± 0.077 | 0.9958 ± 0.0014 | 1.00 |
+| background std [dB] | **2.212 ± 0.011** | **5.573 ± 0.005** | 5.57 |
+| lag-1 range correlation | 0.5635 ± 0.0031 | 0.5731 ± 0.0010 | — |
+| lag-1 Doppler correlation | **0.2265 ± 0.0055** | **0.5740 ± 0.0029** | — |
+| zero-Doppler ridge | **24.0 dB**, half-width ±1 | **14.8 dB**, half-width ±4 | — |
+
+**⚠️ Four preliminary values are hereby superseded, and two of them reversed direction.** The
+preliminary pass reported CARRADA k 2.555, CV 0.720, dB std 3.207, lag-1 range 0.765, lag-1 Doppler
+0.587, ridge 29.3 dB. The defects, each found and fixed in sequence: (1) an early pass trimmed the
+top decile, biasing CV downward; (2) another left the ridge in, inflating CV enormously; (3) the
+preliminary pass measured **far range only** (bins 200–255) on empty frames, which is not the
+population a detector sees; (4) the first R0 run had a **band-selector bug** — it asked whether
+*any* bin in the candidate window exceeded +3 dB, which the centre bin always satisfies, so the
+ridge band grew to ±15 and excluded 31 of 64 Doppler bins.
+
+**Two conclusions reverse:**
+
+* **Range correlation is NOT higher in CARRADA.** 0.5635 vs 0.5731 — statistically indistinguishable
+  overall. The preliminary claim was an artefact of measuring only far range.
+* **Doppler correlation is LOWER in CARRADA, not higher.** 0.227 vs 0.574.
+
+A **range-block decomposition** (new, `r0_range_blocks.csv`) explains why: CARRADA's background is
+**non-stationary in range** — k runs 5.86 / 4.74 / 7.39 / 7.52 / 2.91 across blocks 10–60, 60–110,
+110–160, 160–210, 210–246, and lag-1 range runs 0.512 → 0.745. The far-range block (200–246) gives
+k 3.36 and lag-1 range 0.713, reproducing the preliminary numbers. **The simulator is stationary**
+in range: k 0.97–0.99 and lag-1 range 0.569–0.574 in every block.
+
+**Unplanned finding — the background is contaminated by unannotated real reflectors.** The
+per-frame CV distribution is heavy-tailed on CARRADA: median 0.495, p99 6.81, max 41.4, with
+**5.85%** of frames above CV 2 and 0.73% above 10 (simulator: 1.19% and 0.25%). Averaging over that
+tail broke the summary — mean-aggregated CV said 1.00 while mean-aggregated k said 3.97, which
+cannot both hold because **k = 1/CV² is exact per frame** (verified to 4e-15). Medians agree
+exactly, which is why median aggregation was adopted; mean-based values are retained in
+`r0_audit.json` as `meanagg_*`. Because only the **77 tracked objects** carry annotations, those
+bright frames are almost certainly genuine unannotated reflectors — **direct evidence that a CARRADA
+"Pfa" is not the same quantity as the synthetic one.**
+
+**Simulator validated as designed.** k = 0.990 ± 0.006 against a theoretical 1.0 and background std
+5.573 ± 0.005 dB against a theoretical 5.57 dB, stationary across every range block. The
+compound-Gaussian clutter model behaves as single-look exponential speckle, which had never been
+checked against theory this directly. **This is an independent validation of the simulator, not a
+CARRADA result.**
+
+**Frame-median audit.** Per-frame median spread is 0.593 dB (CARRADA) vs 5.305 dB (simulator).
+Frame-median normalization removes the global scale difference **exactly**, so it cannot explain any
+residual domain gap — whatever remains is a **texture/correlation** shift, which normalization
+cannot touch. That separation is the point of the audit.
+
+#### Object support — CARRADA truth is extended, and two extents exist
+
+| class | object-frames | dense range × Doppler (median) | box range × Doppler (median) | dense cells |
+|---|---|---|---|---|
+| pedestrian | 3,239 | 9 × 9 | 5 × 5 | 74 |
+| cyclist | 1,770 | 11 × 11 | 7 × 7 | 93 |
+| car | 3,741 | **18 × 13** | 14 × 9 | 147 |
+
+⚠️ **The `box` field is not the bounding box of the dense mask** — it is strictly smaller in
+**8,750 of 8,750** instances on both axes, so it bounds the *sparse* annotation. Earlier notes
+quoting "car 14×9" were quoting the box; the segmentation support is 18×13. Both are now recorded.
+A synthetic target occupies **one** bin.
+
+#### Domain-shift conclusion
+
+CARRADA is **not** simply another sample from the synthetic domain. Geometry and representation
+transfer cleanly, but the background is markedly smoother (k ≈ 4.8 vs 1.0), less correlated in
+Doppler, carries a ridge ~9 dB stronger and far narrower, is non-stationary in range, and contains
+unannotated reflectors. Conservative wording to use in the report: *CARRADA background statistics
+are consistent with an effective Gamma shape near 4.8* — **not** "CARRADA is a 4.8-look radar",
+which the dataset authors document nowhere.
+
+**Recorded, not acted on:** the frozen CFAR alphas were calibrated under single-look exponential
+statistics, so on CARRADA the same alpha will produce a different achieved false-alarm rate. **R1's
+CFAR arm is therefore a zero-shot transfer result, and a drop in its recall would not by itself show
+CFAR is intrinsically worse.** No alpha was recalibrated. Likewise TinyCNN faces three simultaneous
+shifts (background distribution, Doppler correlation, ridge strength) that frame-median
+normalization cannot absorb — **no conclusion about TinyCNN performance is permitted until R1.**
+
+#### Limitations
+
+"Object support" means a 3×3 point-target label in the simulator and a human-drawn blob in CARRADA —
+identical dilation, different object. The simulator has no sequence structure, so its groups are the
+8 scenario conditions rather than sequences. The Gamma shape is descriptive, not a claim about the
+sensor's processing chain. `bench2_val` only. Absolute amplitude is not comparable, since CARRADA's
+constant offset is unknown. The ±3 dB ridge-band threshold is a choice, made before any background
+statistic was computed.
+
+**Artefacts** (all under `experiments/r_carrada_real_data_validation/`):
+`r_carrada_real_data_validation.ipynb` (30 cells, §0–§16, executed with **zero errors**),
+`src/r0_background.py`, `scripts/{run_r0_audit,make_r0_figures,build_notebook,verify_carrada,build_isolation_manifest}.py`,
+`results/r0_audit.json` plus 7 CSV/NPZ caches, and 6 figures in `figures/`.
+
+**Next: R1 pre-registration — not yet written, and no detector runs until it is committed.**
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
