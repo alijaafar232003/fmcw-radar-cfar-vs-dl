@@ -1,0 +1,98 @@
+======================================================================
+1-3. SEQUENCES AND FRAME COUNTS
+======================================================================
+sequences on disk          : 30
+sequences in validated_seqs: 30
+sequences in data_seq_ref  : 30
+_numpy RD frames           : 12666
+_raw    RD frames          : 12666
+camera images retained     : 360
+
+======================================================================
+4. FILENAME ALIGNMENT BETWEEN _numpy AND _raw
+======================================================================
+sequences with identical filename sets: 30/30
+
+======================================================================
+11. EVERY FRAME IN THE LIGHT LIST PRESENT ON DISK?
+======================================================================
+frames expected from light list : 12666
+missing from _numpy             : 0
+missing from _raw               : 0
+
+======================================================================
+12-14. SHAPE / DTYPE / READABILITY  (header scan of ALL RD files)
+======================================================================
+headers scanned      : 25332
+  shape ('range_doppler_numpy', (256, 64))  12666
+  shape ('range_doppler_raw', (256, 64))  12666
+  dtype ('range_doppler_numpy', 'float64')  12666
+  dtype ('range_doppler_raw', 'float64')  12666
+unreadable headers   : 0
+full-load spot checks: 600 files, 0 failures
+
+======================================================================
+6-10. METADATA PRESENCE
+======================================================================
+  annotations_frame_oriented.json                  source True   backup True 
+  annotations_instance_oriented.json               source True   backup True 
+  data_seq_ref.json                                source True   backup True 
+  selected_light_dataset_frame_oriented.json       source True   backup True 
+  light_dataset_frame_oriented.json                source True   backup True 
+  validated_seqs.txt                               source True   backup True 
+  rd_stats.json                                    source True   backup True 
+  rd_stats_all.json                                source True   backup True 
+  rd_weights.json                                  source True   backup True 
+  instance_exceptions.json                         source True   backup True 
+  LICENSE                                          source True   backup True 
+  README.md                                        source True   backup True 
+  annotations/box range_doppler_light.json    : 30/30 sequences
+  metadata backup data/carrada_meta exists    : True
+
+======================================================================
+6. ANNOTATION TERMINOLOGY  (this table defines the R1 denominators)
+======================================================================
+quantity                              count   meaning
+total frames (light list)             12666   every frame with an RD array on disk
+annotated frames                       7193   frames with >=1 object; == selected_light list (7193)
+empty frames                           5473   frames with 0 objects; usable as false-alarm-only
+frame-level object instances           8750   sum over frames of objects present  <-- the 8,750
+unique tracks (frame-oriented)           77   distinct instance ids across all frames
+unique tracks (data_seq_ref)             84   instances listed in data_seq_ref.json  <-- the 84
+
+objects-per-frame histogram: {0: 5473, 1: 5636, 2: 1557}
+
+class             object-frames  unique tracks
+pedestrian                 3239             18
+cyclist                    1770             16
+car                        3741             43
+TOTAL                      8750             77
+
+consistency: annotated + empty == total frames  -> True
+consistency: annotated == selected_light count -> True
+
+reconciliation of the track count:
+  raw sum of data_seq_ref 'instances' list lengths             84
+  minus duplicate entries in those lists                       -2   {'2020-02-28-13-08-51': {'001109': 2}, '2020-02-28-13-12-42': {'001143': 2}}
+  = unique listed instance ids                                 82
+  minus instances merged into another during annotation        -5   (instance_exceptions.json)
+  = unique annotated tracks                                    77
+  independently, tracks in annotations_frame_oriented          77
+  independently, tracks in annotations_instance_oriented       77
+  reconciled: True
+
+======================================================================
+7. OFFICIAL SEQUENCE-LEVEL SPLITS  (from data_seq_ref.json)
+======================================================================
+split         seqs    frames   annotated     empty  obj-frms   tracks
+Train           18      8088        4319      3769      5318       49
+Validation       6      2448        1483       965      1804       15
+Test             6      2130        1391       739      1628       13
+TOTAL           30     12666        7193      5473      8750       77
+
+every sequence assigned exactly one split : True
+split sets disjoint                      : True
+
+======================================================================
+PHASE 1 DATASET VERIFICATION: PASS
+======================================================================

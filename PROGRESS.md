@@ -3251,6 +3251,75 @@ E4 shows the guard cells buy only ~1.5 pp of Pd at a large localization cost.
 fewer positives per epoch. Common-mode, so ΔPd is unbiased, but absolute Pd sits below the dense
 model's. Validation split only.
 
+### 2026-08-31 — CARRADA real-data validation, Phase 1: experiment isolated, dataset verified, no detector run
+
+**Real-data external validation begins** (PLAN.md Part B), isolated in
+`experiments/r_carrada_real_data_validation/`. **This is Phase 1 only — setup and integrity.**
+No detector was run, no threshold tuned, no detection statistic computed, and nothing in `src/`,
+`scripts/`, `notebooks/`, `configs/`, `data/bench2_*` or `results/` was modified. No published
+number changes.
+
+**Experiment folder created** with `README.md`, `isolation_manifest.json`, and a placeholder
+notebook containing only the title, research question, isolation statement and Phase 1 notes.
+
+**Protected assets hashed.** `isolation_manifest.json` pins SHA-256, size and category for
+**628 files (2.88 GB)**: the 8 frozen TinyCNN epoch-21 checkpoints and their run configs, all
+DL/CFAR/eval/radar/data source, `frozen_dl.yaml`, `cfar_alpha_table.json`, the six dataset configs
+and their provenance and caches, the headline result tables, the CFAR baseline outputs, and the
+complete E2/E3/E4 outputs. Re-verified at end of phase: **0 changed, 0 missing** across every
+category except `project_record_append_only`, which is this file. Git baseline: `main` at
+`1ed2aab`, working tree clean before the experiment folder was created.
+
+**CARRADA integrity verified — all checks pass.** 30 sequences on disk, matching both
+`validated_seqs.txt` and `data_seq_ref.json`. 12,666 `range_doppler_numpy` and 12,666
+`range_doppler_raw` frames, with identical filename sets in 30/30 sequences and 0 frames missing
+against the light list. All **25,332** `.npy` headers scanned: every array is `(256, 64)` float64,
+0 unreadable; 600 full-load spot checks, 0 failures. All 12 top-level metadata files present in both
+the source tree and the `data/carrada_meta/` backup; box annotations present in 30/30 sequences.
+
+**Annotation terminology resolved — four quantities had been conflated.**
+
+| quantity | count |
+|---|---|
+| total frames | 12,666 |
+| annotated frames | 7,193 |
+| empty frames | 5,473 |
+| frame-level object instances ("object-frames") | **8,750** |
+| unique tracks | **77** |
+
+**The previously quoted "84" is not an object count.** It is the raw sum of the `instances` list
+lengths in `data_seq_ref.json`: 84 − 2 duplicate entries (`001109` twice in `2020-02-28-13-08-51`,
+`001143` twice in `2020-02-28-13-12-42`) = 82 unique ids, − 5 merged away by
+`instance_exceptions.json` = **77**, confirmed independently by both `annotations_frame_oriented`
+and `annotations_instance_oriented`. ⚠️ `PLAN.md` R3 says "78 instances"; the correct value is 77.
+PLAN.md is protected and was not edited. **R1 statistics must use 8,750 as the object denominator**,
+not 77 and not 12,666. Class split by object-frames: car 3,741, pedestrian 3,239, cyclist 1,770.
+Objects per frame: 0 → 5,473, 1 → 5,636, 2 → 1,557 — **never more than two**.
+
+**Official sequence-level splits verified and adopted unchanged** (mirrored to
+`configs/official_splits.json`): Train 18 seqs / 8,088 frames / 4,319 annotated / 5,318
+object-frames / 49 tracks · Validation 6 / 2,448 / 1,483 / 1,804 / 15 · Test 6 / 2,130 / 1,391 /
+1,628 / 13. Every sequence assigned exactly one split, sets disjoint. **No new split was created and
+no frame-level split will be used.**
+
+**Representation facts recorded as prior information, not re-derived in this phase:**
+`range_doppler_numpy` is the primary representation and is power in dB up to a constant scale;
+`_raw` behaves as an amplitude; the eventual CFAR input is proportional to `P = 10^(numpy/10)`, with
+the unknown constant cancelling because CFAR is a ratio test; `_numpy` is the representation
+CARRADA's own annotation pipeline used. **`_raw` is retained** as an independent cross-check and was
+not deleted.
+
+**Four methodological questions are open and must be settled before Phase 2**, recorded in the
+experiment README rather than resolved unilaterally: (1) the folder ID **collides with PLAN.md's
+Part-A E5**, the unbuilt four-way comparison; (2) CARRADA truth is an extended **segmentation blob**,
+median car footprint 14×9 bins, so a truth-point definition must be pre-registered before any R1
+number exists; (3) **Pfa is not the same quantity** across the two domains, since only the 77 tracked
+objects are annotated and unannotated real reflectors would score as false alarms; (4) with at most
+2 objects per frame there is **no close-target regime**, so `multi`/`masking`/`unresolved` have no
+real-data counterpart.
+
+**Next phase: R0**, the synthetic-vs-CARRADA domain audit, before any detector touches a real frame.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
