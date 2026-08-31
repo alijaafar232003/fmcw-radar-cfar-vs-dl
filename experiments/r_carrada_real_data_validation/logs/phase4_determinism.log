@@ -1,0 +1,4 @@
+seed 0  rerun 1.804869650  recorded 1.804869650  identical True
+seed 4  rerun 1.332931994  recorded 1.332931994  identical True
+seed 7  rerun 1.986168225  recorded 1.986168225  identical True
+DETERMINISM: PASS

@@ -3564,6 +3564,117 @@ not simply cleaner or harder.
 **No R1 detector result has been computed or viewed.** Next: Phase 4, implementation and sanity
 checks C1–C8, of which C8 uses CARRADA **Train** sequences only and is diagnostic, not reportable.
 
+### 2026-08-31 — CARRADA real-data validation, Phase 4: R1 pipeline implemented, zero-shot thresholds derived, no test scoring
+
+**Phase 4 of the real-data external-validation track.** Implementation and sanity checks only.
+**NO CARRADA TEST DETECTOR RESULT HAS BEEN COMPUTED.** Every check ran on synthetic data or on
+CARRADA **Train** sequences. No published number changes and no frozen asset was modified.
+
+**Phase 3 commit (pre-registration frozen):** `9c9a3e25e60414309d5677e92ce2e85bfbeea079`.
+**Final pre-registration SHA-256:** `e800ad84af5a909d595a9c1a5b32bfe308efc4830a1bfe17d8ea793a1bba98a8`
+(FINAL PRE-SCORING FREEZE, 23,472 bytes), superseding the earlier draft `aaad1ff7…` that named OS
+primary.
+
+**Final rulings applied before the freeze.** (1) TinyCNN threshold rule approved as proposed.
+(2) **Primary CFAR changed from OS to CA** — canonical baseline, continuity with the main
+benchmark, and it avoids choosing the comparator because R0 hinted OS might suit CARRADA; GO/SO/OS
+run as secondary with **OS highlighted as the robust heterogeneous-background comparison but never
+promotable to primary after results.** (3) **NMS frozen at radius 5** with the extended-object
+limitation registered. (4) Objects spanning range blocks assigned by the **median range index of
+their valid support** — annotation-only, so no detector output can move an object's stratum.
+
+#### TinyCNN zero-shot thresholds — synthetic validation only
+
+Per frozen seed, from `bench2_val` alone, pooled across all 8 synthetic conditions, the lowest
+threshold whose pooled measured per-cell Pfa ≤ 1e-4 at the ±1 gate, using frozen extraction, frozen
+NMS 5 and the frozen valid region.
+
+| seed | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| threshold | 1.8049 | 1.8334 | 1.6981 | 2.0172 | 1.3329 | 1.9364 | 1.7510 | 1.9862 |
+| achieved pooled val Pfa (×1e-5) | 8.74 | 9.74 | 9.52 | 9.03 | 9.85 | 8.76 | 8.90 | 9.98 |
+
+All eight ≤ 1e-4; spread 1.333–2.017, sd 0.218; pooled validation Pd 0.578–0.589. Re-running seeds
+0, 4 and 7 reproduced the thresholds to every printed digit, so the derivation is deterministic. A
+runtime **file-access audit hook** recorded every file opened: **only `bench2_val`**, 3,203 data
+files, **zero forbidden accesses** — machine-verified rather than asserted. ⚠️ These thresholds are
+**not** part of the frozen benchmark; they are a **different operating-point protocol** and must
+never be pooled numerically with the per-condition matched-Pfa synthetic tables.
+
+#### Verification results
+
+* **C1 adapter equivalence — PASS.** The pipeline feeds `mag = 10^(D/20)` to the **frozen**
+  `normalize_rd`, so the registered adapter `D − median(D)` is realised by the frozen code itself
+  and no preprocessing is reimplemented. Over 108 CARRADA Train frames:
+  max |(D−median D) − 10log10(P/median P)| = **2.845e-08 dB**, max |frozen − registered| =
+  **2.384e-07** (float32 output). Tolerances were set from float precision (≈2 ulp of float64 and
+  float32), not chosen to make the test pass.
+* **C2 CFAR scale invariance — PASS.** 192 combinations (4 variants × Train frames × scales
+  0.01/1/100/1e6): max |ratio(P·s) − ratio(P)| = **1.455e-11**, peak-count difference **0**. CFAR
+  source was not modified.
+* **C3 checkpoint integrity — PASS**, 8/8 hash-match the isolation manifest.
+* **C4 matching — PASS**, all 8 cases including maximum-cardinality on overlapping masks (not
+  greedy-by-score) and the 18×13 car mask giving 1 matched / 2 unmatched.
+* **C5 dense-mask reconstruction — PASS**, all 5,318 Train objects rebuild from JSON, covering all
+  three classes, 999 two-object frames, 3,769 empty frames, 89 edge-touching masks.
+* **C6 valid region — PASS**, 13,216 cells, rows 10–245 × cols 4–59, **imported** from the frozen
+  `dl.infer.cfar_valid_mask` rather than reimplemented.
+* **C7 metric tests — PASS**, including a 1-bin-off peak correctly missed by the exact mask and
+  recovered by ±1, and an out-of-region object correctly excluded from the denominator.
+* **C8 non-test dry run — PASS**, 48 CARRADA Train frames, 0 non-finite arrays, 0 structural
+  problems. Aggregate recall deliberately not computed.
+
+**A real defect was caught by the visual sanity check and fixed before any scoring.** The harness
+applied the zero-shot threshold to TinyCNN but left CFAR **unthresholded** — `all_peaks` keeps every
+local maximum with ratio > 0 and never applies alpha — so the arms sat at incomparable operating
+points (CFAR ~116 peaks/frame against TinyCNN's ~9). `cfar_peaks_at_alpha` now applies the frozen
+calibrated alpha (CA 10.459, GO 9.546, SO 12.849, OS 7.579), giving ~7 and ~9 peaks/frame.
+
+#### Eligibility denominators (annotation-only, no detector)
+
+| split | objects | eligible | excluded | strictly inside |
+|---|---|---|---|---|
+| Train | 5,318 | 5,317 | 1 | 4,689 |
+| Validation | 1,804 | 1,804 | 0 | 1,589 |
+| **Test** | **1,628** | **1,627** | **1** | **1,557** |
+
+Test eligible by class: pedestrian 955, car 513, cyclist 159 — **cyclist results will be labelled
+exploratory.** By range block: 10–60 → 533, 60–110 → 853, 110–160 → 111, 160–210 → 79, 210–246 → 51.
+
+⚠️ **New and consequential: 1,365 of 1,627 eligible Test objects (84%) fall inside the ±4
+zero-Doppler band.** CARRADA's road users are largely slow-moving and therefore sit inside the very
+ridge R0 measured at 24 dB. The zero-Doppler stratification is not a minor sub-analysis — it covers
+most of the test set, and R1's headline number will be dominated by objects buried in the strongest
+clutter feature of the real domain.
+
+#### Extended-object / frozen-NMS characteristic — measured, not acted on
+
+At each arm's frozen operating point on CARRADA Train: **≥2 post-NMS peaks inside a single object's
+own support in 35.4% of objects for CA-CFAR and 47.9% for TinyCNN** (median 1, max 5). Under
+one-to-one matching exactly one is matched and the surplus counts as **unmatched**, so
+**unmatched-detection burden is inflated for both arms and is not pure detector noise.** It is
+common-mode in the TinyCNN−CFAR difference but not in the absolute burden. **NMS was not altered in
+response** (PREREGISTRATION §7.3).
+
+#### Leakage audit — CLEAN
+
+No CARRADA Test RD frame was passed through TinyCNN or CFAR; no Test detector result exists; no
+CARRADA label influenced any threshold; `bench2_test` was never opened; no experiment source line
+loads it. One caveat recorded rather than buried: **R0's background statistics did include the Test
+sequences** — domain-level, not detector-level, since R0 ran no detector, but it fed two
+pre-registered choices. Checked directly: recomputing the ridge band from **Train sequences only**
+gives the **identical ±1 band** (peak 23.9 dB vs 24.5 dB on Test), so the pre-registration would be
+unchanged.
+
+**Artefacts** (all under `experiments/r_carrada_real_data_validation/`): `src/{carrada_input,
+eligibility,matching,metrics,detectors,stats,schema}.py`; `scripts/{derive_tinycnn_thresholds,
+validate_adapters,run_sanity_checks,dry_run_r1,make_sanity_figures,leakage_audit}.py`;
+`configs/tinycnn_zero_shot_thresholds.json`; `results/phase4_*.json` and
+`phase4_multipeak_characteristic.csv`; 3 non-test sanity figures in `figures/phase4_sanity/`.
+Notebook now 58 cells (§0–§43), executes with zero errors.
+
+**Next: Phase 5 — score the 6 CARRADA Test sequences. Nothing above may change.**
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below

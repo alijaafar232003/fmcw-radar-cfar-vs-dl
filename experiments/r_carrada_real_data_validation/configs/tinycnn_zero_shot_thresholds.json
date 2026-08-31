@@ -1,0 +1,115 @@
+{
+ "purpose": "R1 zero-shot deployment thresholds, derived SOLELY from synthetic validation. NOT part of the original frozen benchmark, and not poolable with its per-condition matched-Pfa tables.",
+ "rule": "lowest score threshold whose POOLED measured per-cell Pfa <= 1e-4 on bench2_val, pooled across all 8 synthetic conditions, per frozen seed, at the +-1 gate, using frozen candidate extraction, frozen NMS radius 5 and the frozen valid region",
+ "algorithm_version": "1.0.0",
+ "source_split": "bench2_val",
+ "source_split_fingerprint_sha256": "5b74c9c1b5adb974dd48dbe648ba47dbc7ce469f089138ad3d379f797ca204f9",
+ "source_split_provenance": [
+  "dataset_config_used.yaml:e9aedbad260c1e62241a8db8631e909c1c5e5904e89c32a6cacb9c2ff577db9e",
+  "radar_config_used.json:28c89083a84d768b9f6a3d82144d152d0023f4c749c511febf539e0da56f11a7",
+  "metadata.csv:17df239d776e10f3572e4d313aebb73a62fd06ece008ccc186ad9cfe62241f70"
+ ],
+ "carrada_data_used": false,
+ "bench2_test_opened": false,
+ "target_pfa": 0.0001,
+ "gate": 1,
+ "nms_size": 5,
+ "derived_utc": "2026-08-31T17:26:04.665654+00:00",
+ "thresholds": [
+  {
+   "seed": 0,
+   "threshold": 1.804869649989564,
+   "achieved_pooled_val_pfa_per_cell": 8.741086140089306e-05,
+   "achieved_pooled_val_pd": 0.5781701444622793,
+   "eligible_cells": 21145600,
+   "surviving_detections": 3647,
+   "checkpoint": "results/dl/tinycnn_frozen_s0_ep021.pt",
+   "checkpoint_sha256": "b4014362d5fef658ef2f1ffdfbacd45a338243798080d03824f759cf2c23f05f",
+   "derivation_seconds": 95.8
+  },
+  {
+   "seed": 1,
+   "threshold": 1.833393333509014,
+   "achieved_pooled_val_pfa_per_cell": 9.740202703230608e-05,
+   "achieved_pooled_val_pd": 0.585553772070626,
+   "eligible_cells": 21145600,
+   "surviving_detections": 3881,
+   "checkpoint": "results/dl/tinycnn_frozen_s1_ep021.pt",
+   "checkpoint_sha256": "c5a0627617e4f4d8be33796fb091f81f179b07db0954c21b12aee471bf7cfe27",
+   "derivation_seconds": 39.2
+  },
+  {
+   "seed": 2,
+   "threshold": 1.6980798464555007,
+   "achieved_pooled_val_pfa_per_cell": 9.522385822166628e-05,
+   "achieved_pooled_val_pd": 0.589406099518459,
+   "eligible_cells": 21145600,
+   "surviving_detections": 3847,
+   "checkpoint": "results/dl/tinycnn_frozen_s2_ep021.pt",
+   "checkpoint_sha256": "18292b7dd56b26f723701240c168097a3573d485cf8dbc2e2fdc48c2a740b8ad",
+   "derivation_seconds": 42.8
+  },
+  {
+   "seed": 3,
+   "threshold": 2.0171611288879903,
+   "achieved_pooled_val_pfa_per_cell": 9.02519511539015e-05,
+   "achieved_pooled_val_pd": 0.5826645264847512,
+   "eligible_cells": 21145600,
+   "surviving_detections": 3721,
+   "checkpoint": "results/dl/tinycnn_frozen_s3_ep021.pt",
+   "checkpoint_sha256": "9a51897bcbe3c7104853b1a47c198257cf6810707e13951ec5495d27233fb61b",
+   "derivation_seconds": 41.9
+  },
+  {
+   "seed": 4,
+   "threshold": 1.3329319940589137,
+   "achieved_pooled_val_pfa_per_cell": 9.853846293350945e-05,
+   "achieved_pooled_val_pd": 0.5807383627608347,
+   "eligible_cells": 21145600,
+   "surviving_detections": 3890,
+   "checkpoint": "results/dl/tinycnn_frozen_s4_ep021.pt",
+   "checkpoint_sha256": "cd28e47bcc5cb4eeb737b701b2f5aadfc3c903f6e5490767d17f778d4b0b6510",
+   "derivation_seconds": 37.9
+  },
+  {
+   "seed": 5,
+   "threshold": 1.9363892059035768,
+   "achieved_pooled_val_pfa_per_cell": 8.764761888031043e-05,
+   "achieved_pooled_val_pd": 0.5791332263242376,
+   "eligible_cells": 21145600,
+   "surviving_detections": 3655,
+   "checkpoint": "results/dl/tinycnn_frozen_s5_ep021.pt",
+   "checkpoint_sha256": "c10ea4e018fa5c774b8f38d90846c50def0c3c1bfaec802c5084742e6cdb1449",
+   "derivation_seconds": 41.3
+  },
+  {
+   "seed": 6,
+   "threshold": 1.7509804351513203,
+   "achieved_pooled_val_pfa_per_cell": 8.89734607650477e-05,
+   "achieved_pooled_val_pd": 0.5842696629213483,
+   "eligible_cells": 21145600,
+   "surviving_detections": 3699,
+   "checkpoint": "results/dl/tinycnn_frozen_s6_ep021.pt",
+   "checkpoint_sha256": "42be2a883368103b0b4ade7328b897a97b1e009aed69bac83ae802c08cca0a3a",
+   "derivation_seconds": 38.6
+  },
+  {
+   "seed": 7,
+   "threshold": 1.9861682249949528,
+   "achieved_pooled_val_pfa_per_cell": 9.976960182647978e-05,
+   "achieved_pooled_val_pd": 0.5839486356340289,
+   "eligible_cells": 21145600,
+   "surviving_detections": 3926,
+   "checkpoint": "results/dl/tinycnn_frozen_s7_ep021.pt",
+   "checkpoint_sha256": "5378e2497d9529bdba05b25904454d2583bac4f4447b9e57e54a49ca1198222f",
+   "derivation_seconds": 40.9
+  }
+ ],
+ "file_access_audit": {
+  "data_splits_opened": [
+   "bench2_val"
+  ],
+  "n_data_files_opened": 3203,
+  "forbidden_hits": 0
+ }
+}

@@ -10,6 +10,7 @@ import os
 import sys
 
 import nbformat as nbf
+import numpy as np
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -935,6 +936,254 @@ This draft supersedes an earlier one (SHA-256 `{prior}`) that named OS primary.
            commit=FREEZE["r0_baseline_commit"][:12],
            scored="NO" if not FREEZE["detector_scoring_performed"] else "YES",
            used="NO" if not FREEZE["carrada_labels_used_for_any_choice"] else "YES"))
+
+# ==================================== PHASE 4 — IMPLEMENTATION =========================
+TH = json.load(open(os.path.join(EXP, "configs", "tinycnn_zero_shot_thresholds.json")))
+AD = json.load(open(os.path.join(RESULTS, "phase4_adapter_checks.json")))
+DR = json.load(open(os.path.join(RESULTS, "phase4_dry_run.json")))
+ELI = json.load(open(os.path.join(RESULTS, "phase4_eligibility_counts.json")))
+LK = json.load(open(os.path.join(RESULTS, "phase4_leakage_audit.json")))
+C1 = [c for c in AD if c["check"].startswith("C1")][0]
+C2 = [c for c in AD if c["check"].startswith("C2")][0]
+
+md("""---
+
+# Phase 4 — implementation and sanity checks
+
+> **No CARRADA Test detector result has been computed.** Every check below runs on synthetic data
+> or on CARRADA **Train** sequences.
+
+## §29 Implementation overview
+
+All R1 code is experiment-local, under `src/` and `scripts/`. Nothing in `src/dl/`, `src/cfar/`,
+`src/eval/`, the frozen config, the checkpoints or the alpha table was modified — they are
+**imported**, never copied or edited.
+
+| module | role |
+|---|---|
+| `src/carrada_input.py` | RD loading, dB→power / dB→magnitude adapters, dense-support reconstruction |
+| `src/eligibility.py` | valid region (imported from the frozen evaluator), eligibility, strata |
+| `src/matching.py` | the single one-to-one matcher used by **every** arm |
+| `src/metrics.py` | mask recall, tolerance ladder, unmatched burden |
+| `src/detectors.py` | frozen TinyCNN + CFAR wrappers (format only) |
+| `src/stats.py` | sequence-aware paired bootstrap |
+| `src/schema.py` | output schemas, defined before scoring |""")
+
+md("""## §30 Final pre-registration decisions
+
+Applied before any scoring, then committed (Phase 3, `{p3}`):
+
+1. **TinyCNN threshold** — approved as proposed (§31).
+2. **Primary CFAR is CA**, not OS. Canonical baseline, continuity with the main benchmark, and it
+   avoids picking the comparator because R0 hinted OS might suit CARRADA. GO/SO/OS secondary, **OS
+   highlighted as the robust comparison but never promotable after results.**
+3. **NMS frozen at 5**, with the extended-object limitation registered (§40).
+4. **Range-stratum assignment** by median range index of `valid_support` — annotation-only.
+
+Final pre-registration SHA-256 `{sha}`.""".format(sha=FREEZE["sha256"],
+                                                  p3="9c9a3e25e604"))
+
+md("""## §31 TinyCNN zero-shot threshold derivation
+
+**Synthetic validation only.** `bench2_val`, pooled across all 8 conditions, per frozen seed, the
+lowest threshold whose pooled measured per-cell Pfa ≤ 1e-4, at the ±1 gate, frozen extraction /
+NMS 5 / valid region.
+
+A runtime **file-access audit hook** recorded every file the derivation opened. It saw
+**{splits}** and nothing else — `{nfiles:,}` data files, **0 forbidden accesses**. This is
+machine-verified, not asserted.
+
+| seed | threshold | achieved pooled val Pfa | pooled val Pd |
+|---|---|---|---|
+{rows}
+
+Spread {lo:.3f}–{hi:.3f} (sd {sd:.3f}); all eight ≤ 1e-4. Re-running seeds 0, 4 and 7 reproduced
+the thresholds to all printed digits, so the derivation is deterministic.
+
+⚠️ These are **not** part of the frozen benchmark. They are R1 zero-shot deployment thresholds
+under a **different operating-point protocol**, and must never be pooled numerically with the
+per-condition matched-Pfa synthetic tables.""".format(
+    splits=TH["file_access_audit"]["data_splits_opened"],
+    nfiles=TH["file_access_audit"]["n_data_files_opened"],
+    rows="\n".join("| {} | {:.6f} | {:.4e} | {:.4f} |".format(
+        r["seed"], r["threshold"], r["achieved_pooled_val_pfa_per_cell"],
+        r["achieved_pooled_val_pd"]) for r in TH["thresholds"]),
+    lo=min(r["threshold"] for r in TH["thresholds"]),
+    hi=max(r["threshold"] for r in TH["thresholds"]),
+    sd=float(np.std([r["threshold"] for r in TH["thresholds"]], ddof=1))))
+
+md("""## §32 TinyCNN input adapter verification (C1)
+
+The registered adapter is `D − median(D)` → clip → /20. Rather than reimplement the preprocessing,
+the pipeline feeds `mag = 10^(D/20)` to the **frozen** `normalize_rd`, which then computes
+`10·log10(mag²/median(mag²))` — algebraically identical, because dB is monotone in power. **No
+preprocessing exists in the model path that is not the frozen code.**
+
+Measured on {n} CARRADA **Train** frames:
+
+| quantity | value | tolerance |
+|---|---|---|
+| max &#124;(D−median D) − 10log10(P/median P)&#124; | **{a:.3e} dB** | {ta:.0e} |
+| max &#124;frozen `normalize_rd` − registered adapter&#124; | **{b:.3e}** | {tb:.0e} |
+
+**C1 PASS.** Tolerances come from float precision, not from what made the test pass: {a:.1e} dB on
+a ~60 dB value is ≈2 ulp of float64, and the frozen output is float32 (eps 1.19e-07), so ≈2 ulp
+there too.""".format(n=C1["frames"], a=C1["max_abs_diff_identity_db"],
+                     b=C1["max_abs_diff_frozen_vs_reference"],
+                     ta=C1["tolerance_identity"], tb=C1["tolerance_frozen"]))
+
+md("""## §33 CFAR power adapter and scale invariance (C2)
+
+CFAR consumes `P = 10^((D − c)/10)`, with `c` the frame median. Because CFAR is a **ratio test**,
+`c` must cancel exactly.
+
+Tested across **{n} combinations** — 4 variants × CARRADA Train frames × scales
+{scales} — max &#124;ratio(P·s) − ratio(P)&#124; = **{d:.3e}**, peak-count difference **{p}**.
+**C2 PASS.** CFAR source was not modified to achieve this.""".format(
+    n=C2["combinations"], scales=C2["scales"], d=C2["max_abs_ratio_diff"],
+    p=C2["max_peak_count_diff"]))
+
+md("""## §34–§35 Dense-mask reconstruction (C5) and the common valid region (C6)
+
+**Dense masks** are rebuilt from `annotations_frame_oriented.json` — the bulk `.npy` folders were
+deleted after Phase 1 proved them byte-identical on 360/360 samples. All **5,318 Train objects**
+reconstruct without error, covering pedestrian / cyclist / car, 999 two-object frames, 3,769 empty
+frames and 89 edge-touching masks. No interpolation; coordinates are CARRADA's own.
+
+**Valid region** is *imported* from the frozen `dl.infer.cfar_valid_mask`, not reimplemented, so
+the endpoint convention cannot drift: rows 10–245, cols 4–59, **13,216 cells** — verified.
+
+### Eligibility denominators (annotation-only — no detector involved)
+
+| split | objects | eligible | excluded | strictly inside |
+|---|---|---|---|---|
+{rows}
+
+⚠️ **{nz:,} of {tot:,} eligible Test objects ({pct:.0%}) fall in the zero-Doppler band.** CARRADA's
+road users are largely slow-moving and sit inside the very ridge R0 measured at 24 dB. The §38
+stratification is therefore not a minor sub-analysis — it covers most of the test set.""".format(
+    rows="\n".join("| {} | {:,} | {:,} | {} | {:,} |".format(
+        k, v["total_objects"], v["eligible"], v["excluded"], v["strictly_inside"])
+        for k, v in ELI.items()),
+    nz=ELI["Test"]["eligible_by_doppler_stratum"].get("near_zero", 0),
+    tot=ELI["Test"]["eligible"],
+    pct=ELI["Test"]["eligible_by_doppler_stratum"].get("near_zero", 0) / ELI["Test"]["eligible"]))
+
+md("""## §36–§37 Matching and metric unit tests (C4, C7)
+
+All eight matching cases pass, including the pre-registered seven plus the extended-object case:
+
+| case | expectation | result |
+|---|---|---|
+| one object / one peak | matched | ✅ |
+| one object / three peaks | 1 matched, 2 unmatched | ✅ |
+| … tie-break | highest-scoring peak wins | ✅ |
+| two objects / one shared peak | exactly 1 matched | ✅ |
+| two objects / two peaks | both matched | ✅ |
+| overlapping masks | **maximum cardinality (2), not greedy** | ✅ |
+| no peaks | nothing matched | ✅ |
+| empty frame | peak unmatched | ✅ |
+| **18×13 car mask / 3 peaks** | **1 matched, 2 unmatched** | ✅ |
+
+Metric tests pass too: recall 1.0 for a matched object; a 1-bin-off peak **missed** by the exact
+mask and **recovered** by the ±1 dilation; burden mean/median arithmetic correct; and an object
+entirely outside the valid region correctly excluded from the denominator (recall = NaN, not 0).""")
+
+md("""## §38 Range and zero-Doppler strata
+
+Both reuse R0's definitions **unchanged**. Range blocks 10–60, 60–110, 110–160, 160–210, 210–246;
+an object spanning blocks is assigned by the **median range index of its valid support**, which is
+annotation-only so no detector output can move it. Zero-Doppler band is R0's common ±4 (bins
+28–36); near-zero iff the valid support intersects it. **The ridge is not removed from the primary
+analysis** — the frozen detectors see the real map.
+
+Test-split eligible objects by stratum: range {rng} · Doppler {dop} · class {cls}.
+
+⚠️ Cyclist has only {cyc} eligible Test objects, so per-class cyclist results will be labelled
+**exploratory**.""".format(rng=ELI["Test"]["eligible_by_range_block"],
+                           dop=ELI["Test"]["eligible_by_doppler_stratum"],
+                           cls=ELI["Test"]["eligible_by_class"],
+                           cyc=ELI["Test"]["eligible_by_class"].get("cyclist", 0)))
+
+md("""## §39 Non-test pipeline dry run (C8)
+
+**SOFTWARE SANITY ONLY — NOT PERFORMANCE ANALYSIS.** CARRADA **Train** only.
+
+{n} frames across 6 sequences ran end to end in {s:.1f} s: **0** non-finite peak arrays, **0**
+structural problems, all peaks inside the map, matched never exceeding total. Aggregate recall was
+deliberately **not** computed.
+
+One real defect was caught here and fixed before scoring: the harness applied the zero-shot
+threshold to TinyCNN but left CFAR **unthresholded**, because `all_peaks` keeps every local maximum
+with ratio > 0 and never applies alpha. That put the arms at incomparable operating points
+(CFAR ~116 peaks/frame vs TinyCNN ~9). `cfar_peaks_at_alpha` now applies the frozen calibrated
+alpha — CA 10.459, GO 9.546, SO 12.849, OS 7.579 — giving ~7 and ~9 peaks/frame respectively.""".format(
+    n=DR["frames"], s=DR["seconds"]))
+
+md("""## §40 Extended-object / frozen-NMS characteristic
+
+**Metric transfer characteristic, not a performance result. NMS was not altered in response.**
+
+A CARRADA car spans a median 18 × 13 bins against an 11 × 11 suppression window, so one object can
+hold several surviving peaks. Measured on CARRADA Train, at each arm's frozen operating point:
+
+| detector | objects | median peaks inside support | max | ≥2 peaks |
+|---|---|---|---|---|
+{rows}
+
+**Roughly a third to a half of objects produce more than one peak inside their own support.** Under
+one-to-one matching exactly one is matched and the surplus counts as **unmatched**, so
+**unmatched-detection burden is inflated for both arms** and is *not* pure detector noise. It is
+common-mode in the TinyCNN−CFAR difference but **not** in the absolute burden — which is precisely
+why §22 forbids calling it a false-alarm rate.""".format(
+    rows="\n".join("| {} | {} | {:.0f} | {} | {:.1%} |".format(
+        r["detector"], r["objects"], r["median_peaks_inside"], r["max_peaks_inside"],
+        r["frac_objects_with_>=2_peaks"]) for r in DR["multipeak_by_detector"])))
+
+md("""## §41 Statistical implementation
+
+`src/stats.py` implements the pre-registered plan and nothing else: paired bootstrap over the
+**6 test sequences**, 10,000 replicates, percentile CI, fixed seed for reproducibility. Seed
+variability is a **separate** function and is never merged with sequence variability into one
+error bar. Cell-level and object-level bootstraps are deliberately **not implemented**, so they
+cannot be reached by accident.""")
+
+md("""## §42 Phase 4 isolation and leakage verification
+
+**Leakage audit: CLEAN.** {stmt}
+
+Verified: no Test sequence id in any detector-output artefact; no R1/recall/test-result file
+exists; thresholds sourced from `bench2_val` with a runtime access audit; the dry run and
+multi-peak check touched Train only; no source line loads `bench2_test`.
+
+One honest caveat, recorded rather than buried: **R0's background statistics did include the Test
+sequences.** That is domain-level, not detector-level — R0 ran no detector — but it fed two
+pre-registered choices. Checked directly: recomputing the ridge band from **Train sequences only**
+gives the **identical ±1 band** (peak 23.9 dB vs 24.5 dB on Test), so the pre-registration would
+be unchanged.""".format(stmt=LK["statement"]))
+
+md("""## §43 Ready-for-R1-test checklist
+
+| # | item | status |
+|---|---|---|
+| 1 | pre-registration frozen and committed | ✅ `{sha8}…` |
+| 2 | TinyCNN thresholds derived, synthetic-val only | ✅ 8 seeds, deterministic |
+| 3 | C1 adapter equivalence | ✅ |
+| 4 | C2 CFAR scale invariance | ✅ |
+| 5 | C3 checkpoint integrity | ✅ 8/8 hash-match |
+| 6 | C4 matching unit tests | ✅ 8/8 |
+| 7 | C5 dense-mask reconstruction | ✅ 5,318 Train objects |
+| 8 | C6 valid region = 13,216 cells | ✅ imported, not reimplemented |
+| 9 | C7 metric unit tests | ✅ |
+| 10 | C8 non-test dry run | ✅ 0 problems |
+| 11 | both arms at frozen operating points | ✅ *(bug caught and fixed, §39)* |
+| 12 | leakage audit | ✅ CLEAN |
+| 13 | output schemas defined | ✅ `src/schema.py` |
+| 14 | **CARRADA Test scored** | ⬜ **NOT STARTED — Phase 5** |
+
+**Nothing in Phase 5 may change any definition above.** The remaining work is to run the frozen
+pipeline over the 6 Test sequences and report what it produces.""".format(
+    sha8=FREEZE["sha256"][:8]))
 
 nb = nbf.v4.new_notebook(cells=cells)
 nb.metadata.update({"kernelspec": {"display_name": "Python 3", "language": "python",

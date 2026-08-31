@@ -1,0 +1,14 @@
+seed 0  threshold 1.804870  pooled val Pfa 8.7411e-05  (96s)
+seed 1  threshold 1.833393  pooled val Pfa 9.7402e-05  (39s)
+seed 2  threshold 1.698080  pooled val Pfa 9.5224e-05  (43s)
+seed 3  threshold 2.017161  pooled val Pfa 9.0252e-05  (42s)
+seed 4  threshold 1.332932  pooled val Pfa 9.8538e-05  (38s)
+seed 5  threshold 1.936389  pooled val Pfa 8.7648e-05  (41s)
+seed 6  threshold 1.750980  pooled val Pfa 8.8973e-05  (39s)
+seed 7  threshold 1.986168  pooled val Pfa 9.9770e-05  (41s)
+C:\Users\USER\Desktop\Radar-fyp\My work\Simulations\experiments\r_carrada_real_data_validation\scripts\derive_tinycnn_thresholds.py:166: Pandas4Warning: Timestamp.utcnow is deprecated and will be removed in a future version. Use Timestamp.now('UTC') instead.
+  "derived_utc": pd.Timestamp.utcnow().isoformat(),
+
+wrote experiments\r_carrada_real_data_validation\configs\tinycnn_zero_shot_thresholds.json
+all 8 seeds produced a threshold: True
+all achieved Pfa <= target      : True
