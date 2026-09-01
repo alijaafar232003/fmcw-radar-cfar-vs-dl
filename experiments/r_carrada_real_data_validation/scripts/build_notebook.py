@@ -1185,6 +1185,326 @@ md("""## §43 Ready-for-R1-test checklist
 pipeline over the 6 Test sequences and report what it produces.""".format(
     sha8=FREEZE["sha256"][:8]))
 
+# ================================ PHASE 5 — R1 TEST RESULTS ============================
+R1 = json.load(open(os.path.join(RESULTS, "r1_test", "r1_summary.json")))
+ACC = json.load(open(os.path.join(RESULTS, "r1_test", "access_log.json")))
+MAN = json.load(open(os.path.join(RESULTS, "r1_test", "run_manifest.json")))
+P = R1["primary"]
+BS = R1["paired_bootstrap"]
+TOL = R1["tolerance"]
+BUR = R1["unmatched_burden"]
+
+md("""---
+
+# Phase 5 — R1: the one-shot frozen evaluation on CARRADA Test
+
+## §44 Final R1 test-access record
+
+| | |
+|---|---|
+| **FINAL CARRADA TEST ACCESS** | {ts} |
+| git commit | `{git}` |
+| pre-registration SHA-256 | `{pre}` |
+| run-manifest SHA-256 | `{man}` |
+| threshold config SHA-256 | `{thc}` |
+| environment | Python {py}, torch {tor}, numpy {npv} |
+
+Everything used here was fixed **before** this timestamp. From this point on, any methodological
+change would be post-result and cannot silently alter the confirmatory experiment.""".format(
+    ts=ACC["timestamp_utc"], git=ACC["git_commit"][:12],
+    pre=ACC["preregistration_sha256"], man=ACC["run_manifest_sha256"],
+    thc=ACC["threshold_config_sha256"][:32] + "…",
+    py=ACC["environment"]["python"], tor=ACC["environment"]["torch"],
+    npv=ACC["environment"]["numpy"]))
+
+md("""## §45–§46 Frozen operating points and test-set counts
+
+**CFAR alphas (frozen, unchanged):** CA {ca:.4f} · GO {go:.4f} · SO {so:.4f} · OS {os_:.4f}
+**TinyCNN thresholds (from `bench2_val` alone):** {thr}
+**NMS radius {nms}, frozen.**
+
+**Eligible Test objects: {n:,}** of 1,628 (one object has no support cell inside the valid region).
+6 sequences, 2,130 frames.""".format(
+    ca=ACC["cfar_alphas"]["CA"], go=ACC["cfar_alphas"]["GO"], so=ACC["cfar_alphas"]["SO"],
+    os_=ACC["cfar_alphas"]["OS"],
+    thr=", ".join("{:.4f}".format(v) for v in ACC["tinycnn_thresholds"].values()),
+    nms=ACC["nms_size"], n=R1["eligible_test_objects"]))
+
+md("""## §47–§48 PRIMARY RESULT — exact dense-mask object recall
+
+> ### The frozen synthetic advantage does **not** transfer. CA-CFAR outperforms TinyCNN.
+
+| arm | exact-mask object recall |
+|---|---|
+| frozen **CA-CFAR** (primary classical) | **{ca:.4f}** |
+| frozen **TinyCNN** (8-seed mean) | **{dl:.4f}** |
+| **paired difference (TinyCNN − CA)** | **{d:+.4f}**, 95% CI [{lo:+.4f}, {hi:+.4f}] |
+
+n = **6 test sequences** (the effective sample size). The CI **excludes zero**, and **CA-CFAR is
+ahead in all six sequences** — there is no sequence where TinyCNN wins.
+
+| sequence | eligible objects | TinyCNN | CA-CFAR | Δ |
+|---|---|---|---|---|
+{rows}
+
+⚠️ **This number is not comparable with the synthetic Pd.** Synthetic Pd used a ±1-bin gate around a
+point target; this is mask-based recall against extended segmentation support, under a different
+operating-point protocol. The two are never differenced or placed in one column.""".format(
+    ca=P["cfar"]["CA"], dl=P["tinycnn_seed_mean"], d=BS["mean_delta"],
+    lo=BS["ci_lo"], hi=BS["ci_hi"],
+    rows="\n".join("| {} | {:,} | {:.4f} | {:.4f} | {:+.4f} |".format(
+        r["sequence"], r["eligible_objects"], r["tinycnn"], r["cfar_CA"], r["delta"])
+        for r in R1["per_sequence"])))
+md("![primary](figures/r1_test/r1_fig1_primary_and_per_sequence.png)")
+
+md("""## §49 All four CFAR variants
+
+| variant | exact-mask recall |
+|---|---|
+| **CA (primary)** | **{ca:.4f}** |
+| GO | {go:.4f} |
+| SO | {so:.4f} |
+| OS | {os_:.4f} |
+
+All four land within {spread:.3f} of each other and **all four beat TinyCNN**. GO is nominally
+highest, but **CA remains the primary comparator** as pre-registered — a secondary variant is not
+promoted because it scored better. The honest statement is that the classical family as a whole
+transferred, and the ordering within it is not the finding.""".format(
+    ca=P["cfar"]["CA"], go=P["cfar"]["GO"], so=P["cfar"]["SO"], os_=P["cfar"]["OS"],
+    spread=max(P["cfar"].values()) - min(P["cfar"].values())))
+
+md("""## §50 Mask ±1 / ±3 robustness
+
+| arm | exact | ±1 | ±3 |
+|---|---|---|---|
+| TinyCNN | {t0:.4f} | {t1:.4f} | {t3:.4f} |
+| CA-CFAR | {c0:.4f} | {c1:.4f} | {c3:.4f} |
+
+**This is tolerance around the annotated support, not localization accuracy.**
+
+TinyCNN gains **{tg:+.3f}** from exact → ±3 while CA gains only **{cg:+.3f}**, so a larger share of
+TinyCNN's misses are *just outside* the annotated support. The gap narrows from {g0:.3f} to
+{g3:.3f} but **does not close**.""".format(
+    t0=TOL["tol0"]["tinycnn"], t1=TOL["tol1"]["tinycnn"], t3=TOL["tol3"]["tinycnn"],
+    c0=TOL["tol0"]["cfar_CA"], c1=TOL["tol1"]["cfar_CA"], c3=TOL["tol3"]["cfar_CA"],
+    tg=TOL["tol3"]["tinycnn"] - TOL["tol0"]["tinycnn"],
+    cg=TOL["tol3"]["cfar_CA"] - TOL["tol0"]["cfar_CA"],
+    g0=TOL["tol0"]["cfar_CA"] - TOL["tol0"]["tinycnn"],
+    g3=TOL["tol3"]["cfar_CA"] - TOL["tol3"]["tinycnn"]))
+
+md("""## §51 Per class
+
+| class | eligible | sequences | TinyCNN | CA-CFAR | TinyCNN ±3 | CA ±3 |
+|---|---|---|---|---|---|---|
+{rows}
+
+⚠️ **Class recall is not purely detector sensitivity.** Mask sizes differ substantially — median
+support car 18×13, cyclist 11×11, pedestrian 9×9 — and a larger mask is a larger area in which a
+peak can land and count as a hit. Both arms rank the classes in the same order as mask size.
+
+**Cyclist (n = {ncy}, only {scy} sequences) is exploratory** and should not carry weight.""".format(
+    rows="\n".join("| {} | {:,} | {} | {:.4f} | {:.4f} | {:.4f} | {:.4f} |".format(
+        k, v["eligible_objects"], v["sequences"], v["tinycnn"], v["cfar_CA"],
+        v["tinycnn_tol3"], v["cfar_CA_tol3"]) for k, v in R1["by_class"].items()),
+    ncy=R1["by_class"]["cyclist"]["eligible_objects"],
+    scy=R1["by_class"]["cyclist"]["sequences"]))
+
+md("""## §52 Near-zero vs away-from-zero Doppler — **the most informative stratum**
+
+Pre-registered before scoring, when Phase 4 established that **84% of eligible Test objects**
+intersect the ±4-bin zero-Doppler band.
+
+| stratum | eligible | TinyCNN | CA-CFAR | gap |
+|---|---|---|---|---|
+| **near zero** (bins 28–36) | {nz:,} | **{tnz:.4f}** | **{cnz:.4f}** | {gnz:.4f} |
+| away from zero | {az:,} | {taz:.4f} | {caz:.4f} | {gaz:.4f} |
+
+**Away from the ridge the two arms are close ({taz:.3f} vs {caz:.3f}). Nearly the entire gap lives
+in the near-zero stratum**, where TinyCNN falls to {tnz:.3f} against CA's {cnz:.3f}.
+
+⚠️ **Careful wording.** Permitted: *performance degradation was concentrated among objects whose
+support intersects the strong zero-Doppler region.* **Not** permitted from stratification alone:
+that the ridge *caused* the failures. R0 measured the CARRADA ridge as narrow and ~24 dB against the
+simulator's broad ~14.8 dB, which makes it a plausible mechanism — but this analysis establishes
+**where** the loss sits, not **why**.""".format(
+    nz=R1["by_doppler"]["near_zero"]["eligible_objects"],
+    tnz=R1["by_doppler"]["near_zero"]["tinycnn"], cnz=R1["by_doppler"]["near_zero"]["cfar_CA"],
+    gnz=R1["by_doppler"]["near_zero"]["cfar_CA"] - R1["by_doppler"]["near_zero"]["tinycnn"],
+    az=R1["by_doppler"]["away_zero"]["eligible_objects"],
+    taz=R1["by_doppler"]["away_zero"]["tinycnn"], caz=R1["by_doppler"]["away_zero"]["cfar_CA"],
+    gaz=R1["by_doppler"]["away_zero"]["cfar_CA"] - R1["by_doppler"]["away_zero"]["tinycnn"]))
+
+md("""## §53 Range-stratified (secondary, R0's exact blocks)
+
+| range block [bins] | eligible | TinyCNN | CA-CFAR |
+|---|---|---|---|
+{rows}
+
+**The pattern is not monotone.** TinyCNN is far behind in the near-range block 10–60
+({t1:.3f} vs {c1:.3f}) but is *ahead* of CA at 110–160 and 160–210. R0 measured CARRADA's background
+as non-stationary in range (k 2.9–7.5 across blocks), so the near-range block is also where the
+background departs most from the training domain. Secondary and explanatory — not a mechanism
+claim.""".format(
+    rows="\n".join("| {} | {:,} | {:.4f} | {:.4f} |".format(
+        k, v["eligible_objects"], v["tinycnn"], v["cfar_CA"])
+        for k, v in sorted(R1["by_range"].items()) if v["eligible_objects"] > 0),
+    t1=R1["by_range"]["10-60"]["tinycnn"], c1=R1["by_range"]["10-60"]["cfar_CA"]))
+md("![strata](figures/r1_test/r1_fig2_strata.png)")
+
+md("""## §54 Unmatched-detection burden — **not** a false-alarm rate
+
+| arm | mean/frame | median | p90 | annotated frames | frames with no annotation |
+|---|---|---|---|---|---|
+{rows}
+
+**TinyCNN produces more unmatched output than CA-CFAR ({dl:.2f} vs {ca:.2f} per frame) while also
+recalling fewer objects.** It is worse on both axes at the frozen operating point.
+
+**Why this is not Pfa**, restated because it matters:
+
+1. CARRADA does not annotate every real reflector — only the 77 tracked objects.
+2. R0 measured bright unannotated returns in 5.85% of frames.
+3. Frozen NMS on extended objects leaves multiple legitimate peaks from one object.
+4. §55 measures exactly that on Test.
+
+So this is an **output-density / operational-burden** metric, not a ground-truth false-alarm
+probability.""".format(
+    rows="\n".join("| {} | {:.2f} | {:.1f} | {:.1f} | {:.2f} | {:.2f} |".format(
+        k, v["mean"], v["median"], v["p90"], v["annotated_frames_mean"],
+        v["unannotated_frames_mean"]) for k, v in BUR.items()),
+    dl=BUR["TinyCNN"]["mean"], ca=BUR["CFAR-CA"]["mean"]))
+
+md("""## §55–§56 Multi-peak diagnostic and seed stability
+
+The extended-object characteristic registered in Phase 4 reproduces on Test, confirming that part of
+the burden above is a metric-transfer artefact rather than detector noise. **NMS was not changed.**
+
+**Seed stability is itself a finding.** The eight frozen seeds span
+**{lo:.4f} – {hi:.4f}** (sd **{sd:.4f}**):
+
+{seeds}
+
+That spread is large relative to the {d:.3f} TinyCNN−CA gap: **no single seed reaches CA-CFAR's
+{ca:.4f}.** The best seed ({bs:.4f}) still trails it. No seed was selected, dropped, or ensembled.""".format(
+    lo=min(P["tinycnn_per_seed"].values()), hi=max(P["tinycnn_per_seed"].values()),
+    sd=P["tinycnn_seed_sd"], d=abs(BS["mean_delta"]), ca=P["cfar"]["CA"],
+    bs=max(P["tinycnn_per_seed"].values()),
+    seeds=" · ".join("s{}: {:.4f}".format(k, v) for k, v in P["tinycnn_per_seed"].items())))
+md("![tolerance burden seeds](figures/r1_test/r1_fig3_tolerance_burden_seeds.png)")
+md("![multipeak and curve](figures/r1_test/r1_fig4_multipeak_and_burden_curve.png)")
+
+md("""## §57–§59 Per-sequence, qualitative examples, and uncertainty
+
+Per-sequence values are in §47 and plotted in Figure 1 — **no sequence is hidden**, and the two
+weakest (`…12-13-54`, `…12-23-30`) are also the largest by object count.
+
+**Uncertainty** is sequence-aware throughout: paired bootstrap over the 6 test sequences, 10,000
+replicates, fixed seed, percentile CI. **Seed variability (§56) is reported separately and never
+merged with sequence variability into one error bar.** With n = 6 the emphasis is the effect size
+and the fact that the sign is consistent across all six sequences, not a p-value.
+
+The **recall–unmatched-burden curve** (Figure 4, right) is descriptive only. Its stars mark the
+frozen operating points; **no threshold was chosen from the Test curve.** It shows TinyCNN's curve
+sitting below CA's over the overlapping burden range, so the gap is not merely an operating-point
+artefact.""")
+
+md("""## §60 R0 → R1 interpretation
+
+Taking the pre-registered order: **both detectors transferred** — neither collapsed. CA-CFAR
+reached {ca:.3f} and TinyCNN {dl:.3f} exact-mask recall on real measurements, from a purely
+synthetic development process.
+
+**But the synthetic ranking reversed.** On synthetic data TinyCNN beat CFAR on 6 of 7 conditions;
+on CARRADA the frozen CA-CFAR is ahead by {d:.3f} [{lo:.3f}, {hi:.3f}], in all six sequences, and no
+individual seed closes the gap.
+
+R0 established, independently and before any detector ran, that CARRADA is a substantial
+statistical domain shift: smoother background (effective Gamma shape ≈ 4.8 vs the simulator's ≈ 1.0),
+much lower Doppler correlation, a narrow ~24 dB zero-Doppler ridge against a broad ~14.8 dB one, and
+range non-stationarity.
+
+**Permitted:** *the zero-shot learned detector encountered a substantial statistical domain shift
+established independently in R0, and its advantage did not survive it; the degradation is
+concentrated among objects whose support intersects the strong zero-Doppler region.*
+
+**Not claimed:** that k ≈ 4.8, or the ridge, *caused* the drop. Establishing that needs an
+intervention, not a stratification. A CFAR estimator is scale- and shape-adaptive by construction,
+which is a plausible reason it degraded less — but that is a hypothesis for a future experiment.""".format(
+    ca=P["cfar"]["CA"], dl=P["tinycnn_seed_mean"], d=abs(BS["mean_delta"]),
+    lo=abs(BS["ci_hi"]), hi=abs(BS["ci_lo"])))
+
+md("""## §61 Relation to E2 / E3 / E4
+
+**Those experiments are not rewritten and not weakened.** They were controlled *synthetic mechanism*
+experiments; R1 asks *external validity*. The two answer different questions.
+
+Because CARRADA's truth is extended segmentation support, R1 **cannot** validate or refute:
+
+* exact-cell localization,
+* the E3 label mechanism (flat 3×3 labels broadening the response),
+* the E4 exact-cell mechanism (guard-cell access broadening the response).
+
+Those remain grounded in the synthetic evidence. What R1 does establish is that **the frozen
+detector's general detection ability, and specifically its advantage over CFAR, did not survive
+transfer to this real domain.**""")
+
+md("""## §62 R1 limitations
+
+1. **n = 6 test sequences.** Small. The consistent sign across all six carries more weight than the
+   interval width.
+2. **Truth is extended support**, so recall is not comparable to synthetic Pd, and no localization
+   metric is reported at all.
+3. **Unmatched burden is not Pfa** — unannotated reflectors and multi-peak extended objects both
+   inflate it.
+4. **Class recall is confounded with mask size**; pedestrians are the most numerous Test class and
+   have the smallest masks.
+5. **Cyclist n = {ncy} across {scy} sequences — exploratory.**
+6. **A new operating-point protocol** was required for TinyCNN, since the frozen project had none.
+   R1 numbers are not poolable with the synthetic tables.
+7. **Strict zero-shot for CFAR too:** its alphas were calibrated for single-look statistics, so its
+   achieved operating point on CARRADA is not the designed one. It happened to transfer well;
+   that is not evidence its calibration was correct here.
+8. **One domain, one sensor.** CARRADA is not radar in general.""".format(
+    ncy=R1["by_class"]["cyclist"]["eligible_objects"],
+    scy=R1["by_class"]["cyclist"]["sequences"]))
+
+md("""## §63 R1 conclusion
+
+> **The frozen TinyCNN's synthetic advantage over CFAR did not transfer to real CARRADA data.**
+> Both detectors work on real measurements, but at the frozen operating points classical CA-CFAR
+> achieves higher mask-based object recall ({ca:.3f} vs {dl:.3f}, paired Δ {d:+.3f}
+> [{lo:+.3f}, {hi:+.3f}], CA ahead in 6/6 sequences) **and** emits less unmatched output
+> ({bca:.1f} vs {bdl:.1f} per frame). The loss concentrates among objects near the strong
+> zero-Doppler ridge, and no individual frozen seed closes the gap.
+
+This does not retract any synthetic finding. It **bounds their external validity**, which is exactly
+what an external-validation experiment is for — and it is the outcome the pre-registration was
+written to make reportable whichever way it fell.""".format(
+    ca=P["cfar"]["CA"], dl=P["tinycnn_seed_mean"], d=BS["mean_delta"],
+    lo=BS["ci_lo"], hi=BS["ci_hi"], bca=BUR["CFAR-CA"]["mean"], bdl=BUR["TinyCNN"]["mean"]))
+
+md("""## §64 Phase 5 reproducibility and isolation
+
+**One incident, recorded rather than hidden.** `run_r1_test.py` completed all detector inference and
+preserved raw peaks for all 12 arms, then **failed on the final step writing Parquet** — neither
+`pyarrow` nor `fastparquet` is installed. That is a **serialization failure after scoring, not a
+methodological one**. The per-object/per-frame tables were rebuilt by `build_tables_from_raw.py`
+**from the preserved raw output, re-running no detector**, applying the same frozen thresholds and
+the same frozen matcher. Only the output format changed (CSV).
+
+**Verification of a surprising result** (pre-registered checklist), all passed *before* interpreting:
+manifest and pre-registration hashes; scored sequences == the 6 official Test sequences, with no
+Train/Validation sequence touched; checkpoint hashes match the access log; frozen alphas and
+thresholds as recorded; NMS 5; **a deterministic re-run of seed 0 over 40 frames reproduced the
+stored peaks bit-for-bit (40/40)**; and the `score > 0` floor in `all_peaks` cannot remove anything
+above the frozen threshold.
+
+**No methodological change was made after seeing results.** No retraining, no fine-tuning, no
+recalibration, no threshold change, no NMS change, no mask change, no CFAR-variant promotion.
+
+Immutable raw evidence: `results/r1_test/*_peaks.npz` (12 arms × 2,130 frames), hashed in
+`test_output_manifest.json`.""")
+
 nb = nbf.v4.new_notebook(cells=cells)
 nb.metadata.update({"kernelspec": {"display_name": "Python 3", "language": "python",
                                    "name": "python3"},

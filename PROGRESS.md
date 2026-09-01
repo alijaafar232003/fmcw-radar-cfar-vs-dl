@@ -3675,6 +3675,137 @@ Notebook now 58 cells (§0–§43), executes with zero errors.
 
 **Next: Phase 5 — score the 6 CARRADA Test sequences. Nothing above may change.**
 
+### 2026-08-31 — CARRADA real-data validation, Phase 5 (R1): the synthetic DL advantage does NOT transfer
+
+**The one-shot frozen external validation on the official CARRADA TEST split.** This is the first
+and only phase in which CARRADA Test data was passed through a detector. Nothing was tuned after
+seeing results: no retraining, no fine-tuning, no recalibration, no threshold change, no NMS change,
+no mask change, and no promotion of a better-performing CFAR variant. **No previously published
+synthetic number changes.**
+
+**Phase 4 commit:** `30936d6a58fb182b35727c261084bf6c39bac3b7`.
+**Pre-registration:** `e800ad84af5a909d595a9c1a5b32bfe308efc4830a1bfe17d8ea793a1bba98a8`, unchanged.
+**Run manifest SHA-256:** `72f5926a9aeb5760…` · **first TEST access: 2026-08-31T18:09:31Z**, git
+commit `30936d6a58fb`.
+
+**Frozen operating points.** CFAR alphas CA 10.4586 · GO 9.5458 · SO 12.8494 · OS 7.5786. TinyCNN
+per-seed thresholds (from `bench2_val` alone) 1.8049, 1.8334, 1.6981, 2.0172, 1.3329, 1.9364,
+1.7510, 1.9862. NMS radius 5. **Eligible Test objects: 1,627** of 1,628, over 6 sequences and
+2,130 frames.
+
+#### PRIMARY RESULT — exact dense-mask object recall
+
+| arm | recall |
+|---|---|
+| frozen **CA-CFAR** (primary classical) | **0.8439** |
+| frozen **TinyCNN** (8-seed mean) | **0.7124** |
+| **paired difference (TinyCNN − CA)** | **−0.1085**, 95% CI **[−0.1663, −0.0618]** |
+
+Paired bootstrap over the **6 test sequences** (the effective sample size), 10,000 replicates. The
+CI **excludes zero and CA-CFAR is ahead in all six sequences**:
+
+| sequence | n | TinyCNN | CA | Δ |
+|---|---|---|---|---|
+| 2019-09-16-13-13-01 | 150 | 0.8917 | 0.9467 | −0.0550 |
+| 2019-09-16-13-18-33 | 212 | 0.9558 | 0.9953 | −0.0395 |
+| 2020-02-28-12-13-54 | 523 | 0.5803 | 0.8107 | −0.2304 |
+| 2020-02-28-12-23-30 | 376 | 0.6277 | 0.7021 | −0.0745 |
+| 2020-02-28-13-08-51 | 224 | 0.7148 | 0.8750 | −0.1602 |
+| 2020-02-28-13-14-35 | 142 | 0.8662 | 0.9577 | −0.0915 |
+
+**All four CFAR variants beat TinyCNN** and sit within 0.021 of each other: CA 0.8439, GO 0.8648,
+SO 0.8451, OS 0.8574. **CA remains primary as pre-registered** — GO is nominally highest and is
+*not* promoted.
+
+⚠️ **This recall is not comparable with the synthetic Pd.** Synthetic Pd used a ±1-bin gate around a
+point target; this is mask recall against extended segmentation support, under a different
+operating-point protocol. The two are never differenced.
+
+#### Where the loss lives
+
+**Tolerance ladder** (tolerance around the annotated support, **not** localization accuracy):
+TinyCNN 0.7124 / 0.7805 / 0.8742 at exact / ±1 / ±3; CA 0.8439 / 0.8685 / 0.9041. TinyCNN gains
++0.162 from dilation against CA's +0.060, so more of its misses are just outside the support — but
+the gap narrows only from 0.132 to 0.030 and **does not close**.
+
+**Zero-Doppler stratum — the most informative split**, pre-registered before scoring when Phase 4
+established that 84% of eligible Test objects intersect the ±4 band:
+
+| stratum | n | TinyCNN | CA | gap |
+|---|---|---|---|---|
+| **near zero** (bins 28–36) | 1,365 | **0.6694** | **0.8234** | 0.154 |
+| away from zero | 262 | 0.9361 | 0.9504 | 0.014 |
+
+**Away from the ridge the arms are nearly equal; essentially the whole gap sits in the near-zero
+stratum.** Permitted wording: *degradation was concentrated among objects whose support intersects
+the strong zero-Doppler region.* **Not** claimed: that the ridge caused it — stratification locates
+a loss, it does not demonstrate a mechanism.
+
+**By class** (mask sizes differ, so this is not purely detector sensitivity): car n=513 TinyCNN
+0.9384 / CA 0.9708 · pedestrian n=955 0.5925 / 0.7707 · cyclist n=159, 2 sequences, **exploratory**,
+0.7028 / 0.8742. Both arms rank classes in the same order as mask size.
+
+**By range block** (secondary, R0's exact blocks) — **not monotone**: 10–60 n=533 TinyCNN 0.6025 vs
+CA 0.9362; 60–110 n=853 0.7144 / 0.7679; 110–160 n=111 **0.9245 / 0.8739**; 160–210 n=79
+**0.9810 / 0.9114**; 210–246 n=51 0.9485 / 0.9804. TinyCNN is *ahead* in the mid-range blocks and
+far behind in the near-range block — which is also where R0 measured the background departing most
+from the training domain.
+
+#### Unmatched-detection burden — **not** a false-alarm rate
+
+TinyCNN **13.14** per frame (median 15, p90 20) against CA **8.73** (median 9, p90 12); GO 13.44,
+SO 13.07, OS 13.66. On frames with no tracked-object annotation: TinyCNN 13.24, CA 8.96. **TinyCNN
+is worse on both axes at the frozen operating point** — fewer objects recalled and more unmatched
+output. The recall–unmatched-burden curve confirms its curve lies below CA's across the overlapping
+burden range, so this is not merely an operating-point artefact. It is **not** Pfa: CARRADA
+annotates only the 77 tracked objects, R0 found bright unannotated returns in 5.85% of frames, and
+the frozen point-target NMS leaves multiple legitimate peaks on extended objects.
+
+#### Seed stability is itself a finding
+
+The eight frozen seeds span **0.5476–0.8211, sd 0.0930** — large relative to the 0.109 gap. s0
+0.8211, s1 0.6288, s2 0.8095, s3 0.6699, s4 0.5476, s5 0.7572, s6 0.7492, s7 0.7154. **No single
+seed reaches CA-CFAR's 0.8439**; the best trails it. No seed was selected, dropped, or ensembled.
+
+#### Incident and verification
+
+`run_r1_test.py` completed all inference and preserved raw peaks for all 12 arms, then **failed
+writing Parquet** (neither pyarrow nor fastparquet installed) — a **serialization failure after
+scoring, not a methodological one**. Tables were rebuilt by `build_tables_from_raw.py` **from the
+preserved raw output with no detector re-run**, same frozen thresholds and matcher; only the format
+changed to CSV.
+
+Because the result is surprising, the pre-registered verification ran **before** interpretation and
+all passed: manifest and pre-registration hashes; scored sequences == the 6 official Test sequences
+with no Train/Validation sequence touched; checkpoint hashes match the access log; frozen alphas,
+thresholds and NMS as recorded; **a deterministic re-run of seed 0 over 40 frames reproduced the
+stored peaks bit-for-bit (40/40)**; and the `score > 0` floor in `all_peaks` cannot remove anything
+above the frozen threshold.
+
+#### Conclusion and scope
+
+> **The frozen TinyCNN's synthetic advantage over CFAR did not transfer to real CARRADA data.** Both
+> detectors work on real measurements, but at the frozen operating points classical CA-CFAR achieves
+> higher mask-based object recall and emits less unmatched output, in all six sequences, with no
+> seed closing the gap.
+
+R0 had established the domain shift independently and in advance: effective Gamma shape ≈ 4.8 vs the
+simulator's ≈ 1.0, much lower Doppler correlation, a narrow ~24 dB ridge against a broad ~14.8 dB
+one, and range non-stationarity. **Permitted:** the zero-shot learned detector met a substantial
+statistical domain shift and its advantage did not survive it. **Not claimed:** that k ≈ 4.8 or the
+ridge caused the drop — that needs an intervention, not a stratification.
+
+**This retracts no synthetic finding.** E2/E3/E4 were controlled synthetic *mechanism* experiments
+and are untouched; because CARRADA truth is extended support, R1 cannot validate or refute
+exact-cell localization, the E3 label mechanism, or the E4 guard-cell mechanism. R1 **bounds the
+external validity** of the synthetic headline, which is what an external-validation experiment is
+for — and the pre-registration was written so this outcome would be reportable whichever way it fell.
+
+**Artefacts:** immutable raw evidence `results/r1_test/*_peaks.npz` (12 arms × 2,130 frames) hashed
+in `results/r1_test/test_output_manifest.json`, with `run_manifest.json`, `access_log.json`,
+`per_object.csv`, `per_frame.csv`, `multipeak_test.csv`, `r1_summary.json`; 4 figures in
+`figures/r1_test/`; notebook now 78 cells (§0–§64), executes with zero errors.
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below
