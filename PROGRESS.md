@@ -3806,6 +3806,88 @@ in `results/r1_test/test_output_manifest.json`, with `run_manifest.json`, `acces
 `per_object.csv`, `per_frame.csv`, `multipeak_test.csv`, `r1_summary.json`; 4 figures in
 `figures/r1_test/`; notebook now 78 cells (§0–§64), executes with zero errors.
 
+### 2026-08-31 — CARRADA real-data validation, Phase 6: closeout. EXPERIMENT COMPLETE
+
+**Final documentation, cross-domain visualisation and closeout.** No new detector experiment was
+run: no retraining, no fine-tuning, no recalibration, no threshold/NMS/mask/matching change. The
+Phase 5 raw detector outputs are immutable evidence and every table and figure here READS them.
+
+**Phase 5 commit:** `9bfa8056a9f8ba94a45829eebe823a5be90fb7d6`.
+**Raw-output manifest:** `results/r1_test/test_output_manifest.json` — 17 files re-verified,
+**all unchanged**. **Pre-registration** `e800ad84af5a909d595a9c1a5b32bfe308efc4830a1bfe17d8ea793a1bba98a8`
+unchanged. **Run manifest** `72f5926a9aeb5760…` unchanged.
+
+#### Final R1 results (unchanged from Phase 5, restated for the closeout record)
+
+Exact dense-mask object recall over **1,627 eligible objects**, 6 test sequences, 2,130 frames:
+frozen **CA-CFAR 0.8439** vs frozen **TinyCNN 0.7124** (8-seed mean, sd 0.0930); paired difference
+**−0.1085**, 95% CI **[−0.1663, −0.0618]**, sequence-aware bootstrap, **CA ahead in 6/6 sequences**.
+All four CFAR variants beat TinyCNN (CA .8439, GO .8648, SO .8451, OS .8574); CA remains primary as
+pre-registered.
+
+* **Zero-Doppler** — near zero (n=1,365) 0.6694 vs 0.8234; away (n=262) 0.9361 vs 0.9504. Away from
+  the ridge the arms are close; essentially the whole gap sits in the near-zero stratum.
+* **Tolerance** exact/±1/±3 — TinyCNN .7124/.7805/.8742, CA .8439/.8685/.9041. Mask-support
+  tolerance, **not** localization accuracy.
+* **Class** — car n=513 .9384/.9708 · pedestrian n=955 .5925/.7707 · cyclist n=159 (2 sequences,
+  exploratory) .7028/.8742. Confounded with mask size.
+* **Range** — non-monotone: 10–60 .6025/.9362, 60–110 .7144/.7679, **110–160 .9245/.8739**,
+  **160–210 .9810/.9114**, 210–246 .9485/.9804. Transfer failure is structured, not uniform.
+* **Seeds** — 0.5476–0.8211, sd 0.0930; no seed reaches CA's 0.8439.
+* **Unmatched burden** — TinyCNN 13.14/frame vs CA 8.73. **NOT a false-alarm rate.**
+
+#### Cross-domain interpretation
+
+A new 4-panel figure (`figures/r1_test/r1_fig5_crossdomain_4panel.png`) puts the two domains in
+separate rows with their metrics named on the row, levels on the left and the paired difference on
+the right. **Panel B is entirely positive (TinyCNN ahead synthetically); Panel D entirely negative
+(CA-CFAR ahead on real data).** The figure states on its face that synthetic Pd and CARRADA mask
+recall are different measurements and must not be pooled — the comparable statement is the
+**ranking**, not the numbers. Frozen synthetic values were **read** from
+`results/dl/bootstrap_frozen_ep021_test_tol1.csv`, never recomputed.
+
+A second figure (`r1_fig6_rd_examples.png`) shows four RD maps under one display convention —
+synthetic `isolated` and `clutter_edge`, and CARRADA objects on and off the ridge — selected
+**deterministically on annotation geometry alone**, never on detector outcome.
+
+**Project-level conclusion, as defensible as the evidence allows:**
+
+> The learned detector demonstrated higher potential performance in the matched synthetic domain,
+> but that advantage was sensitive to domain shift. Classical CFAR transferred more robustly to
+> unseen CARRADA data under the zero-shot protocol.
+
+As an **implication, not a demonstrated result**: learned radar detectors likely require training
+data whose statistical structure adequately represents their deployment domain. That is a hypothesis
+this experiment motivates — no real-data retraining was performed. Explicitly **not** claimed:
+"CNNs generalize badly", or that k ≈ 4.8 / the ridge *caused* the drop.
+
+**Nothing is retracted.** E2/E3/E4 remain controlled synthetic mechanism results; because CARRADA
+truth is extended support, R1 cannot validate or refute exact-cell localization, the E3 label
+mechanism or the E4 guard-cell mechanism. R1 bounds external validity, which is what it was for.
+
+#### Limitations carried into the write-up
+
+One real dataset; extended segmentation truth rather than point truth; differing headline metrics;
+incomplete annotation so no real Pfa exists; point-target NMS against extended objects; only 6 test
+sequences; 84% of test objects overlapping the ridge; unbalanced class sizes and mask extents; no
+real-data retraining; no causal intervention; and R0 statistics computed across all sequences —
+domain-level, with the ridge band verified identical from Train-only data (±1, 23.9 dB vs 24.5 dB).
+
+#### Closeout verification
+
+Notebook `r_carrada_real_data_validation.ipynb` — **85 cells, §0–§71, executes with zero errors**,
+reproducing every table and figure from cached immutable outputs without re-running inference.
+Isolation verifier: **FROZEN FILES CHANGED 0 · MISSING 0 · NEW 0**. CARRADA source unchanged
+(30 sequences / 12,666 / 12,666). Environment: Python 3.11.9, numpy 2.4.6, pandas 3.0.3,
+torch 2.13.0+cpu, scipy 1.17.1, matplotlib 3.11.0.
+
+**EXPERIMENT STATUS: CARRADA REAL-DATA EXTERNAL VALIDATION — COMPLETE.**
+
+Any CARRADA training, fine-tuning, simulator-realism modification, domain randomization, CFAR
+recalibration or NMS adaptation will be treated as a **NEW experiment** with its own
+pre-registration. **No frozen TinyCNN, CFAR, synthetic result, E2, E3 or E4 asset was modified at
+any point during the real-data experiment.**
+
 ## Decision history — how the configuration got here
 
 Kept deliberately: the report needs the journey, not just the endpoint. Every superseded value below

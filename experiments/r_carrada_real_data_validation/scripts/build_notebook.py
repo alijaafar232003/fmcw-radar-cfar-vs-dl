@@ -1505,6 +1505,190 @@ recalibration, no threshold change, no NMS change, no mask change, no CFAR-varia
 Immutable raw evidence: `results/r1_test/*_peaks.npz` (12 arms × 2,130 frames), hashed in
 `test_output_manifest.json`.""")
 
+# ============================ PHASE 6 — CROSS-DOMAIN CLOSEOUT ==========================
+SYN = pd.read_csv(os.path.join(ROOT, "results", "dl", "bootstrap_frozen_ep021_test_tol1.csv"))
+n_win = int(((SYN["diff"] > 0) & SYN["sig (Bonf)"]).sum())
+
+md("""---
+
+# Phase 6 — cross-domain synthesis and closeout
+
+## §65 The headline figure — what happened across the domain change
+
+![cross-domain](figures/r1_test/r1_fig5_crossdomain_4panel.png)
+
+**How to read it.** The rows are the two domains; the left column shows levels *within* a domain and
+the right column shows the paired difference, which is the quantity that legitimately carries across.
+Panel B is entirely positive (TinyCNN ahead), Panel D entirely negative (CA-CFAR ahead). **That sign
+flip is the result.**
+
+⚠️ **The two rows are different measurements and must never be pooled.** Synthetic $P_d$ scores a
+point target within a ±1-bin gate at matched measured $P_{{fa}}$; CARRADA recall asks whether a peak
+landed inside an extended annotated support. A synthetic 0.73 and a real 0.71 are **not** the same
+quantity, and the figure states this on its face.
+
+### Cross-domain summary
+
+| | matched **synthetic** domain | unseen **real** CARRADA domain |
+|---|---|---|
+| metric | point-target $P_d$, ±1 gate, matched $P_{{fa}}$ | exact dense-mask object recall |
+| **TinyCNN** | ahead in **{nw} of 7** conditions after Bonferroni | **{dl:.3f}** |
+| **CFAR** | behind in most conditions (best-per-condition oracle) | **{ca:.3f}** (CA, primary) |
+| paired difference | **+0.012 … +0.302**, TinyCNN favoured | **{d:+.3f}** [{lo:+.3f}, {hi:+.3f}], CFAR favoured |
+| consistency | 6 of 7 conditions | **6 of 6 sequences** |
+
+**The comparable statement is the ranking, not the numbers:** in the matched synthetic domain the
+learned detector leads; in the unseen real domain the classical detector leads.""".format(
+    nw=n_win, dl=P["tinycnn_seed_mean"], ca=P["cfar"]["CA"], d=BS["mean_delta"],
+    lo=BS["ci_lo"], hi=BS["ci_hi"]))
+
+md("""## §66 What the two domains actually look like
+
+![rd examples](figures/r1_test/r1_fig6_rd_examples.png)
+
+Frames were selected **deterministically on annotation geometry alone** — never on which detector
+performed better. Synthetic: first `isolated` and first `clutter_edge` frame of `bench2_val` in file
+order. CARRADA: the first single-object Test frame whose support either covers the ridge bin (32) or
+clears it by ≥ 8 bins.
+
+Visible directly: the simulator's coarse single-look speckle against CARRADA's smoother background;
+CARRADA's narrow, intense zero-Doppler ridge; real objects with genuine spatial extent versus a
+synthetic point target; and CA-CFAR firing repeatedly along the ridge — the unmatched-output burden
+of §54 made visible.""")
+
+md("""## §67 Final project-level interpretation
+
+Stated in the order the evidence supports.
+
+**Supported.**
+
+1. **TinyCNN can outperform classical CFAR in the matched synthetic domain** — {nw} of 7 conditions
+   after Bonferroni on `bench2_test`, up to +0.302 on `clutter_edge`.
+2. **The controlled mechanism experiments stand.** E2: simple energy integration does *not* explain
+   the learned advantage — integrating the mainlobe made CFAR worse on 7/7. E3: supervision shape
+   drives localization — the flat 3×3 label causes the deficit and a Gaussian halves it at no Pd
+   cost. E4: guard/mainlobe access buys ~1.5 pp of Pd and costs exact-cell precision.
+3. **R0 establishes a substantial statistical domain shift**, measured before any detector ran:
+   effective Gamma shape ≈ 4.8 vs ≈ 1.0, much lower Doppler correlation (0.227 vs 0.574), a narrow
+   ~24 dB ridge against a broad ~14.8 dB one, range non-stationarity, and extended real-object
+   support.
+4. **Under zero-shot transfer, CA-CFAR > frozen TinyCNN on all six real test sequences.**
+5. **Away from zero Doppler the two are close** ({taz:.3f} vs {caz:.3f}).
+6. **The real-data gap is concentrated among objects overlapping the strong zero-Doppler region.**
+
+**Therefore, the strongest defensible project-level conclusion:**
+
+> **The learned detector demonstrated higher potential performance in the matched synthetic domain,
+> but that advantage was sensitive to domain shift. Classical CFAR transferred more robustly to
+> unseen CARRADA data under the zero-shot protocol.**
+
+**As an implication, not a demonstrated result:**
+
+> *Learned radar detectors likely require training data whose statistical structure adequately
+> represents their deployment domain.*
+
+That is a hypothesis this experiment motivates; it is **not** proven here, because no real-data
+retraining was performed.
+
+**Deliberately not claimed.** Not *"CNNs generalize badly"* — one architecture, one training setup,
+one real dataset. Not *"a CNN must be trained on exactly the same data."* Not that k ≈ 4.8 or the
+ridge *caused* the drop: stratification locates a loss, it does not establish a mechanism. The
+accurate phrasing is that **this detector's performance depended strongly on training-domain
+fidelity in this experiment.**""".format(
+    nw=n_win, taz=R1["by_doppler"]["away_zero"]["tinycnn"],
+    caz=R1["by_doppler"]["away_zero"]["cfar_CA"]))
+
+md("""## §68 Limitations of the whole real-data experiment
+
+1. **One real dataset.** CARRADA is not radar in general.
+2. **Extended segmentation truth**, not point truth.
+3. **Real and synthetic headline metrics differ** and are never pooled.
+4. **CARRADA annotates only its 77 tracked objects**, not every physical reflector.
+5. **Therefore no true real-data $P_{{fa}}$ exists**, and none is reported.
+6. **Frozen NMS was designed for point-like synthetic targets…**
+7. **…while real objects are spatially extended**, so one object can yield several peaks — measured
+   at 35–48% of objects.
+8. **Only 6 independent test sequences.**
+9. **84% of eligible test objects overlap the zero-Doppler band**, so the headline is dominated by
+   that regime.
+10. **Class sizes and annotation extents are unbalanced** — pedestrians are most numerous and have
+    the smallest masks.
+11. **TinyCNN was never retrained or fine-tuned on real data.** This is a zero-shot bound, not a
+    ceiling.
+12. **No causal intervention** proves the ridge caused the loss.
+13. **R0 statistics were computed across all sequences including Test.** Domain-level, not
+    detector-level — and the ridge band was verified **identical** from Train-only data (±1, peak
+    23.9 dB vs 24.5 dB), so no pre-registered choice depended on it.
+
+These limitations are what make the conclusion narrow enough to defend.""")
+
+md("""## §69 Future work — all of it a NEW experiment
+
+Nothing below was performed here, and none of it may be bolted onto this experiment:
+
+1. Train or fine-tune TinyCNN on CARRADA or another representative real dataset.
+2. Generate synthetic training data whose background statistics, Doppler correlation, zero-Doppler
+   structure and range non-stationarity better resemble real data.
+3. Mixed-domain training: synthetic + real.
+4. Domain randomization — vary clutter statistics during synthetic generation.
+5. Test directly whether exposure to strong zero-Doppler clutter closes the real-data gap.
+6. Evaluate on additional real radar datasets.
+7. Architectures and training objectives designed for extended-object radar truth.
+8. CFAR real-domain recalibration — **only** as a new, separately pre-registered experiment.
+
+Any of these would be a **new experiment** with its own pre-registration and isolation manifest.""")
+
+md("""## §70 Final conclusion
+
+> TinyCNN outperformed CFAR under most controlled synthetic conditions, demonstrating the potential
+> of a learned local detector. However, R0 showed that CARRADA differs substantially from the
+> training domain, and the pre-registered zero-shot real-data evaluation **reversed the ranking**:
+> CA-CFAR achieved higher object recall on all six test sequences ({ca:.3f} vs {dl:.3f}, paired
+> Δ {d:+.3f} [{lo:+.3f}, {hi:+.3f}]) while also producing less unmatched output.
+>
+> The gap was concentrated near CARRADA's strong zero-Doppler region; away from it the two
+> approaches performed similarly ({taz:.3f} vs {caz:.3f}).
+>
+> The combined result suggests that learned radar detection can exceed classical CFAR when its
+> training domain adequately represents deployment conditions, but that classical statistical
+> detectors may retain stronger robustness under domain shift.
+
+**This retracts nothing.** The synthetic findings stand as controlled results; R1 bounds their
+external validity. A pre-registered experiment that reverses its own headline is a stronger result
+than one that confirms it, because the protocol was fixed before the answer was known.
+
+**CARRADA REAL-DATA EXTERNAL VALIDATION — COMPLETE.**""".format(
+    ca=P["cfar"]["CA"], dl=P["tinycnn_seed_mean"], d=BS["mean_delta"],
+    lo=BS["ci_lo"], hi=BS["ci_hi"], taz=R1["by_doppler"]["away_zero"]["tinycnn"],
+    caz=R1["by_doppler"]["away_zero"]["cfar_CA"]))
+
+md("""## §71 Reproducibility and evidence paths
+
+| what | where |
+|---|---|
+| pre-registration (frozen) | `PREREGISTRATION.md` · SHA-256 `{sha}` |
+| immutable raw detector output | `results/r1_test/*_peaks.npz` (12 arms × 2,130 frames) |
+| output hashes | `results/r1_test/test_output_manifest.json` |
+| run manifest / test-access record | `results/r1_test/run_manifest.json`, `access_log.json` |
+| scored tables | `results/r1_test/per_object.csv`, `per_frame.csv`, `multipeak_test.csv` |
+| summary | `results/r1_test/r1_summary.json` |
+| protected-asset manifest | `isolation_manifest.json` (628 files) |
+| zero-shot thresholds | `configs/tinycnn_zero_shot_thresholds.json` |
+
+**To reproduce the analysis without re-running any detector:**
+
+```bash
+python scripts/analyze_r1_test.py        # tables and summary, from preserved outputs
+python scripts/make_r1_figures.py        # result figures
+python scripts/make_crossdomain_figure.py
+python scripts/make_rd_examples_figure.py
+python scripts/build_isolation_manifest.py --verify isolation_manifest.json
+```
+
+Environment: Python {py}, torch {tor}, numpy {npv}.""".format(
+    sha=FREEZE["sha256"], py=ACC["environment"]["python"], tor=ACC["environment"]["torch"],
+    npv=ACC["environment"]["numpy"]))
+
 nb = nbf.v4.new_notebook(cells=cells)
 nb.metadata.update({"kernelspec": {"display_name": "Python 3", "language": "python",
                                    "name": "python3"},

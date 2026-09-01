@@ -1,246 +1,145 @@
-# CARRADA Real-Data External Validation
+# CARRADA Real-Data External Validation — **COMPLETE**
 
-*Real-data experiment — R0 domain audit + R1 zero-shot validation.*
+*Does the frozen synthetic DL-vs-CFAR result transfer zero-shot to real automotive radar?*
 
-> **Phase 1 — isolation and setup. COMPLETE.** Committed as
-> **`15f3aab2c9690a22dcbe55799d78ab6d69451c09`**, the baseline from which Phase 2 isolation is
-> measured.
+> ## Headline
 >
-> **Phase 2 — R0 domain audit. COMPLETE.** Committed as
-> **`a3a3b88e4f26dcffa14d97e2fc8f4c03e08eff04`** — the frozen R0 baseline. Notebook §0–§16.
+> **It reverses.** In the matched synthetic domain TinyCNN beats CFAR on 6 of 7 conditions. On real
+> CARRADA data, frozen **CA-CFAR 0.844** vs frozen **TinyCNN 0.712** exact dense-mask object recall
+> — paired Δ **−0.109**, 95% CI **[−0.166, −0.062]** over the 6 test sequences, **CFAR ahead in all
+> six**, and no individual seed closes the gap.
 >
-> **Phase 3 — R1 pre-registration. FROZEN.** [`PREREGISTRATION.md`](PREREGISTRATION.md),
-> SHA-256 **`e800ad84af5a909d595a9c1a5b32bfe308efc4830a1bfe17d8ea793a1bba98a8`** (FINAL PRE-SCORING FREEZE),
-> frozen 2026-08-31T17:11:45Z. Notebook §17–§28; freeze record in
-> `results/preregistration_freeze.json`.
->
-> **No detector has been run on CARRADA. No CARRADA label of any split has been used to choose any
-> quantity. No model, configuration, or prior result has been modified.**
+> The gap concentrates near CARRADA's strong zero-Doppler ridge (0.669 vs 0.823, n=1,365). **Away
+> from it the two are close** (0.936 vs 0.950, n=262).
 
-**Final rulings applied 31 Aug 2026 before any scoring** (`PREREGISTRATION.md` §14): the global
-TinyCNN threshold rule approved as proposed; **primary CFAR changed from OS to CA** (canonical
-baseline, continuity with the main benchmark, and it avoids picking the comparator because R0 hinted
-OS might suit CARRADA — OS stays as the highlighted robust secondary and is never promotable after
-results); NMS frozen at 5 with the extended-object multi-peak limitation registered; and objects
-spanning range blocks assigned by the median range index of their valid support.
-
-## R0 headline
-
-| statistic | CARRADA | simulator | single-look ideal |
-|---|---|---|---|
-| CV(power) | 0.4734 ± 0.0157 | 1.0053 ± 0.0032 | 1.000 |
-| Gamma shape k | 4.771 ± 0.223 | 0.990 ± 0.006 | 1.00 |
-| background std [dB] | 2.212 ± 0.011 | 5.573 ± 0.005 | 5.57 |
-| lag-1 range corr | 0.5635 ± 0.0031 | 0.5731 ± 0.0010 | — |
-| lag-1 Doppler corr | 0.2265 ± 0.0055 | 0.5740 ± 0.0029 | — |
-| zero-Doppler ridge | 24.0 dB (±1 bin) | 14.8 dB (±4 bins) | — |
-
-Geometry and representation transfer cleanly; the background does not. The simulator is
-single-look to within measurement error — an independent validation of its clutter model.
-**Every preliminary R0 value is superseded** (see `PROGRESS.md`, 31 Aug Phase 2 entry); two of
-them reversed direction once the background mask was defined correctly.
-
-This folder is an **isolated external-validation experiment**. It is self-contained: everything it
-produces lives under `experiments/r_carrada_real_data_validation/`. It reads the frozen synthetic
-benchmark and the CARRADA dataset, and writes to neither.
+⚠️ **Synthetic $P_d$ and CARRADA mask recall are different measurements** — point truth with a ±1-bin
+gate versus extended segmentation support. They are never pooled. The comparable statement is the
+**ranking**, not the numbers.
 
 ---
-
-## Purpose
-
-Every number this project has published comes from one simulator. `bench2_test` and `bench2_val`
-share a generator, so the headline result establishes **sampling generalization only** — not that any
-finding survives a different clutter model, a different sensor, or real measurements.
-
-This experiment asks whether the findings transfer to **real automotive radar measurements**
-(CARRADA), and is the first work in the programme to use data this project did not generate.
 
 ## Scientific question
 
-> Does the synthetic DL-vs-CFAR result — TinyCNN ahead on detection in interference, CFAR ahead on
-> localization — reproduce on real measured Range–Doppler data, and do the mechanisms identified in
-> E2/E3/E4 explain what happens there?
+Every prior number in this project came from one simulator, so the headline established *sampling*
+generalization only. This experiment asks whether the frozen detectors transfer to real measurements.
+It **does not** replace the synthetic benchmark; it **bounds its external validity**.
 
-This decomposes into PLAN.md Part B:
+## Phase structure
 
-| stage | question |
-|---|---|
-| **R0** | How far apart are the synthetic and real domains, measured before any detector runs? |
-| **R1** | Does the frozen synthetic TinyCNN transfer zero-shot, with no fine-tuning? |
-| **R2** | Where do TinyCNN and CFAR fail on real data, and do those failures match E5/E6 mechanisms? |
-| **R3** | Does limited real-data adaptation help? Split by sequence, never by frame. |
-| **R4** | Do the mechanism findings themselves survive on real measurements? |
-
-## Phase progression
-
-| phase | content | status |
+| phase | content | commit |
 |---|---|---|
-| 1 | isolation, repository setup, data integrity | ✅ committed `15f3aab` |
-| 2 | R0 domain audit | ✅ committed `a3a3b88` |
-| 3 | R1 pre-registration | ✅ frozen, `e800ad84…` |
-| 4 | implementation + sanity checks | ✅ complete, no test scoring |
-| 5 | final detector evaluation on the CARRADA Test split | ⬜ not started |
-| 6 | interpretation / closeout | ⬜ not started |
-
-Phases 1–4 deliberately ran **no detector on the CARRADA Test split**, computed **no R1 detection
-statistic**, and tuned **nothing** against real data. Their job was to make Phase 5 auditable and
-un-gameable.
-
----
-
-## Scope reminder — repeat this wherever the experiment is written up
-
-The simulator was configured to reproduce CARRADA's **published Range–Doppler grid geometry** — map
-dimensions and bin spacings — so that a target occupies a comparable number of cells. It does **not**
-reproduce CARRADA's waveform, scenes, clutter statistics, or sensor.
-
-**Matching a grid is not matching a radar.**
-
----
+| 1 | isolation, dataset integrity | `15f3aab` |
+| 2 | R0 synthetic-vs-real domain audit | `a3a3b88` |
+| 3 | frozen R1 pre-registration | `9c9a3e2` |
+| 4 | implementation, adapters, thresholds, sanity checks | `30936d6` |
+| 5 | one-shot frozen CARRADA Test evaluation | `9bfa805` |
+| 6 | documentation, cross-domain figures, closeout | *this commit* |
 
 ## Dataset
 
-| | |
-|---|---|
-| location | `C:/Users/USER/Desktop/CARRADA/Carrada` (**read-only** for this experiment) |
-| sequences | 30 |
-| frames | 12,666 (7,193 annotated · 5,473 empty) |
-| RD arrays | `range_doppler_numpy/` and `range_doppler_raw/`, both `(256, 64)` float64 |
-| official split | `data_seq_ref.json`, mirrored to `configs/official_splits.json` |
-| metadata backup | `data/carrada_meta/` (116 MB, project-local, gitignored) |
-| verification | `results/phase1_dataset_verification.json`, `logs/phase1_verify_carrada.log` |
+CARRADA at `C:/Users/USER/Desktop/CARRADA/Carrada`, **read-only**, reduced 95.86 GB → 3.52 GB before
+the experiment. 30 sequences · 12,666 frames · 7,193 annotated · **8,750 frame-level object
+instances** · **77 unique tracks**. Official **sequence-level** split used unchanged (18/6/6); never
+split by frame. Metadata backup in `data/carrada_meta/`.
 
-The dataset was reduced from 95.86 GB to 3.52 GB before this experiment began. That cleanup is
-recorded in `PROGRESS.md`; **Phase 1 did not repeat it and must not.** Removed: `annotations/dense`
-and `annotations/sparse` (proven byte-identical to `annotations_frame_oriented.json` on 360/360
-samples), all range-angle and angle-Doppler views, `range_doppler_processed`, DoA and tracking data,
-and all but 360 camera images.
+Primary representation `range_doppler_numpy` = power in dB up to a constant.
+CFAR input `P ∝ 10^(D/10)`; TinyCNN adapter `D − median(D)`, realised by the **frozen**
+`normalize_rd` fed `mag = 10^(D/20)`.
 
-### Representation facts — established prior information, not to be re-derived in Phase 1
+## Frozen detector provenance
 
-Carried in from the pre-Phase-1 audit and recorded here so R0 starts from a stated position:
+* **TinyCNN** — `results/dl/tinycnn_frozen_s{0..7}_ep021.pt`, 8 seeds, evaluated independently,
+  never ensembled, never retrained or fine-tuned.
+* **CFAR** — 21×9 window (guard 2/2, train 8/2), frozen calibrated alphas
+  CA 10.4586 · GO 9.5458 · SO 12.8494 · OS 7.5786. **CA is the primary comparator**, fixed in
+  advance; GO/SO/OS secondary and never promoted after results.
+* **NMS** — `all_peaks`, radius 5, shared by both arms, not retuned.
+* **TinyCNN thresholds** — the frozen project had none, so one per seed was derived from
+  **`bench2_val` alone** at pooled measured per-cell $P_{fa}$ ≤ 1e-4. A runtime file-access audit
+  confirmed only `bench2_val` was opened.
 
-* `range_doppler_numpy` is the **intended primary representation**.
-* `_raw` behaves as an **amplitude**.
-* `_numpy` is consistent with **power in dB up to a constant scale**.
-* The CFAR conversion, when it is eventually applied, is proportional to **`P = 10^(numpy / 10)`**.
-  CFAR is a ratio test, so the unknown constant cancels.
-* `_numpy` is the representation **CARRADA's own annotation pipeline used**, so the annotations are
-  in its coordinates.
-* `_raw` is **retained temporarily as an independent cross-check** and must not be deleted yet.
+## Pre-registration
 
-The full statistical and domain audit belongs to **Phase 2 (R0)** and was not repeated here.
+`PREREGISTRATION.md` — **FINAL PRE-SCORING FREEZE**
+SHA-256 `e800ad84af5a909d595a9c1a5b32bfe308efc4830a1bfe17d8ea793a1bba98a8`
+Frozen 2026-08-31T17:11:45Z, before any CARRADA detector inference existed.
 
----
+## R0 conclusion
 
-## Annotation terminology
+Geometry and representation transfer exactly; the background does not.
 
-Four different quantities were previously being called "instances". They are now fixed, and each is
-reconciled against at least one independent source:
-
-| quantity | count | what it means |
+| statistic | CARRADA | simulator |
 |---|---|---|
-| total frames | 12,666 | every frame with an RD array on disk |
-| annotated frames | 7,193 | frames containing ≥ 1 object |
-| empty frames | 5,473 | frames with no object — usable as false-alarm-only frames |
-| **frame-level object instances** | **8,750** | Σ over frames of objects present ("object-frames") |
-| **unique tracks** | **77** | distinct physical objects across the dataset |
+| Gamma shape k | 4.771 ± 0.223 | **0.990 ± 0.006** (single-look, as designed) |
+| background std [dB] | 2.212 | 5.573 (theory 5.57) |
+| lag-1 Doppler corr | 0.227 | 0.574 |
+| zero-Doppler ridge | 24.0 dB, ±1 bin | 14.8 dB, ±4 bins |
 
-**The previously quoted "84" is not an object count.** It is the raw sum of the `instances` list
-lengths in `data_seq_ref.json`, which contains 2 duplicate entries and 5 IDs that were merged into
-other instances during annotation:
+CARRADA is **different**, not simply easier or harder. Its background is smoother in the sense of
+lower cell-to-cell fluctuation — *not* less physical clutter — while carrying stronger localized
+structure. 84% of eligible test objects sit inside the ±4 zero-Doppler band.
 
-```
-84  raw sum of data_seq_ref 'instances' lengths
--2  duplicate entries  (001109 twice in 2020-02-28-13-08-51; 001143 twice in 2020-02-28-13-12-42)
-82  unique listed instance ids
--5  merged away by instance_exceptions.json
-77  unique annotated tracks
-```
+## Important caveats
 
-77 is confirmed independently by both `annotations_frame_oriented.json` and
-`annotations_instance_oriented.json`.
-
-⚠️ **`PLAN.md` R3 says "78 instances". That is incorrect; the value is 77 unique tracks.** PLAN.md is
-a protected file and was not edited.
-
-**Use the right denominator.** R1 detection statistics are per **object-frame** (8,750), not per
-track (77) and not per frame (12,666).
-
-| class | object-frames | unique tracks |
-|---|---|---|
-| pedestrian | 3,239 | 18 |
-| cyclist | 1,770 | 16 |
-| car | 3,741 | 43 |
-| **total** | **8,750** | **77** |
-
-Objects per frame: 0 → 5,473 · 1 → 5,636 · 2 → 1,557. **Never more than two.**
-
-## Official splits — sequence-level, used as given
-
-Never re-split, and never split by frame. Mirrored to `configs/official_splits.json`.
-
-| split | sequences | frames | annotated | empty | object-frames | tracks |
-|---|---|---|---|---|---|---|
-| Train | 18 | 8,088 | 4,319 | 3,769 | 5,318 | 49 |
-| Validation | 6 | 2,448 | 1,483 | 965 | 1,804 | 15 |
-| Test | 6 | 2,130 | 1,391 | 739 | 1,628 | 13 |
-| **total** | **30** | **12,666** | **7,193** | **5,473** | **8,750** | **77** |
-
-Every sequence is assigned exactly one split, and the three sets are disjoint.
-
----
-
-## Protected asset policy
-
-The frozen synthetic benchmark is **immutable for the duration of this experiment.**
-
-`isolation_manifest.json` records the SHA-256, size, and protection category of **628 files
-(2.88 GB)** spanning: the 8 frozen TinyCNN checkpoints and their run configs, all DL / CFAR / eval /
-radar / data source, `frozen_dl.yaml`, `cfar_alpha_table.json`, the dataset configs and caches, the
-headline result tables, the CFAR baseline outputs, and the complete E2 / E3 / E4 experiment outputs.
-
-To re-check at any time:
-
-```bash
-python experiments/r_carrada_real_data_validation/scripts/build_isolation_manifest.py --verify experiments/r_carrada_real_data_validation/isolation_manifest.json
-```
-
-`PROGRESS.md` is categorised **`project_record_append_only`** — appending a dated entry is the
-project's normal workflow, so a hash change there is expected and legitimate. Every other category
-must hash identically. **If any of them changes, stop and report rather than continuing.**
+1. **Unmatched detections/frame is NOT $P_{fa}$** (TinyCNN 13.14 vs CA 8.73). CARRADA annotates only
+   its 77 tracked objects; R0 found bright unannotated returns in 5.85% of frames; and the frozen
+   point-target NMS leaves ≥2 peaks inside one object's support for 35–48% of objects.
+2. **No localization metric is reported** — CARRADA supplies no point truth.
+3. **±1 / ±3 is mask-support tolerance, not localization accuracy.**
+4. **Class recall is confounded with mask size** (car 18×13, cyclist 11×11, pedestrian 9×9).
+5. **n = 6 test sequences.** Cyclist (n=159, 2 sequences) is exploratory.
+6. **No causal claim** that the ridge caused the loss — stratification locates it only.
 
 ## Layout
 
 ```
-configs/    official_splits.json           sequence-level split, mirrored from CARRADA
-scripts/    build_isolation_manifest.py    build + --verify the protected-asset manifest
-            verify_carrada.py              integrity, terminology, split verification
-results/    phase1_dataset_verification.json
-logs/       phase1_verify_carrada.log
-figures/    (empty - Phase 1 produced no figures)
-src/        (empty - Phase 1 wrote no experiment code)
+r_carrada_real_data_validation.ipynb   the full record, 85 cells, §0–§71, executes clean
+PREREGISTRATION.md                     frozen protocol
+isolation_manifest.json                628 protected files, SHA-256
+configs/   official_splits.json · tinycnn_zero_shot_thresholds.json
+src/       carrada_input · eligibility · matching · metrics · detectors · stats · schema
+scripts/   run_r1_test · build_tables_from_raw · analyze_r1_test · make_*_figure
+           derive_tinycnn_thresholds · validate_adapters · run_sanity_checks
+           dry_run_r1 · leakage_audit · build_isolation_manifest · build_notebook
+results/r1_test/   *_peaks.npz (immutable) · test_output_manifest.json · run_manifest.json
+                   access_log.json · per_object.csv · per_frame.csv · r1_summary.json
+figures/           r0_fig1…fig6 (domain audit) · r1_test/ (results) · phase4_sanity/
 ```
 
-## Open methodological questions — resolve before Phase 2
+## Key figures
 
-1. ~~**Folder ID collision.**~~ **RESOLVED 31 Aug 2026.** The folder was briefly named
-   `e5_carrada_real_data_validation`, which collided with the **E5** that `PLAN.md` reserves for the
-   unbuilt Part-A four-way comparison. It is now `r_carrada_real_data_validation`: the `r_` prefix
-   marks the **real-data / external-validation track**, distinct from the E-numbered synthetic
-   ablation sequence. The folder is not called `R1`, because it holds **both R0 and R1** and R1
-   names only the later detector-evaluation stage. `PLAN.md` was not edited.
+| figure | file |
+|---|---|
+| **cross-domain 4-panel — the headline** | `figures/r1_test/r1_fig5_crossdomain_4panel.png` |
+| RD examples, synthetic vs real | `figures/r1_test/r1_fig6_rd_examples.png` |
+| primary result + per sequence | `figures/r1_test/r1_fig1_primary_and_per_sequence.png` |
+| strata (class / Doppler / range) | `figures/r1_test/r1_fig2_strata.png` |
+| tolerance, burden, seeds | `figures/r1_test/r1_fig3_tolerance_burden_seeds.png` |
+| multi-peak + recall–burden curve | `figures/r1_test/r1_fig4_multipeak_and_burden_curve.png` |
+| R0 simulator vs CARRADA (boxes) | `figures/r0_fig1_rd_examples.png` |
+| R0 simulator vs CARRADA (dense overlay) | `figures/r0_fig1b_rd_examples_dense_overlay.png` |
 
-2. **CARRADA truth is a segmentation blob, not a point target.** Median car footprint is 14 × 9
-   bins. The project's ±1-bin gate, one-to-one matching, and localization-error-in-bins all assume
-   one true cell per target. A truth-point definition (box centre / sparse centroid / brightest cell
-   in mask) must be **chosen and pre-registered before any R1 number exists**, because it is a
-   definition this project invents rather than something CARRADA supplies.
+## Reproduction — no detector re-run needed
 
-3. **Pfa is not the same quantity on CARRADA.** Only the 77 tracked objects are annotated; real
-   scenes contain unannotated reflectors, so peaks outside the masks include genuine targets.
-   Matched-Pfa comparison *across* the synthetic and real domains is not valid and must not be
-   presented as one.
+```bash
+python scripts/analyze_r1_test.py
+python scripts/make_r1_figures.py
+python scripts/make_crossdomain_figure.py
+python scripts/make_rd_examples_figure.py
+python scripts/build_isolation_manifest.py --verify isolation_manifest.json
+```
 
-4. **No close-target regime exists.** Frames contain at most 2 objects, so `multi`, `masking` and
-   `unresolved` — where the E2/E4 mechanisms live — have no real-data counterpart.
+Re-scoring from scratch (~10 min) is `python scripts/run_r1_test.py` followed by
+`build_tables_from_raw.py`. Environment: Python 3.11.9 · numpy 2.4.6 · pandas 3.0.3 ·
+torch 2.13.0+cpu · scipy 1.17.1 · matplotlib 3.11.0.
+
+---
+
+## Status
+
+**COMPLETE.** No frozen TinyCNN, CFAR, synthetic result, E2, E3 or E4 asset was modified at any
+point.
+
+Any **CARRADA training, fine-tuning, simulator-realism change, domain randomization, CFAR
+recalibration, or NMS adaptation is a NEW experiment**, with its own pre-registration and isolation
+manifest. None of it may be attached to this one.
