@@ -1,9 +1,14 @@
 % ======================================================================
-%  FMCW Radar Target Detection — CFAR vs Deep Learning
+%  FMCW Radar Target Detection — CFAR versus Deep Learning
 %  Final Year Project report
 %
-%  Build:  latexmk -pdf main.tex        (or use build.bat)
-%  Numbers:  python ../scripts/generate_report_numbers.py   before building
+%  Build:   report\build.bat        (regenerates numbers.tex, then latexmk)
+%  Manual:  latexmk -pdf main.tex
+%
+%  Structure follows the ULFG submission sheet:
+%    couverture, remerciements, resume, table de matieres, symboles,
+%    tableaux, figures, introduction generale, chapitres, conclusion
+%    generale, references, annexes.
 % ======================================================================
 \documentclass[12pt,a4paper,oneside]{report}
 
@@ -14,43 +19,41 @@
 % ---------------------------------------------------------------- front matter
 \pagenumbering{roman}
 
-\include{frontmatter/titlepage}      % official ULFG cover goes here
-\include{frontmatter/acknowledgements}
-\include{frontmatter/abstract}
+\include{frontmatter/titlepage}          % official ULFG cover
+\include{frontmatter/acknowledgements}   % Remerciements
+\include{frontmatter/abstract}           % Resume
 
 \cleardoublepage
-\tableofcontents
+\tableofcontents                         % Table de matieres
 
 \cleardoublepage
-\include{frontmatter/symbols}
+\include{frontmatter/symbols}            % Liste des symboles et abreviations
 
 \cleardoublepage
-\listoftables
+\listoftables                            % Liste des tableaux
 \addcontentsline{toc}{chapter}{List of Tables}
 
 \cleardoublepage
-\listoffigures
+\listoffigures                           % Liste des figures
 \addcontentsline{toc}{chapter}{List of Figures}
 
 % ---------------------------------------------------------------- body
 \cleardoublepage
 \pagenumbering{arabic}
 
-\include{chapters/introduction}      % Introduction générale (unnumbered)
-
-\include{chapters/ch1_background}
-\include{chapters/ch2_simulator}
-\include{chapters/ch3_detectors}
-\include{chapters/ch4_synthetic}
-\include{chapters/ch5_attribution}
-\include{chapters/ch6_realdata}
-
-\include{chapters/conclusion}        % Conclusion générale (unnumbered)
+\include{chapters/ch1_general_introduction}
+\include{chapters/ch2_background}
+\include{chapters/ch3_simulator}
+\include{chapters/ch4_detectors}
+\include{chapters/ch5_synthetic}
+\include{chapters/ch6_attribution}
+\include{chapters/ch7_realdata}
+\include{chapters/general_conclusion}
 
 % ---------------------------------------------------------------- back matter
 \cleardoublepage
 \bibliography{references}
-\addcontentsline{toc}{chapter}{Bibliography}
+\addcontentsline{toc}{chapter}{References}
 
 \appendix
 \include{appendices/app_a_corrections}
