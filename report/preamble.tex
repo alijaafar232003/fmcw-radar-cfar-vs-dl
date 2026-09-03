@@ -94,6 +94,7 @@
 %
 %  Usage:  \ulfgchapter{7}{Real-Data External Validation}{chp:realdata}
 % ----------------------------------------------------------------------
+\makeatletter
 \newcommand{\ulfgchapter}[3]{%
   \setcounter{chapter}{#1}%
   \setcounter{section}{0}%
@@ -103,8 +104,13 @@
   \chapter*{Chapter #1: #2}%
   \addcontentsline{toc}{chapter}{Chapter #1: #2}%
   \markboth{Chapter #1: #2}{Chapter #1: #2}%
+  % \chapter* steps no counter, so \@currentlabel would otherwise still hold
+  % the PREVIOUS chapter's last section number, making \ref{#3} render as
+  % e.g. "1.5" instead of "2". Set it explicitly to the chapter number.
+  \def\@currentlabel{#1}%
   \label{#3}%
 }
+\makeatother
 
 % Auto-generated results. NEVER hand-type a number in the body text.
 \input{numbers.tex}
