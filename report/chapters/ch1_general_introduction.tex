@@ -25,18 +25,18 @@ Detection determines which measurements are passed to later processing. A tracke
 occasional missed detection, but a target that is missed persistently cannot be tracked, classified
 or acted upon, because no measurement of it reaches those stages. Excessive false detections cause
 the opposite problem: they consume tracking resources and can trigger unnecessary responses.
-Detection therefore places a strong limit on the performance of everything built above it.
+Detection therefore sets a limit on how well the later processing stages can perform.
 
 For about fifty years the standard solution has been the constant false alarm rate (CFAR) family of
 detectors. The idea is simple and remains effective. Comparing each cell against a fixed threshold
 would require knowing the noise power, which changes with temperature, terrain, weather and
 interference. Instead, CFAR estimates the local background from cells surrounding the cell under
 test (CUT), and scales that estimate by a multiplier chosen to hold the false-alarm rate constant.
-The detector therefore adapts to conditions it was never told about. CFAR is analytically tractable,
-needs no training data, is cheap to compute, and its behaviour can be predicted in closed form under
-stated assumptions.
+The detector therefore adapts to conditions it was never told about. CFAR needs no training data, is
+cheap to compute, and its behaviour can be predicted mathematically, provided the background behaves
+as assumed.
 
-Those assumptions are also its limitation, and this was characterised early. Gandhi and
+Those assumptions are also its weakness, and this was documented early. Gandhi and
 Kassam~\cite{gandhi1988cfar} showed that cell-averaging CFAR degrades in situations that matter in
 practice. At a clutter edge, the reference window covers two different background levels and the
 threshold is set from the wrong one. Under target masking, a second target inside the reference
@@ -45,9 +45,10 @@ greatest-of, smallest-of and order-statistic --- each improve one failure mode a
 Their conclusion was that no single CFAR detector performs well across all backgrounds, and that an
 adaptive approach may be needed when operating conditions change.
 
-That conclusion invites learning the detector from data, and a substantial body of recent work has
-done exactly that. Convolutional networks applied to RD maps have been reported to outperform CFAR,
-with improvements ranging from a fraction of a decibel to large reductions in false-alarm rate.
+This naturally suggests learning the detector from data instead of designing it by hand, and much
+recent work has done exactly that. Convolutional networks applied to RD maps have been reported to
+outperform CFAR, with improvements ranging from a fraction of a decibel to large reductions in
+false-alarm rate.
 
 \section{Problem statement}
 \label{sec:problem}
@@ -77,28 +78,29 @@ of the true position. A detector whose response is spread over a broad region th
 that tolerance.
 \end{itemize}
 
-Each of these choices can be reasonable on its own. Taken together, they make the reported margin
-depend partly on the experimental setup rather than only on the detector. Three questions that
-should be separable then become hard to answer:
+Each of these choices can be reasonable on its own. Together, however, they mean that the reported
+improvement depends partly on how the experiment was set up, and not only on the detector itself.
+This makes three questions difficult to answer separately:
 
 \begin{enumerate}
 \itemsep2pt
 \item \textbf{Is there a genuine advantage} when both detectors receive comparable information and
 are compared at a matched operating point?
-\item \textbf{Where does it come from?} A margin that is not attributed to a mechanism is not
-understood, and there is no basis for expecting it to reappear under different conditions.
+\item \textbf{Where does it come from?} If the learned detector performs better, we also need to
+know why. Otherwise there is no way to tell whether the same advantage will still be present under
+different conditions.
 \item \textbf{Does it survive outside the training domain?} A detector trained on simulated data and
 evaluated on the same simulator has shown that it learned the simulator. Whether it learned
 \emph{radar} is a separate question, and one that much of the literature does not test.
 \end{enumerate}
 
-The third question is especially relevant for a learned detector, for a reason specific to this
-problem. CFAR estimates its threshold from the data in front of it at inference time, so its
-adaptation mechanism travels with it into any domain. A conventionally frozen feed-forward network
-has no explicit mechanism to re-estimate its decision rule when the deployment distribution changes;
-its behaviour is fixed by weights fitted to the training distribution.
+The third question matters particularly for a learned detector, for a reason specific to this
+problem. CFAR estimates its threshold from the data in front of it at inference time, so it keeps
+adapting in whatever domain it is used. A conventionally frozen feed-forward network has no explicit
+mechanism to re-estimate its decision rule when the deployment distribution changes: its behaviour
+is fixed by weights fitted to the training distribution.
 
-This gives the project its central framing. The purpose is not only to determine whether a small
+This shapes the central question of the project. The purpose is not only to determine whether a small
 convolutional detector can outperform CFAR, but to determine what a small learned local decision
 rule adds when both detectors operate over comparable range--Doppler context.
 
@@ -121,12 +123,12 @@ may use all cells in its footprint jointly.
 include both regimes where CFAR is close to optimal and regimes where it is known to fail. Report
 confidence intervals, and correct for multiple comparisons.
 
-\item[O3 --- Attribute the margin.] Determine which mechanisms account for any margin by testing
-candidate explanations experimentally rather than arguing for them. Two explanations in the
+\item[O3 --- Attribute the margin.] Find out which mechanisms explain any difference, by testing the
+possible explanations experimentally instead of arguing for one of them. Two explanations in the
 literature both predict a learned advantage in homogeneous conditions, so neither can be accepted
-without testing the other. These experiments are designed to support or rule out specific
-explanations, and so narrow the set of plausible mechanisms; they are not expected to establish a
-single cause conclusively.
+without testing the other. These experiments can support or rule out particular explanations, which
+narrows the range of plausible mechanisms. They are not expected to prove a single cause on their
+own.
 
 \item[O4 --- Test external validity.] Evaluate both frozen detectors, with no retraining or
 recalibration of any kind, on real automotive radar data taken from a public dataset, under a
@@ -146,9 +148,9 @@ a large unexplained one.
 \item \textbf{A controlled like-for-like protocol.} The learned detector's receptive field is
 matched to the spatial footprint of the CFAR window; both arms are scored by one evaluator through a
 single code path; operating points are matched at measured rather than design $\Pfa$; and results
-are reported across a tolerance ladder rather than at a single gate. Each choice addresses one of
-the asymmetries listed in Section~\ref{sec:problem}, and each is documented together with the
-asymmetry it addresses.
+are reported across a tolerance ladder rather than at a single gate. Each choice removes one of the
+asymmetries listed in Section~\ref{sec:problem}, and is documented alongside the asymmetry it
+removes.
 
 \item \textbf{A quantified and externally calibrated margin.} On synthetic data, the learned
 detector reaches a detection probability of 50\,\% at a cell signal-to-noise ratio
@@ -157,11 +159,12 @@ a weaker target signal while maintaining the same detection level. At clutter ed
 reaches \SynClutterEdgeDiff{} in $\Pd$, which falls inside the range reported independently for
 clutter transitions on real X-band measurements~\cite{gusland2020deeptemporal}. The CFAR loss
 proposed as an explanation for learned wins in homogeneous conditions~\cite{lallouet2023loss} is
-measured here rather than assumed, at \SynCfarLossCA{}\,dB relative to a clairvoyant bound.
+measured here rather than assumed: \SynCfarLossCA{}\,dB, relative to an ideal detector that is given
+the true noise level instead of estimating it.
 
-\item \textbf{An attribution programme} that decomposes the margin into named candidate mechanisms,
-each paired with an experiment capable of falsifying it, rather than reporting the margin as a
-single unexplained number.
+\item \textbf{A set of experiments investigating why the two detectors differ.} Instead of reporting
+the margin as a single unexplained number, several possible explanations are stated, and each is
+paired with an experiment that could disprove it.
 
 \item \textbf{A pre-registered zero-shot external validation.} The frozen detectors are evaluated on
 the CARRADA automotive radar dataset~\cite{ouaknine2021carrada} with no real-data training,
@@ -172,21 +175,21 @@ reverses on real data}, and this report treats that reversal as a principal resu
 anomaly to be explained away.
 
 \item \textbf{A reproducibility framework supporting these claims:} frozen model and detector
-artefacts, isolation manifests that protect completed experiments from later modification, immutable
-raw evidence kept alongside the derived tables, and a corrections log recording every analysis error
-found and superseded during the work.
+artefacts, isolation manifests that prevent completed experiments from being modified later, raw
+detector outputs kept unchanged alongside the tables derived from them, and a corrections log
+recording every analysis error found and superseded during the work.
 \end{enumerate}
 
 \section{Report outline}
 
-The report follows the order in which the work was carried out, because several conclusions depend
-on what was known at the time a decision was taken.
+The report follows the order in which the work was carried out. This matters because several
+conclusions depend on what was known at the time a given decision was made.
 
 \textbf{Chapter~\ref{chp:background}, \emph{Radar Background and State of the Art}}, develops the
 material needed for the rest of the report: the FMCW waveform, range and Doppler estimation, the
 construction of the RD map, and the CFAR family with its documented failure modes. It then reviews
-learned detection and argues that the published literature separates into families whose metrics are
-not interchangeable --- a distinction the remainder of the report follows strictly.
+learned detection and shows that the published work falls into families that use different metrics.
+Those metrics cannot be compared directly, and the rest of the report keeps them separate.
 
 \textbf{Chapter~\ref{chp:simulator}, \emph{Simulator, Radar Specification and Dataset Design}},
 describes the simulator, the radar parameters and the labelled datasets. The radar parameters were
@@ -212,5 +215,5 @@ difference between the two domains before any scoring, reports the reversal, and
 of the project against the published literature.
 
 The \textbf{General Conclusion} states what the evidence supports, what it does not, and which
-continuations follow naturally. Three appendices record the corrections log, the frozen
+directions follow naturally from it. Three appendices record the corrections log, the frozen
 pre-registration and the supporting tables.
