@@ -1,0 +1,84 @@
+% ======================================================================
+% Preamble — packages, layout, macros
+% ======================================================================
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{lmodern}
+
+% ---------- page layout ----------
+\usepackage[a4paper,left=3cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{emptypage}
+
+% ---------- maths & units ----------
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{siunitx}
+\sisetup{detect-all, per-mode=symbol, range-units=single}
+\DeclareSIUnit{\dB}{dB}
+\DeclareSIUnit{\dBm}{dBm}
+
+% ---------- figures & tables ----------
+\usepackage{graphicx}
+\graphicspath{%
+  {figures/}%
+  {figures/harvested/}%
+  {figures/generated/}%
+  {../experiments/r_carrada_real_data_validation/figures/}%
+  {../experiments/r_carrada_real_data_validation/figures/r1_test/}%
+  {../results/}%
+  {../results/dl/}%
+}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage[font=small,labelfont=bf,width=0.95\textwidth]{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{rotating}
+
+% ---------- colour, boxes, code ----------
+\usepackage{xcolor}
+\definecolor{dlblue}{HTML}{1F6FB4}
+\definecolor{cfarred}{HTML}{C1440E}
+\definecolor{shade}{HTML}{F4F6F8}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\footnotesize, breaklines=true, frame=single,
+        backgroundcolor=\color{shade}, columns=flexible}
+
+% ---------- headers ----------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\nouppercase{\leftmark}}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\thepage}\renewcommand{\headrulewidth}{0pt}}
+
+% ---------- bibliography ----------
+\usepackage[numbers,sort&compress]{natbib}
+\bibliographystyle{IEEEtran}
+
+% ---------- cross-references (load last) ----------
+\usepackage[hidelinks,breaklinks=true]{hyperref}
+\usepackage{cleveref}
+
+% ======================================================================
+% Project-specific shorthands
+% ======================================================================
+\newcommand{\TinyCNN}{TinyCNN}
+\newcommand{\CACFAR}{CA-CFAR}
+\newcommand{\Pd}{\ensuremath{P_{d}}}
+\newcommand{\Pfa}{\ensuremath{P_{fa}}}
+\newcommand{\RD}{range--Doppler}
+
+% A boxed note, for the caveats this project depends on being visible.
+\newtcolorbox{keynote}[1][]{colback=shade, colframe=dlblue!70!black, boxrule=0.6pt,
+  left=6pt, right=6pt, top=5pt, bottom=5pt, breakable, #1}
+
+% Auto-generated results. NEVER hand-type a number in the body text.
+\input{numbers.tex}

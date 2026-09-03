@@ -34,3 +34,19 @@ papers/
 # The retired streamlit demo is kept for the presentation, but its venv is not.
 notebooks/fmcw_python_streamlit_refactor/venv/
 notebooks/fmcw_python_streamlit_refactor/__pycache__/
+
+# LaTeX build artefacts
+report/**/*.aux
+report/**/*.log
+report/**/*.out
+report/**/*.toc
+report/**/*.lof
+report/**/*.lot
+report/**/*.fls
+report/**/*.fdb_latexmk
+report/**/*.synctex.gz
+report/**/*.bbl
+report/**/*.blg
+report/main.pdf
+report/_harvest_exec/
+report_harvest.log

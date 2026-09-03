@@ -1,0 +1,82 @@
+file,notebook,cell,section,title
+report/figures/harvested/cfar_baseline_01.png,cfar_baseline,5,2.1 Guard size comes from the measured point-spread function,Guard = 2 covers the target
+report/figures/harvested/cfar_baseline_02.png,cfar_baseline,11,2.2 The window geometry   and why the pooled sweep was not trusted,{label}{
+report/figures/harvested/cfar_baseline_03.png,cfar_baseline,13,2.2 The window geometry   and why the pooled sweep was not trusted,Pd by geometry x condition (mean over CA/GO/OS)
+report/figures/harvested/cfar_baseline_04.png,cfar_baseline,17,Why `train = 8`   the knee,Pd rises to ~8 training cells and is flat after: more reference cells\n
+report/figures/harvested/cfar_baseline_05.png,cfar_baseline,20,"2.3 The window, drawn to scale on real data",The 21x9 window on a real `clutter_edge` frame (#{pick}) -- the target sits in
+report/figures/harvested/cfar_baseline_06.png,cfar_baseline,24,"2.4 Alpha is calibrated by Monte Carlo   measured, verified, and shipped","What calibration does: circle = closed form (where each variant WAS),\n"
+report/figures/harvested/cfar_baseline_07.png,cfar_baseline,29,3   The baseline result,No CFAR variant is best everywhere   and on four conditions the\n
+report/figures/harvested/cfar_baseline_08.png,cfar_baseline,36,"4.1 The noise estimate, mapped","At a clutter EDGE, GO over-estimates the noise and OS does not\n"
+report/figures/harvested/cfar_baseline_09.png,cfar_baseline,39,"4.2 GO wins on false-alarm control, not on matched-Pfa Pd",With calibrated alphas the clean conditions collapse onto one line;\n
+report/figures/harvested/cfar_baseline_10.png,cfar_baseline,43,4.3 Where the false alarms land,False alarms cluster on the clutter ridge   that is what the\n
+report/figures/harvested/cfar_baseline_11.png,cfar_baseline,47,5   Validation against physics,gate {
+report/figures/harvested/cfar_baseline_12.png,cfar_baseline,53,5.1 Resolution   Pd of the weak target vs separation,Below the measured resolution limit no variant recovers the weak target  \n
+report/figures/harvested/cfar_baseline_13.png,cfar_baseline,58,6.2 Runtime,OS pays ~25x CA for its rank statistic
+report/figures/harvested/cfar_baseline_14.png,cfar_baseline,62,"A.1 ROC per condition   representative set inline, remainder here","Representative ROCs   clean, interference, and edge. Dashed line is the"
+report/figures/harvested/cnn_development_log_01.png,cnn_development_log,4,Setup,"50-epoch run, seed 0   train vs validation"
+report/figures/harvested/cnn_development_log_02.png,cnn_development_log,23,Setup,"DL vs CFAR on bench2_val   8 seeds, epoch 50"
+report/figures/harvested/cnn_development_log_03.png,cnn_development_log,27,Setup,"pos_weight ablation   8 seeds each, bench2_val"
+report/figures/harvested/cnn_development_log_04.png,cnn_development_log,30,Setup,Blue = survives Bonferroni correction; grey = does not
+report/figures/harvested/cnn_development_log_05.png,cnn_development_log,36,Setup,"Margins hold as the gate widens   except clutter, which moves against DL"
+report/figures/harvested/cnn_development_log_06.png,cnn_development_log,45,Setup,Localization   Doppler
+report/figures/harvested/cnn_development_log_07.png,cnn_development_log,48,Setup,Pd is flat (range {summ.pd_mean.max()-summ.pd_mean.min():.4f})
+report/figures/harvested/cnn_development_log_08.png,cnn_development_log,51,"The selection rule, fixed before any result existed",Pre-registered rule selects epoch {int(chosen.epoch)}
+report/figures/harvested/cnn_development_log_09.png,cnn_development_log,69,"O1   `clutter_edge` +0.261: ATTRIBUTED (2026-08-13), and it survives",Where the clutter_edge margin lives
+report/figures/harvested/evaluation_metrics_overview_01.png,evaluation_metrics_overview,3,0   Evaluation at a glance,
+report/figures/harvested/evaluation_metrics_overview_02.png,evaluation_metrics_overview,8,1   From a score map to detections,
+report/figures/harvested/evaluation_metrics_overview_03.png,evaluation_metrics_overview,13,"1.1 The four stages, in the order the code applies them",1 - {name}
+report/figures/harvested/evaluation_metrics_overview_04.png,evaluation_metrics_overview,26,2   Which cells are eligible to be judged,The evaluation region
+report/figures/harvested/evaluation_metrics_overview_05.png,evaluation_metrics_overview,32,3   Matching detections to ground truth,{title}   TP={ev.tp}  FP={ev.fp}  FN={ev.fn}
+report/figures/harvested/evaluation_metrics_overview_06.png,evaluation_metrics_overview,53,"5.1 The three Pfa notions   defined once, here",
+report/figures/harvested/evaluation_metrics_overview_07.png,evaluation_metrics_overview,60,6   Localization error,Localization is measured only for detections that fall inside the matching gate
+report/figures/harvested/evaluation_metrics_overview_08.png,evaluation_metrics_overview,67,6.1 Does the localization gap survive on the common detected subset?,{axis}: DL error / CFAR error
+report/figures/harvested/evaluation_metrics_overview_09.png,evaluation_metrics_overview,72,"7   ROC, FROC, and ""matched measured Pfa""","ROC - {COND} (bench2_val, illustration)"
+report/figures/harvested/evaluation_metrics_overview_10.png,evaluation_metrics_overview,85,8   Uncertainty: the paired frame bootstrap,
+report/figures/harvested/evaluation_metrics_overview_11.png,evaluation_metrics_overview,89,8.1 Best-CFAR uncertainty   re-selecting the winner inside each replicate,"Bootstrap distribution of the Pd difference - bench2_test, gate +/-1"
+report/figures/harvested/evaluation_metrics_overview_12.png,evaluation_metrics_overview,95,"9   Seven comparisons, not one",Scenario-wise intervals - teal survives Bonferroni (alpha = {alpha_c:.4f})
+report/figures/harvested/evaluation_metrics_overview_13.png,evaluation_metrics_overview,118,A.4 Gate geometry,{name}: accepted offsets
+report/figures/harvested/dl_development_01.png,dl_development,3,0   Deep learning at a glance,
+report/figures/harvested/dl_development_02.png,dl_development,11,1   What does TinyCNN actually receive?,raw power (log x)
+report/figures/harvested/dl_development_03.png,dl_development,17,2   What is the network trained to predict?,
+report/figures/harvested/dl_development_04.png,dl_development,23,3   The architecture,
+report/figures/harvested/dl_development_05.png,dl_development,29,"4   The receptive field, and why it is 21   9","Receptive field growth, layer by layer"
+report/figures/harvested/dl_development_06.png,dl_development,37,"`pos_weight`, and why it needs to exist","pos_weight ablation - 8 seeds per arm, bench2_val, epoch 50"
+report/figures/harvested/dl_development_07.png,dl_development,45,7   Why one training run proves nothing,
+report/figures/harvested/dl_development_08.png,dl_development,50,8   Choosing when to stop training,"Detection: rises, then plateaus"
+report/figures/harvested/dl_development_09.png,dl_development,57,9   The localization problem,Dashed box = the 3x3 region the network was trained to call
+report/figures/harvested/dataset_overview_01.png,dataset_overview,8,What one frame looks like,"Anatomy of one frame - `isolated` scenario, one target"
+report/figures/harvested/dataset_overview_02.png,dataset_overview,17,4   What the scenarios look like,{cond}   ({len(lab)} target{
+report/figures/harvested/dataset_overview_03.png,dataset_overview,20,"The four hard cases, zoomed",
+report/figures/harvested/dataset_overview_04.png,dataset_overview,24,5   Dataset coverage,Split comparability - the four curves should be indistinguishable
+report/figures/harvested/dataset_overview_05.png,dataset_overview,28,5   Dataset coverage,Targets occupy a bounded part of the field of view
+report/figures/harvested/dataset_overview_06.png,dataset_overview,31,6   Target difficulty,Difficulty by scenario (test split)
+report/figures/harvested/dataset_overview_07.png,dataset_overview,34,Against the detection transition,Target difficulty spans the detector transition region
+report/figures/harvested/dataset_overview_08.png,dataset_overview,37,7   What the dataset deliberately varies,"Separation is swept, not fixed"
+report/figures/harvested/cfar_vs_dl_comparison_01.png,cfar_vs_dl_comparison,7,2   The headline   Pd per condition,"Per-condition Pd difference with 95% bootstrap CI, gate  1\n"
+report/figures/harvested/cfar_vs_dl_comparison_02.png,cfar_vs_dl_comparison,8,2   The headline   Pd per condition,Absolute Pd   note how low BOTH methods are on `clutter`
+report/figures/harvested/cfar_vs_dl_comparison_03.png,cfar_vs_dl_comparison,15,"4   Where CFAR wins   localization, decisively",{t} (bins)   lower is better
+report/figures/harvested/cfar_vs_dl_comparison_04.png,cfar_vs_dl_comparison,22,6   Against theory   the one absolute check,
+report/figures/harvested/cfar_vs_dl_comparison_05.png,cfar_vs_dl_comparison,26,7   Computational cost,Cost per 256 64 frame   DL beats OS-CFAR by >10
+report/figures/harvested/InteractivePipeline_01.png,InteractivePipeline,6,Step 3   Build CPI & Sampling Axes,TX vs RX vs Dechirped IF   Chirp 0
+report/figures/harvested/InteractivePipeline_02.png,InteractivePipeline,8,Step 4   Range FFT (single chirp preview),Range FFT   Chirp 0 (positive beat frequencies only)
+report/figures/harvested/InteractivePipeline_03.png,InteractivePipeline,10,Step 5   2D FFT   Range-Doppler Map,Clean Range-Doppler Map
+report/figures/harvested/InteractivePipeline_04.png,InteractivePipeline,12,Step 6   3D Range-Doppler Surface Plot,3D Range-Doppler Map   SNR = {DEFAULT_SNR_DB} dB
+report/figures/harvested/InteractivePipeline_05.png,InteractivePipeline,18,Step 9   Controlled RD Validation + Dataset Save Prototype,
+report/figures/harvested/InteractivePipeline_06.png,InteractivePipeline,18,Step 9   Controlled RD Validation + Dataset Save Prototype,
+report/figures/harvested/InteractivePipeline_07.png,InteractivePipeline,18,Step 9   Controlled RD Validation + Dataset Save Prototype,
+report/figures/harvested/InteractivePipeline_08.png,InteractivePipeline,18,Step 9   Controlled RD Validation + Dataset Save Prototype,
+report/figures/harvested/InteractivePipeline_09.png,InteractivePipeline,18,Step 9   Controlled RD Validation + Dataset Save Prototype,
+report/figures/harvested/InteractivePipeline_10.png,InteractivePipeline,24,Step 10   CFAR Configuration,RD Map
+report/figures/harvested/InteractivePipeline_11.png,InteractivePipeline,24,Step 10   CFAR Configuration,RD Map
+report/figures/harvested/InteractivePipeline_12.png,InteractivePipeline,24,Step 10   CFAR Configuration,RD Map
+report/figures/harvested/integrated_cfar_experiment_01.png,integrated_cfar_experiment,3,"1   The point-spread function, measured",averaged normalised target patch (power)
+report/figures/harvested/integrated_cfar_experiment_02.png,integrated_cfar_experiment,7,2   Two integrated statistics,"{name}  (centre weight {k[1, 1]:.3f})"
+report/figures/harvested/integrated_cfar_experiment_03.png,integrated_cfar_experiment,10,"3   The geometry, to scale on a real frame",orange = CUT   teal = 3x3 integration region   gold = guard   blue = reference ring
+report/figures/harvested/integrated_cfar_experiment_04.png,integrated_cfar_experiment,16,5   Results,Integration does not move CFAR toward TinyCNN - it moves it away
+report/figures/harvested/label_ablation_experiment_01.png,label_ablation_experiment,3,"1   The three labels, on a real target",the RD response (dB above median)
+report/figures/harvested/label_ablation_experiment_02.png,label_ablation_experiment,10,4   The headline: localization vs epoch,{name}: error vs training
+report/figures/harvested/label_ablation_experiment_03.png,label_ablation_experiment,13,"5   What it costs, and what it buys",
+report/figures/harvested/label_ablation_experiment_04.png,label_ablation_experiment,15,"5   What it costs, and what it buys","Change in Pd against the incumbent label, per condition"
+report/figures/harvested/e4_cut_guard_mask_01.png,e4_cut_guard_mask,6,2   What is removed,orange = CUT   red = masked guard (24)   blue = reference (164)
+report/figures/harvested/e4_cut_guard_mask_02.png,e4_cut_guard_mask,8,3   A descriptive prior: where the frozen model is sensitive,|d logit|   {name}
+report/figures/harvested/e4_cut_guard_mask_03.png,e4_cut_guard_mask,12,4   The result,{name}\ndPd = Pd(unmasked) - Pd(masked)

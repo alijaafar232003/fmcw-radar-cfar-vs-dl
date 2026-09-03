@@ -1,0 +1,569 @@
+[
+ {
+  "file": "report/figures/harvested/cfar_baseline_01.png",
+  "notebook": "cfar_baseline",
+  "cell": 5,
+  "section": "2.1 Guard size comes from the measured point-spread function",
+  "title": "Guard = 2 covers the target"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_02.png",
+  "notebook": "cfar_baseline",
+  "cell": 11,
+  "section": "2.2 The window geometry   and why the pooled sweep was not trusted",
+  "title": "{label}{"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_03.png",
+  "notebook": "cfar_baseline",
+  "cell": 13,
+  "section": "2.2 The window geometry   and why the pooled sweep was not trusted",
+  "title": "Pd by geometry x condition (mean over CA/GO/OS)"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_04.png",
+  "notebook": "cfar_baseline",
+  "cell": 17,
+  "section": "Why `train = 8`   the knee",
+  "title": "Pd rises to ~8 training cells and is flat after: more reference cells\\n"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_05.png",
+  "notebook": "cfar_baseline",
+  "cell": 20,
+  "section": "2.3 The window, drawn to scale on real data",
+  "title": "The 21x9 window on a real `clutter_edge` frame (#{pick}) -- the target sits in"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_06.png",
+  "notebook": "cfar_baseline",
+  "cell": 24,
+  "section": "2.4 Alpha is calibrated by Monte Carlo   measured, verified, and shipped",
+  "title": "What calibration does: circle = closed form (where each variant WAS),\\n"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_07.png",
+  "notebook": "cfar_baseline",
+  "cell": 29,
+  "section": "3   The baseline result",
+  "title": "No CFAR variant is best everywhere   and on four conditions the\\n"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_08.png",
+  "notebook": "cfar_baseline",
+  "cell": 36,
+  "section": "4.1 The noise estimate, mapped",
+  "title": "At a clutter EDGE, GO over-estimates the noise and OS does not\\n"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_09.png",
+  "notebook": "cfar_baseline",
+  "cell": 39,
+  "section": "4.2 GO wins on false-alarm control, not on matched-Pfa Pd",
+  "title": "With calibrated alphas the clean conditions collapse onto one line;\\n"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_10.png",
+  "notebook": "cfar_baseline",
+  "cell": 43,
+  "section": "4.3 Where the false alarms land",
+  "title": "False alarms cluster on the clutter ridge   that is what the\\n"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_11.png",
+  "notebook": "cfar_baseline",
+  "cell": 47,
+  "section": "5   Validation against physics",
+  "title": "gate {"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_12.png",
+  "notebook": "cfar_baseline",
+  "cell": 53,
+  "section": "5.1 Resolution   Pd of the weak target vs separation",
+  "title": "Below the measured resolution limit no variant recovers the weak target  \\n"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_13.png",
+  "notebook": "cfar_baseline",
+  "cell": 58,
+  "section": "6.2 Runtime",
+  "title": "OS pays ~25x CA for its rank statistic"
+ },
+ {
+  "file": "report/figures/harvested/cfar_baseline_14.png",
+  "notebook": "cfar_baseline",
+  "cell": 62,
+  "section": "A.1 ROC per condition   representative set inline, remainder here",
+  "title": "Representative ROCs   clean, interference, and edge. Dashed line is the"
+ },
+ {
+  "file": "report/figures/harvested/cnn_development_log_01.png",
+  "notebook": "cnn_development_log",
+  "cell": 4,
+  "section": "Setup",
+  "title": "50-epoch run, seed 0   train vs validation"
+ },
+ {
+  "file": "report/figures/harvested/cnn_development_log_02.png",
+  "notebook": "cnn_development_log",
+  "cell": 23,
+  "section": "Setup",
+  "title": "DL vs CFAR on bench2_val   8 seeds, epoch 50"
+ },
+ {
+  "file": "report/figures/harvested/cnn_development_log_03.png",
+  "notebook": "cnn_development_log",
+  "cell": 27,
+  "section": "Setup",
+  "title": "pos_weight ablation   8 seeds each, bench2_val"
+ },
+ {
+  "file": "report/figures/harvested/cnn_development_log_04.png",
+  "notebook": "cnn_development_log",
+  "cell": 30,
+  "section": "Setup",
+  "title": "Blue = survives Bonferroni correction; grey = does not"
+ },
+ {
+  "file": "report/figures/harvested/cnn_development_log_05.png",
+  "notebook": "cnn_development_log",
+  "cell": 36,
+  "section": "Setup",
+  "title": "Margins hold as the gate widens   except clutter, which moves against DL"
+ },
+ {
+  "file": "report/figures/harvested/cnn_development_log_06.png",
+  "notebook": "cnn_development_log",
+  "cell": 45,
+  "section": "Setup",
+  "title": "Localization   Doppler"
+ },
+ {
+  "file": "report/figures/harvested/cnn_development_log_07.png",
+  "notebook": "cnn_development_log",
+  "cell": 48,
+  "section": "Setup",
+  "title": "Pd is flat (range {summ.pd_mean.max()-summ.pd_mean.min():.4f})"
+ },
+ {
+  "file": "report/figures/harvested/cnn_development_log_08.png",
+  "notebook": "cnn_development_log",
+  "cell": 51,
+  "section": "The selection rule, fixed before any result existed",
+  "title": "Pre-registered rule selects epoch {int(chosen.epoch)}"
+ },
+ {
+  "file": "report/figures/harvested/cnn_development_log_09.png",
+  "notebook": "cnn_development_log",
+  "cell": 69,
+  "section": "O1   `clutter_edge` +0.261: ATTRIBUTED (2026-08-13), and it survives",
+  "title": "Where the clutter_edge margin lives"
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_01.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 3,
+  "section": "0   Evaluation at a glance",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_02.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 8,
+  "section": "1   From a score map to detections",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_03.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 13,
+  "section": "1.1 The four stages, in the order the code applies them",
+  "title": "1 - {name}"
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_04.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 26,
+  "section": "2   Which cells are eligible to be judged",
+  "title": "The evaluation region"
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_05.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 32,
+  "section": "3   Matching detections to ground truth",
+  "title": "{title}   TP={ev.tp}  FP={ev.fp}  FN={ev.fn}"
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_06.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 53,
+  "section": "5.1 The three Pfa notions   defined once, here",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_07.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 60,
+  "section": "6   Localization error",
+  "title": "Localization is measured only for detections that fall inside the matching gate"
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_08.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 67,
+  "section": "6.1 Does the localization gap survive on the common detected subset?",
+  "title": "{axis}: DL error / CFAR error"
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_09.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 72,
+  "section": "7   ROC, FROC, and \"matched measured Pfa\"",
+  "title": "ROC - {COND} (bench2_val, illustration)"
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_10.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 85,
+  "section": "8   Uncertainty: the paired frame bootstrap",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_11.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 89,
+  "section": "8.1 Best-CFAR uncertainty   re-selecting the winner inside each replicate",
+  "title": "Bootstrap distribution of the Pd difference - bench2_test, gate +/-1"
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_12.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 95,
+  "section": "9   Seven comparisons, not one",
+  "title": "Scenario-wise intervals - teal survives Bonferroni (alpha = {alpha_c:.4f})"
+ },
+ {
+  "file": "report/figures/harvested/evaluation_metrics_overview_13.png",
+  "notebook": "evaluation_metrics_overview",
+  "cell": 118,
+  "section": "A.4 Gate geometry",
+  "title": "{name}: accepted offsets"
+ },
+ {
+  "file": "report/figures/harvested/dl_development_01.png",
+  "notebook": "dl_development",
+  "cell": 3,
+  "section": "0   Deep learning at a glance",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/dl_development_02.png",
+  "notebook": "dl_development",
+  "cell": 11,
+  "section": "1   What does TinyCNN actually receive?",
+  "title": "raw power (log x)"
+ },
+ {
+  "file": "report/figures/harvested/dl_development_03.png",
+  "notebook": "dl_development",
+  "cell": 17,
+  "section": "2   What is the network trained to predict?",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/dl_development_04.png",
+  "notebook": "dl_development",
+  "cell": 23,
+  "section": "3   The architecture",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/dl_development_05.png",
+  "notebook": "dl_development",
+  "cell": 29,
+  "section": "4   The receptive field, and why it is 21   9",
+  "title": "Receptive field growth, layer by layer"
+ },
+ {
+  "file": "report/figures/harvested/dl_development_06.png",
+  "notebook": "dl_development",
+  "cell": 37,
+  "section": "`pos_weight`, and why it needs to exist",
+  "title": "pos_weight ablation - 8 seeds per arm, bench2_val, epoch 50"
+ },
+ {
+  "file": "report/figures/harvested/dl_development_07.png",
+  "notebook": "dl_development",
+  "cell": 45,
+  "section": "7   Why one training run proves nothing",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/dl_development_08.png",
+  "notebook": "dl_development",
+  "cell": 50,
+  "section": "8   Choosing when to stop training",
+  "title": "Detection: rises, then plateaus"
+ },
+ {
+  "file": "report/figures/harvested/dl_development_09.png",
+  "notebook": "dl_development",
+  "cell": 57,
+  "section": "9   The localization problem",
+  "title": "Dashed box = the 3x3 region the network was trained to call"
+ },
+ {
+  "file": "report/figures/harvested/dataset_overview_01.png",
+  "notebook": "dataset_overview",
+  "cell": 8,
+  "section": "What one frame looks like",
+  "title": "Anatomy of one frame - `isolated` scenario, one target"
+ },
+ {
+  "file": "report/figures/harvested/dataset_overview_02.png",
+  "notebook": "dataset_overview",
+  "cell": 17,
+  "section": "4   What the scenarios look like",
+  "title": "{cond}   ({len(lab)} target{"
+ },
+ {
+  "file": "report/figures/harvested/dataset_overview_03.png",
+  "notebook": "dataset_overview",
+  "cell": 20,
+  "section": "The four hard cases, zoomed",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/dataset_overview_04.png",
+  "notebook": "dataset_overview",
+  "cell": 24,
+  "section": "5   Dataset coverage",
+  "title": "Split comparability - the four curves should be indistinguishable"
+ },
+ {
+  "file": "report/figures/harvested/dataset_overview_05.png",
+  "notebook": "dataset_overview",
+  "cell": 28,
+  "section": "5   Dataset coverage",
+  "title": "Targets occupy a bounded part of the field of view"
+ },
+ {
+  "file": "report/figures/harvested/dataset_overview_06.png",
+  "notebook": "dataset_overview",
+  "cell": 31,
+  "section": "6   Target difficulty",
+  "title": "Difficulty by scenario (test split)"
+ },
+ {
+  "file": "report/figures/harvested/dataset_overview_07.png",
+  "notebook": "dataset_overview",
+  "cell": 34,
+  "section": "Against the detection transition",
+  "title": "Target difficulty spans the detector transition region"
+ },
+ {
+  "file": "report/figures/harvested/dataset_overview_08.png",
+  "notebook": "dataset_overview",
+  "cell": 37,
+  "section": "7   What the dataset deliberately varies",
+  "title": "Separation is swept, not fixed"
+ },
+ {
+  "file": "report/figures/harvested/cfar_vs_dl_comparison_01.png",
+  "notebook": "cfar_vs_dl_comparison",
+  "cell": 7,
+  "section": "2   The headline   Pd per condition",
+  "title": "Per-condition Pd difference with 95% bootstrap CI, gate  1\\n"
+ },
+ {
+  "file": "report/figures/harvested/cfar_vs_dl_comparison_02.png",
+  "notebook": "cfar_vs_dl_comparison",
+  "cell": 8,
+  "section": "2   The headline   Pd per condition",
+  "title": "Absolute Pd   note how low BOTH methods are on `clutter`"
+ },
+ {
+  "file": "report/figures/harvested/cfar_vs_dl_comparison_03.png",
+  "notebook": "cfar_vs_dl_comparison",
+  "cell": 15,
+  "section": "4   Where CFAR wins   localization, decisively",
+  "title": "{t} (bins)   lower is better"
+ },
+ {
+  "file": "report/figures/harvested/cfar_vs_dl_comparison_04.png",
+  "notebook": "cfar_vs_dl_comparison",
+  "cell": 22,
+  "section": "6   Against theory   the one absolute check",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/cfar_vs_dl_comparison_05.png",
+  "notebook": "cfar_vs_dl_comparison",
+  "cell": 26,
+  "section": "7   Computational cost",
+  "title": "Cost per 256 64 frame   DL beats OS-CFAR by >10"
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_01.png",
+  "notebook": "InteractivePipeline",
+  "cell": 6,
+  "section": "Step 3   Build CPI & Sampling Axes",
+  "title": "TX vs RX vs Dechirped IF   Chirp 0"
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_02.png",
+  "notebook": "InteractivePipeline",
+  "cell": 8,
+  "section": "Step 4   Range FFT (single chirp preview)",
+  "title": "Range FFT   Chirp 0 (positive beat frequencies only)"
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_03.png",
+  "notebook": "InteractivePipeline",
+  "cell": 10,
+  "section": "Step 5   2D FFT   Range-Doppler Map",
+  "title": "Clean Range-Doppler Map"
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_04.png",
+  "notebook": "InteractivePipeline",
+  "cell": 12,
+  "section": "Step 6   3D Range-Doppler Surface Plot",
+  "title": "3D Range-Doppler Map   SNR = {DEFAULT_SNR_DB} dB"
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_05.png",
+  "notebook": "InteractivePipeline",
+  "cell": 18,
+  "section": "Step 9   Controlled RD Validation + Dataset Save Prototype",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_06.png",
+  "notebook": "InteractivePipeline",
+  "cell": 18,
+  "section": "Step 9   Controlled RD Validation + Dataset Save Prototype",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_07.png",
+  "notebook": "InteractivePipeline",
+  "cell": 18,
+  "section": "Step 9   Controlled RD Validation + Dataset Save Prototype",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_08.png",
+  "notebook": "InteractivePipeline",
+  "cell": 18,
+  "section": "Step 9   Controlled RD Validation + Dataset Save Prototype",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_09.png",
+  "notebook": "InteractivePipeline",
+  "cell": 18,
+  "section": "Step 9   Controlled RD Validation + Dataset Save Prototype",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_10.png",
+  "notebook": "InteractivePipeline",
+  "cell": 24,
+  "section": "Step 10   CFAR Configuration",
+  "title": "RD Map"
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_11.png",
+  "notebook": "InteractivePipeline",
+  "cell": 24,
+  "section": "Step 10   CFAR Configuration",
+  "title": "RD Map"
+ },
+ {
+  "file": "report/figures/harvested/InteractivePipeline_12.png",
+  "notebook": "InteractivePipeline",
+  "cell": 24,
+  "section": "Step 10   CFAR Configuration",
+  "title": "RD Map"
+ },
+ {
+  "file": "report/figures/harvested/integrated_cfar_experiment_01.png",
+  "notebook": "integrated_cfar_experiment",
+  "cell": 3,
+  "section": "1   The point-spread function, measured",
+  "title": "averaged normalised target patch (power)"
+ },
+ {
+  "file": "report/figures/harvested/integrated_cfar_experiment_02.png",
+  "notebook": "integrated_cfar_experiment",
+  "cell": 7,
+  "section": "2   Two integrated statistics",
+  "title": "{name}  (centre weight {k[1, 1]:.3f})"
+ },
+ {
+  "file": "report/figures/harvested/integrated_cfar_experiment_03.png",
+  "notebook": "integrated_cfar_experiment",
+  "cell": 10,
+  "section": "3   The geometry, to scale on a real frame",
+  "title": "orange = CUT   teal = 3x3 integration region   gold = guard   blue = reference ring"
+ },
+ {
+  "file": "report/figures/harvested/integrated_cfar_experiment_04.png",
+  "notebook": "integrated_cfar_experiment",
+  "cell": 16,
+  "section": "5   Results",
+  "title": "Integration does not move CFAR toward TinyCNN - it moves it away"
+ },
+ {
+  "file": "report/figures/harvested/label_ablation_experiment_01.png",
+  "notebook": "label_ablation_experiment",
+  "cell": 3,
+  "section": "1   The three labels, on a real target",
+  "title": "the RD response (dB above median)"
+ },
+ {
+  "file": "report/figures/harvested/label_ablation_experiment_02.png",
+  "notebook": "label_ablation_experiment",
+  "cell": 10,
+  "section": "4   The headline: localization vs epoch",
+  "title": "{name}: error vs training"
+ },
+ {
+  "file": "report/figures/harvested/label_ablation_experiment_03.png",
+  "notebook": "label_ablation_experiment",
+  "cell": 13,
+  "section": "5   What it costs, and what it buys",
+  "title": ""
+ },
+ {
+  "file": "report/figures/harvested/label_ablation_experiment_04.png",
+  "notebook": "label_ablation_experiment",
+  "cell": 15,
+  "section": "5   What it costs, and what it buys",
+  "title": "Change in Pd against the incumbent label, per condition"
+ },
+ {
+  "file": "report/figures/harvested/e4_cut_guard_mask_01.png",
+  "notebook": "e4_cut_guard_mask",
+  "cell": 6,
+  "section": "2   What is removed",
+  "title": "orange = CUT   red = masked guard (24)   blue = reference (164)"
+ },
+ {
+  "file": "report/figures/harvested/e4_cut_guard_mask_02.png",
+  "notebook": "e4_cut_guard_mask",
+  "cell": 8,
+  "section": "3   A descriptive prior: where the frozen model is sensitive",
+  "title": "|d logit|   {name}"
+ },
+ {
+  "file": "report/figures/harvested/e4_cut_guard_mask_03.png",
+  "notebook": "e4_cut_guard_mask",
+  "cell": 12,
+  "section": "4   The result",
+  "title": "{name}\\ndPd = Pd(unmasked) - Pd(masked)"
+ }
+]
