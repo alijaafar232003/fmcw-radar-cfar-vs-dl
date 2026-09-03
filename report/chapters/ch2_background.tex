@@ -1,26 +1,489 @@
 % !TEX root = ../main.tex
 \ulfgchapter{2}{Radar Background and State of the Art}{chp:background}
+
 \section{Introduction}
-% TODO -- what this chapter does and why it is here.
+
+This chapter provides the background the rest of the report depends on, and reviews the published
+work the results will later be compared against.
+
+It has three parts. The first explains how an FMCW radar produces a range--Doppler map, because
+that map is the input to every detector in this work. The second describes CFAR detection: the
+principle, the main variants, and the failure modes that were documented decades ago and that
+motivate learned alternatives. The third reviews learned detection on RD maps and argues that the
+published literature separates into families whose results are not directly comparable. That
+argument is used throughout the report, and it is the reason Chapter~\ref{chp:realdata} compares
+against only a subset of the papers reviewed here.
+
+Two results in this chapter are used directly later. The documented CFAR failure modes
+(Section~\ref{sec:cfar_failures}) determine which conditions the synthetic benchmark of
+Chapter~\ref{chp:synthetic} must contain. The equivalence between CA-CFAR and a convolution
+(Section~\ref{sec:cfar_as_conv}) is what justifies treating a small convolutional network and CFAR
+as two instances of the same operator, rather than as two unrelated systems placed side by side.
 
 \section{FMCW radar principles}
+
 \subsection{Chirp generation and the beat frequency}
+
+An FMCW radar transmits a signal whose frequency increases linearly with time. One such sweep is
+called a \emph{chirp}. Writing $B$ for the swept bandwidth and $T_c$ for the chirp duration, the
+instantaneous frequency rises at a constant rate, the \emph{slope}
+\begin{equation}
+S = \frac{B}{T_c}.
+\end{equation}
+
+A target at range $R$ reflects the chirp back after a round-trip delay
+\begin{equation}
+\tau = \frac{2R}{c},
+\end{equation}
+where $c$ is the speed of light. The echo is therefore a copy of the transmitted chirp, shifted in
+time. Because the frequency is ramping, a shift in time becomes a difference in frequency. Mixing
+the echo with the transmitted signal and low-pass filtering the result --- an operation called
+\emph{dechirping} --- produces a tone at the \emph{beat frequency}
+\begin{equation}
+f_b = S\,\tau = \frac{2BR}{c\,T_c}.
+\label{eq:beat}
+\end{equation}
+
+Equation~\eqref{eq:beat} is the reason FMCW radar is inexpensive. Range has been converted into a
+frequency of a few megahertz, so the receiver never has to sample at the radio frequency; it only
+has to sample the beat tone. Figure~\ref{fig:chirp} shows the geometry for the radar used in this
+work.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/Chapter2/ch2_fig1_fmcw_chirp.png}
+\caption[FMCW chirp geometry and the beat frequency]{Top: the received echo is a delayed copy of
+the transmitted chirp, so the two differ by a constant frequency $f_b$. The delay is drawn
+magnified by 60 for visibility; the true value at \SI{20}{\metre} is stated on the figure and is
+only \SI{0.133}{\micro\second}. Bottom: the resulting beat tone, shown over a
+\SI{4}{\micro\second} window so that individual cycles are visible.}
+\label{fig:chirp}
+\end{figure}
+
 \subsection{Range estimation}
+
+Sampling the beat signal $N$ times within one chirp and applying a discrete Fourier transform
+converts the tone into a peak at a known frequency bin. By equation~\eqref{eq:beat}, that bin
+corresponds to a range. This first transform is called the \emph{range FFT}, and it is taken along
+what is known as \emph{fast time}, meaning the samples within a single chirp.
+
+Two targets are resolved in range only if their beat tones differ by at least one frequency bin,
+which yields the standard range resolution
+\begin{equation}
+\Delta R = \frac{c}{2B}.
+\label{eq:range_res}
+\end{equation}
+Resolution depends on the swept bandwidth alone. It does not depend on the chirp duration, the
+transmitted power, or the range of the target.
+
 \subsection{Doppler estimation and the range--Doppler map}
 
-\section{Detection in the range--Doppler plane}
-\subsection{The constant false alarm rate principle}
-\subsection{Cell-averaging CFAR}
-\subsection{Greatest-of, smallest-of and order-statistic variants}
-\subsection{Known failure modes}
+A single chirp gives range but not velocity. Velocity is obtained by transmitting $M$ chirps in
+quick succession and observing how the \emph{phase} of a target's beat tone changes from one chirp
+to the next. A target moving radially changes its range slightly between chirps, and although that
+change is far too small to move the target into a different range bin, it is a substantial fraction
+of a wavelength and therefore produces a measurable phase rotation.
 
-\section{Learned detection}
-\subsection{Convolutional detectors on the range--Doppler map}
+Taking a second Fourier transform across the $M$ chirps, at each range bin, converts that phase
+rotation into a frequency: the Doppler shift. This transform is taken along \emph{slow time},
+meaning across chirps. The velocity resolution follows the same reasoning as
+equation~\eqref{eq:range_res}:
+\begin{equation}
+\Delta v = \frac{\lambda}{2 M T_c},
+\qquad
+v_{\max} = \pm\frac{\lambda}{4 T_c},
+\end{equation}
+where $\lambda = c/f_c$ is the wavelength at carrier frequency $f_c$. Longer observation, meaning
+more chirps, gives finer velocity resolution; shorter chirps extend the unambiguous velocity range.
+
+The output of the two transforms is a two-dimensional array indexed by range bin and Doppler bin:
+the \emph{range--Doppler map}. Each target appears as a localised concentration of energy at its
+range and radial velocity. Figure~\ref{fig:chain} summarises the chain.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig2_processing_chain.png}
+\caption[FMCW processing chain]{From received samples to the range--Doppler map. The detector,
+which is the subject of this report, operates on the final stage only. Resolutions shown are those
+of the radar specified in Chapter~\ref{chp:simulator}.}
+\label{fig:chain}
+\end{figure}
+
+The RD map is an image, but it is not a photograph, and two of its properties matter for detection.
+First, the background is not smooth: with a single look, the noise in each cell follows an
+exponential power distribution, so neighbouring cells differ by many decibels purely by chance.
+Second, a target is not a single bright pixel but a response spread over a few cells, set by the
+window functions and the transform lengths rather than by the physical size of the object.
+Figure~\ref{fig:rdmap} shows both effects on one frame of the benchmark used in this work.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig3_rd_map_example.png}
+\caption[A range--Doppler map and the detection problem]{Left: the target response on its own.
+Centre: the same frame as the sensor delivers it. Right: a cut through the target's range bin. The
+detection problem is to decide, cell by cell, which peaks are targets and which are background.}
+\label{fig:rdmap}
+\end{figure}
+
+\section{Detection in the range--Doppler plane}
+
+\subsection{The detection problem}
+
+Detection is a binary hypothesis test applied to every cell of the RD map. For a cell with observed
+power $x$, the two hypotheses are
+\begin{align}
+H_0 &: \text{background only (noise, clutter, interference)}, \\
+H_1 &: \text{background plus a target return}.
+\end{align}
+
+Radar detectors are conventionally designed to the Neyman--Pearson criterion: fix the probability
+of false alarm $\Pfa$ at an acceptable value, and maximise the probability of detection $\Pd$
+subject to that constraint. This is the reason $\Pd$ at a fixed $\Pfa$ is the standard metric in
+the field, and it is the metric this report uses.
+
+Fixing $\Pfa$ is straightforward if the background power is known: for square-law detection in
+exponential noise of mean power $\sigma^2$, the threshold is $T = -\sigma^2 \ln \Pfa$. The
+difficulty is that $\sigma^2$ is not known. It varies with temperature, with the terrain being
+illuminated, with weather, and with interference from other radars. A fixed threshold set for one
+condition produces either a flood of false alarms or no detections at all in another.
+
+\subsection{The constant false alarm rate principle}
+
+CFAR detection solves this by estimating the background from the data itself. For each cell under
+test, a window of surrounding cells is used to form an estimate $Z$ of the local background level,
+and the threshold is set proportional to it:
+\begin{equation}
+T = \alpha Z,
+\qquad
+\text{decide } H_1 \text{ if } x > T.
+\label{eq:cfar}
+\end{equation}
+
+The multiplier $\alpha$ is chosen so that the false-alarm rate takes the desired value. Because the
+threshold scales with the estimated background, a uniform change in received power scales $x$ and
+$Z$ together and leaves the decision unchanged. This is the constant false alarm rate property, and
+it is what allows a single detector to operate across widely varying conditions.
+
+The window has a specific structure, shown in Figure~\ref{fig:cfarwin}. Immediately around the cell
+under test is a ring of \emph{guard cells}, which are excluded from the estimate. They must be
+excluded: a target's own response spreads over several cells, so including them would let the
+target inflate its own threshold and suppress its own detection. Beyond the guard ring are the
+\emph{reference} or \emph{training cells}, which form the estimate.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/Chapter2/ch2_fig4_cfar_window.png}
+\caption[CFAR reference window geometry]{The reference window used throughout this work. The cell
+under test provides the test statistic; the guard cells are excluded so that a target cannot raise
+its own threshold; the remaining reference cells form the background estimate $Z$. The window is
+rectangular because the two axes of the RD map are not alike, as Chapter~\ref{chp:detectors}
+explains.}
+\label{fig:cfarwin}
+\end{figure}
+
+\subsection{Cell-averaging CFAR}
+
+The simplest choice is to average all reference cells,
+\begin{equation}
+Z_{\mathrm{CA}} = \frac{1}{N} \sum_{i=1}^{N} x_i ,
+\end{equation}
+where $N$ is the number of reference cells. For square-law detection in homogeneous exponential
+noise, the multiplier that achieves a design false-alarm rate is available in closed form:
+\begin{equation}
+\alpha = N \left( \Pfa^{-1/N} - 1 \right).
+\label{eq:alpha_ca}
+\end{equation}
+
+CA-CFAR is optimal, in the sense of maximising $\Pd$ at a given $\Pfa$, when the background really
+is homogeneous and the reference cells really are target-free~\cite{gandhi1988cfar}. It is also the
+cheapest variant, requiring only a sum.
+
+\subsection{Greatest-of, smallest-of and order-statistic variants}
+
+Every CFAR variant differs from CA-CFAR in one respect only: how the reference cells are combined
+into $Z$. That single choice determines the variant's strengths and weaknesses.
+
+\begin{description}
+\itemsep3pt
+\item[GO-CFAR (greatest-of).] The reference cells are split into a leading and a lagging half, and
+$Z$ is the larger of the two means. Keeping the higher estimate suppresses the false-alarm burst
+that CA-CFAR suffers at a clutter edge, at the cost of masking targets more readily.
+\item[SO-CFAR (smallest-of).] The mirror image: $Z$ is the smaller of the two half-means. If an
+interfering target contaminates one half, the clean half is used, so closely spaced targets are
+resolved. At a clutter edge the threshold collapses and false alarms rise sharply.
+\item[OS-CFAR (order-statistic).] The reference cells are sorted and the $k$-th ranked value is
+taken as $Z$, typically with $k \approx 0.75N$. Interfering targets are high outliers and are
+excluded by the ranking, which makes the variant robust in multi-target scenes. The cost is a sort
+per cell and a small additional loss in homogeneous background.
+\end{description}
+
+For GO, SO and OS there is no equivalent of equation~\eqref{eq:alpha_ca} that holds under the
+conditions of this work, so their multipliers are obtained by Monte-Carlo calibration, as
+Chapter~\ref{chp:detectors} describes.
+
+\subsection{Known failure modes}
+\label{sec:cfar_failures}
+
+The limitations of these detectors have been understood since Gandhi and
+Kassam~\cite{gandhi1988cfar}. Two failure modes dominate, and both follow directly from
+equation~\eqref{eq:cfar}: the threshold is only as good as the assumption that the reference cells
+describe the background at the cell under test.
+
+\textbf{Clutter edges.} When the window straddles a boundary between two background levels, the
+estimate mixes them. On the quiet side of the edge the threshold is set too high and targets are
+missed; on the strong side it is set too low and false alarms appear. The threshold cannot follow a
+step that is sharper than the window is wide.
+
+\textbf{Target masking.} When a second target falls inside the reference window of the first, it
+raises $Z$ and therefore raises the threshold at the very cell being tested. The stronger the
+interferer, the more effectively it hides its neighbour.
+
+Figure~\ref{fig:cfarfail} shows both, simulated on the same window geometry used in the rest of this
+work.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig5_cfar_failure_modes.png}
+\caption[The two dominant CFAR failure modes]{Left: at a clutter edge the threshold lags the
+background step, missing a target before the edge and admitting a false alarm after it. Right: an
+interfering target inside the reference window raises the threshold at the cell being tested, and
+the weaker target is missed.}
+\label{fig:cfarfail}
+\end{figure}
+
+The conclusion Gandhi and Kassam reached is the starting point of this project: no single CFAR
+variant performs well across all backgrounds, and each variant repairs one failure mode while
+worsening another. GO controls clutter edges but masks more; SO resolves close targets but fails at
+edges. They suggested that an adaptive approach might be required when operating conditions change.
+
+These failure modes also determine the design of the benchmark. A comparison evaluated only in
+homogeneous noise would test the one condition in which CA-CFAR is already optimal, and would say
+nothing about the conditions that motivate a learned detector. The conditions used in
+Chapter~\ref{chp:synthetic} are chosen to span both.
+
+\subsection{CFAR loss}
+\label{sec:cfar_loss}
+
+There is a third limitation, less often discussed, which becomes important in
+Chapter~\ref{chp:attribution}. Because $Z$ is estimated from a finite number of reference cells, it
+is itself a random variable. A detector that knew the true background power exactly could use the
+threshold $T = -\sigma^2 \ln \Pfa$; a CFAR detector must use equation~\eqref{eq:alpha_ca}, which is
+larger, to keep the false-alarm rate correct despite the uncertainty in its own estimate. The
+resulting penalty in signal-to-noise ratio is called \emph{CFAR loss}, and it shrinks as $N$ grows.
+
+This matters here because CFAR loss predicts that a learned detector will outperform CFAR even in
+perfectly homogeneous noise, where CFAR has no failure mode at all. It is therefore a rival
+explanation for any measured advantage, and one that must be separated from the more obvious
+explanation that the network simply uses its window differently.
+
+\section{Learned detection on the range--Doppler map}
+
+\subsection{Convolutional detectors}
+
+The RD map is an image-like array, and the detection rule is applied identically at every cell.
+Both properties suit a convolutional neural network. A convolutional layer applies the same learned
+kernel at every position, which matches the translation invariance of the problem and means the
+number of parameters does not grow with the size of the map.
+
+Most learned detectors on RD maps follow one of two formulations. In the \emph{patch} formulation,
+a small window around each cell is extracted and classified independently, which mirrors CFAR
+closely but requires one network evaluation per cell. In the \emph{fully convolutional}
+formulation, the whole map is processed at once and the network emits a score for every cell in a
+single pass. The second is far cheaper and is used in this work.
+
+\subsection{CA-CFAR as a convolution}
+\label{sec:cfar_as_conv}
+
+There is a closer relationship between the two approaches than the difference in vocabulary
+suggests. Liu et al.~\cite{liu2024cacfarconv} showed that CA-CFAR can be written exactly as a
+convolution followed by a thresholding nonlinearity. Substituting $Z_{\mathrm{CA}}$ into
+equation~\eqref{eq:cfar}, the decision $x > \alpha Z$ is equivalent to testing whether
+\begin{equation}
+x - \frac{\alpha}{N} \sum_{i=1}^{N} x_i > 0 ,
+\end{equation}
+which is a linear filter with weight $+1$ on the cell under test, $0$ on each guard cell, and
+$-\alpha/N$ on each reference cell, followed by a comparison against zero --- that is, a
+convolution followed by a rectifier. Their purpose was practical: writing the detector this way
+allows it to run on machine-learning hardware.
+
+Banerjee et al.~\cite{banerjee2025rctd} restate this result and draw the consequence that matters
+here. If CA-CFAR is a convolution with \emph{fixed} weights, then a convolutional layer with
+\emph{learned} weights and bias is the data-driven generalisation of the same operator. The two
+detectors are not different species. They occupy one operator family, and the difference between
+them is whether the weights are derived analytically or fitted to data.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig6_cfar_as_convolution.png}
+\caption[CA-CFAR expressed as a convolution kernel]{Left: the fixed kernel equivalent to CA-CFAR
+over the window of Figure~\ref{fig:cfarwin}. Right: the same footprint with weights fitted to data.
+The right panel is illustrative and is not a trained kernel.}
+\label{fig:cfarconv}
+\end{figure}
+
+This is the theoretical basis for the comparison made in this report. It is what allows the
+learned and classical arms to be treated as a controlled experiment in which the decision rule is
+varied and the available context is held comparable, rather than as an unstructured contest between
+two arbitrary systems. It also identifies precisely what the experiment is testing: whether fitting
+those weights to data buys anything over deriving them.
+
 \subsection{Label representation and supervision}
 
-\section{Related work}
+A learned detector must be told what to predict, and that choice is less obvious than it appears. A
+target occupies several cells of the RD map, but the truth available in a simulator is a single
+range--velocity coordinate. Three representations are common: labelling the single nearest cell;
+labelling a small Gaussian region around it; or labelling a segmentation mask covering the target's
+support.
+
+The choice interacts with evaluation. A network trained to mark one exact cell is being asked to
+localise as well as detect, whereas one trained on a broad mask is not. This matters when comparing
+against CFAR, whose output is a per-cell decision with no notion of extent, and it becomes central
+in Chapter~\ref{chp:realdata}, where the real dataset provides segmentation masks rather than point
+coordinates.
+
+\section{State of the art: learned detectors versus CFAR}
+\label{sec:sota}
+
+\subsection{Why the literature cannot be pooled}
+
+A substantial body of work reports learned detectors outperforming CFAR. Read together, the results
+appear to show a consistent and sometimes very large advantage. Read carefully, they do not
+combine, because the works measure different things.
+
+Table~\ref{tab:families} groups the reviewed literature into families by what each family actually
+measures. Only the first reports $\Pd$ against CFAR at a matched false-alarm rate on a per-cell
+decision, which is the quantity this report measures.
+
+\begin{table}[h!]
+\centering
+\caption{Families in the learned-detection literature. Only the first measures the same quantity as
+this work.}
+\label{tab:families}
+\begin{tabular}{@{}p{3.4cm}p{4.6cm}p{2.6cm}p{2.4cm}@{}}
+\toprule
+\textbf{Family} & \textbf{Representative work} & \textbf{Metric} & \textbf{Comparable} \\
+\midrule
+Per-cell learned threshold, scored against CFAR &
+RadCNN~\cite{yavuz2021radcnn}, Gusland et al.~\cite{gusland2020deeptemporal},
+Lallouet et al.~\cite{lallouet2023loss}, Banerjee et al.~\cite{banerjee2025rctd} &
+$\Pd$ at fixed $\Pfa$ &
+\textbf{Yes} \\
+\addlinespace
+CFAR-property constrained learning &
+CFARnet~\cite{diskin2023cfarnet} &
+ROC, plus a test of the CFAR property &
+Partly \\
+\addlinespace
+Object detection on RD maps &
+DAROD~\cite{decourt2022darod} &
+mAP at an IoU threshold &
+No \\
+\addlinespace
+Structure-preserving reformulation &
+Liu et al.~\cite{liu2024cacfarconv} &
+Latency and energy &
+No \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The distinction is not pedantic. An object detector scored by mean average precision at an IoU
+threshold is solving a different problem from a per-cell detector scored by $\Pd$ at a fixed
+$\Pfa$: it must produce a box of the right extent and, usually, the right class label. A
+reformulation paper that maps CFAR onto machine-learning hardware changes the cost of the detector
+and not its accuracy. Quoting an improvement from one family as evidence about another is how
+claims that learned detectors dominate CFAR by orders of magnitude arise.
+
+\subsection{What the comparable family actually reports}
+
+Within the family that is comparable, the reported picture is more measured than the general
+impression suggests.
+
+RadCNN~\cite{yavuz2021radcnn} evaluates a single-convolution detector against CA, GO, SO and OS
+CFAR on simulated data with Weibull and K-distributed clutter, at a design $\Pfa$ of $10^{-3}$. It
+reports an average gain of about $0.5$\,dB at low SNR, roughly $1$\,dB when the target is covered by
+clutter, parity in pure noise, and a \emph{loss} of about $0.8$\,dB in one scenario, where the
+target lies near clutter but its reference window is filled mostly with noise.
+
+Gusland et al.~\cite{gusland2020deeptemporal} train a fully convolutional detector on measured
+X-band FMCW data, using a UAV with GPS truth, and deliberately restrict the network's receptive
+field to match the CA-CFAR patch. They report parity below \SI{450}{\metre}, where the background
+is homogeneous, and gains of $0.25$ to $0.35$ in $\Pd$ at clutter transitions. They also observe
+that a CNN does not need explicit guard cells in the way CFAR does.
+
+Lallouet et al.~\cite{lallouet2023loss} compare loss functions for a U-Net detector on simulated
+exoclutter data and report that all their network variants exceed CFAR. Their explanation is the
+CFAR loss of Section~\ref{sec:cfar_loss}: the finite reference window makes CFAR's threshold noisy,
+and the network does not pay that penalty.
+
+Banerjee et al.~\cite{banerjee2025rctd} evaluate a recursive convolutional detector on simulated
+and on-air FMCW data and report comparable $\Pd$ at consistently lower $\Pfa$, with a hardware
+implementation on FPGA.
+
+Three points follow, and all three shape this report. First, in homogeneous conditions a
+well-constructed CNN typically \emph{ties} CFAR rather than beating it. Second, a learned detector
+normally loses somewhere; RadCNN's losing scenario is reported openly. Third, two distinct
+explanations are offered for a win in homogeneous noise --- the network's different use of its
+window, and CFAR loss --- and both predict the same observation, so neither can be accepted without
+testing the other. This is the origin of objective O3.
+
+\subsection{Recurring methodological asymmetries}
+
+Section~\ref{sec:problem} listed five differences that make published comparisons hard to
+interpret. Having reviewed the corpus, three deserve specific comment.
+
+\emph{Design versus measured $\Pfa$.} Several works match operating points using the analytic CFAR
+expression rather than measuring the achieved rate. RadCNN reports its CFAR arms achieving
+$1.2$ to $1.7 \times 10^{-3}$ against a design $10^{-3}$ under clutter, and states plainly that the
+CFAR algorithms cannot maintain their preset rate. If the classical arm is not at the operating
+point it is assumed to be at, the comparison is not at a matched operating point either.
+
+\emph{Spatial context.} The amount of surrounding data a detector may use is a design variable in
+its own right. Gusland et al.\ are unusual in restricting the network's receptive field to the CFAR
+patch deliberately; where this is not done, a measured advantage may reflect a larger field of view
+rather than a better decision rule.
+
+\emph{Scoring tolerance.} A detection is usually counted as correct if it falls within some
+distance of the truth, but the tolerance is often reported at a single value. Reporting several
+tolerances separates detection from localisation, and its absence leaves the two confounded.
 
 \section{Gap addressed by this work}
 
+The review supports four observations, which together define what this project adds.
+
+\begin{enumerate}
+\itemsep3pt
+\item \textbf{The comparable evidence is thinner than it appears.} Of the reviewed corpus, only a
+handful of works measure $\Pd$ against CFAR at a matched $\Pfa$ on a per-cell decision. The
+remainder answer different questions.
+\item \textbf{Matched spatial context is rare.} Only Gusland et al.\ constrain the network's
+receptive field to the CFAR window. This work does the same, and states explicitly that matching
+the footprint does not make the two decision rules identical.
+\item \textbf{Two explanations for the same observation remain unseparated.} The window-usage
+explanation and the CFAR-loss explanation both predict a learned win in homogeneous noise. No
+reviewed work distinguishes them experimentally. Chapter~\ref{chp:attribution} attempts to.
+\item \textbf{External validity is largely untested.} Simulation-trained detectors are almost
+always evaluated on the same simulator, and measurement-trained detectors on the same sensor. None
+of the directly comparable studies identified here evaluates a frozen, simulation-trained detector
+on real measurements without retraining. Chapter~\ref{chp:realdata} reports that evaluation.
+\end{enumerate}
+
 \section{Conclusion}
-% TODO -- what was established, and what the next chapter needs from it.
+
+This chapter established the material the rest of the report uses. An FMCW radar converts range
+into a beat frequency and velocity into a phase rotation across chirps, and two Fourier transforms
+turn received samples into a range--Doppler map on which detection is performed. CFAR detection
+estimates the local background from a reference window and scales it by a multiplier chosen to fix
+the false-alarm rate; its variants differ only in how that estimate is formed, and each repairs one
+documented failure mode while worsening another.
+
+Two results carry forward. Liu et al.'s equivalence, generalised by Banerjee et al., shows that
+CA-CFAR is a convolution with fixed weights, so a small convolutional network over the same
+footprint is the learned member of the same operator family. That is what makes the comparison in
+this report controlled rather than arbitrary. And the review of the comparable literature shows
+that a learned detector usually ties CFAR in homogeneous conditions, usually loses somewhere, and
+has two competing explanations for its wins that no published work has separated.
+
+Chapter~\ref{chp:simulator} now specifies the simulator and the datasets, chosen so that the
+conditions identified in Section~\ref{sec:cfar_failures} are represented and so that the
+range--Doppler geometry matches the real dataset used later.
