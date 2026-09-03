@@ -232,27 +232,549 @@ evidence.}}
 \section{Domain audit}
 \label{sec:r0}
 
+Before either detector was run on real data, the two domains were compared directly. The purpose
+was to establish, independently and in advance, how far apart they are --- so that whatever the
+detectors then did could be interpreted against a measured baseline rather than an assumption. No
+detector was involved in any measurement in this section.
+
 \subsection{Representation}
+
+CARRADA publishes each range--Doppler frame in three forms, and choosing between them is the first
+substantive decision. Regressing the log of one against another across 240 frames spanning all
+\CarradaSequences{} sequences gives a slope of \RzeroSlope{} $\pm$ \RzeroSlopeSD{} --- that is,
+exactly a factor of two --- with a residual standard deviation of \RzeroResidual{}\,dB showing no
+dependence on signal level or on position in the map. A slope of two in this relation is the
+signature of a $20\log_{10}$ transform, which identifies one array as an amplitude and the other as
+a power expressed in decibels.
+
+Two consequences follow, and both matter because they let the frozen detectors be fed real data
+without modification.
+
+For CFAR, the required input is linear power, obtained as
+%
+\begin{equation}
+P \;\propto\; 10^{\,D/10},
+\label{eq:cfar_input}
+\end{equation}
+%
+where $D$ is the published decibel array. CFAR is a ratio test, so the unknown constant relating
+$P$ to absolute power cancels exactly and never needs to be determined. This was verified rather
+than assumed: scaling the input by factors from $10^{-2}$ to $10^{6}$ left the CFAR statistic
+unchanged to $1.5 \times 10^{-11}$ and produced identical peak sets.
+
+For the network, the frozen preprocessing is $10\log_{10}(P/\mathrm{median}\,P)$. Because the
+decibel transform is monotone, $\mathrm{median}(P) = 10^{\,\mathrm{median}(D)/10}$ exactly, and the
+preprocessing therefore reduces to
+%
+\begin{equation}
+x \;=\; \operatorname{clip}\!\left(D - \operatorname{median} D,\; -10,\; +60\right) / 20 .
+\label{eq:cnn_input}
+\end{equation}
+%
+The unknown scale constant cancels here too. In the implementation the frozen preprocessing code
+is called unchanged, fed $10^{\,D/20}$, so that no preprocessing is reimplemented for real data at
+all; the two paths were confirmed to agree to $2.4\times 10^{-7}$, which is about two units in the
+last place of the single-precision output.
+
 \subsection{Geometry}
+
+The grid transfers exactly. Every one of the \CarradaFrames{} frames is a $256 \times 64$ array,
+matching the simulator's map dimensions, and the annotation coordinates index that array directly:
+across all annotated cells the range indices span 0--255 and the Doppler indices 0--63. No
+resampling, interpolation or coordinate transformation is required anywhere in the pipeline. This
+is by construction --- the simulator was specified against CARRADA's published grid --- but it is
+worth confirming, because it removes the most common source of silent error when transferring a
+detector between datasets.
+
 \subsection{Background statistics}
+\label{sec:r0_background}
+
+Comparing background statistics requires deciding which cells count as background, and that
+decision is easy to get wrong in ways that flatter or damage either domain. A single definition
+was therefore fixed and applied identically to both. A cell is eligible background if it survives
+three exclusions: annotated object support dilated by three bins in each direction, so that target
+skirts do not leak in; a band of $\pm 4$ Doppler bins about zero, since the ridge there is
+structure rather than speckle; and the outer border that a $21 \times 9$ CFAR window cannot test,
+leaving the same $236 \times 56 = 13{,}216$ cells the detectors themselves see.
+
+No percentile trimming is applied at any point. This is stated explicitly because an early version
+of this analysis did trim the upper decile, which biases the coefficient of variation downward and
+produced a materially different answer; that version is superseded and none of its numbers appear
+in this report.
+
+Table~\ref{tab:r0_stats} reports the result. Uncertainty is taken across groups --- the
+\CarradaSequences{} CARRADA sequences and the eight simulator scenario conditions --- never across
+frames, because frames within a sequence are strongly correlated and treating millions of cells as
+independent would produce meaninglessly narrow intervals.
+
+\begin{table}[h!]
+\centering
+\caption{Background statistics, measured on the same eligible population in both domains with no
+trimming. Uncertainty is across groups, not frames.}
+\label{tab:r0_stats}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Statistic} & \textbf{CARRADA} & \textbf{Simulator} & \textbf{Single-look ideal} \\
+\midrule
+Coefficient of variation, $CV(P)$ & \RzeroCarradaCV{} $\pm$ \RzeroCarradaCVSE{} & \RzeroSimCV{} $\pm$ \RzeroSimCVSE{} & 1.000 \\
+Effective Gamma shape, $k$        & \RzeroCarradaGammaK{} $\pm$ \RzeroCarradaGammaKSE{} & \RzeroSimGammaK{} $\pm$ \RzeroSimGammaKSE{} & 1.00 \\
+Background standard deviation [dB]& \RzeroCarradaDBstd{} $\pm$ \RzeroCarradaDBstdSE{} & \RzeroSimDBstd{} $\pm$ \RzeroSimDBstdSE{} & 5.57 \\
+Lag-1 correlation, range axis     & \RzeroCarradaLagRange{} $\pm$ \RzeroCarradaLagRangeSE{} & \RzeroSimLagRange{} $\pm$ \RzeroSimLagRangeSE{} & --- \\
+Lag-1 correlation, Doppler axis   & \RzeroCarradaLagDoppler{} $\pm$ \RzeroCarradaLagDopplerSE{} & \RzeroSimLagDoppler{} $\pm$ \RzeroSimLagDopplerSE{} & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three readings follow.
+
+\paragraph{The simulator behaves exactly as designed.} Its background has $k = \RzeroSimGammaK{}$
+against a theoretical value of 1.0 for single-look exponential speckle, and a decibel spread of
+\RzeroSimDBstd{}\,dB against a theoretical 5.57\,dB. This is an independent validation of the
+clutter model developed in Chapter~\ref{chp:simulator}, obtained as a by-product of building a
+comparison, and it holds uniformly across range.
+
+\paragraph{CARRADA is markedly smoother.} Its effective Gamma shape is
+$k = \RzeroCarradaGammaK{}$ and its decibel spread \RzeroCarradaDBstd{}\,dB, less than half the
+simulator's. The wording here is deliberate: the measurement licenses the statement that
+\emph{CARRADA background statistics are consistent with an effective Gamma shape near
+\RzeroCarradaGammaK{}}. It does not license the claim that the sensor performs some number of
+independent looks, which the dataset authors document nowhere.
+
+\paragraph{Smoother does not mean cleaner.} Lower cell-to-cell fluctuation is not less clutter. The
+same audit finds CARRADA carrying far stronger \emph{localised} structure --- most obviously a
+zero-Doppler ridge of \RzeroCarradaRidge{}\,dB with a half-width of only
+$\pm\RzeroCarradaRidgeHalf{}$ bin, against the simulator's broader and weaker
+\RzeroSimRidge{}\,dB spread over $\pm\RzeroSimRidgeHalf{}$ bins. The real domain is therefore
+\emph{different}, not simply easier or harder: a flatter field interrupted by strong narrow
+structure, rather than a uniformly grainy one.
+
+Figures~\ref{fig:r0_dist} to~\ref{fig:r0_ridge} show these three readings in turn.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter7/r0_fig2_background_distributions.png}
+\caption[Background power distributions in both domains]{Background power distribution and its
+decibel empirical distribution, against the single-look exponential reference. The simulator lies
+on the reference; CARRADA is visibly narrower.}
+\label{fig:r0_dist}
+\end{figure}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter7/r0_fig3_domain_statistics.png}
+\caption[Domain statistics with sequence-aware uncertainty]{The five background statistics of
+Table~\ref{tab:r0_stats}. Error bars are across groups, never across correlated frames. Note that
+the lag-1 range correlations are statistically indistinguishable between domains, while the
+Doppler correlations are not.}
+\label{fig:r0_stats}
+\end{figure}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/Chapter7/r0_fig4_zero_doppler_ridge.png}
+\caption[Zero-Doppler ridge profiles]{Mean background power against Doppler bin. CARRADA's ridge is
+narrow and intense; the simulator's is broad and weak. The shaded band is the region excluded from
+the background statistics of Table~\ref{tab:r0_stats}.}
+\label{fig:r0_ridge}
+\end{figure}
+
+One further property is recorded because it shapes the interpretation of the results later.
+CARRADA's background is \textbf{not stationary in range}: measured over the same fixed blocks used
+throughout this chapter, its effective Gamma shape varies by roughly a factor of two and a half
+between the nearest and the middle blocks. The simulator's is flat across every block. A detector
+tuned on a stationary background therefore meets, in the real domain, a field whose statistics
+change with range.
+
 \subsection{Object support}
+
+The final difference is the one with the largest consequence for measurement. A synthetic target
+occupies a single true cell, and Chapter~\ref{chp:detectors} scores detections against it with a
+$\pm 1$-bin gate. CARRADA annotates \emph{extended object support}: a segmentation region covering
+tens of cells, whose median extent is 18 $\times$ 13 bins for a car, 11 $\times$ 11 for a cyclist
+and 9 $\times$ 9 for a pedestrian (Figure~\ref{fig:r0_footprint}).
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter7/r0_fig6_object_footprint.png}
+\caption[Annotated object support by class]{Extent of the annotated dense support by class,
+measured over all \CarradaObjectFrames{} frame-level object instances. A synthetic point target
+occupies one bin.}
+\label{fig:r0_footprint}
+\end{figure}
+
+A related trap is worth recording. CARRADA also publishes a bounding box per object, and it is
+tempting to treat it as the extent of the dense mask. It is not: the box is strictly smaller than
+the dense support on both axes in \CarradaObjectFrames{} of \CarradaObjectFrames{} instances, so
+the two describe different annotation constructs. Quoting one while meaning the other would
+understate object extent by roughly a quarter.
+
+The consequence is that the project's synthetic truth definition cannot transfer. There is no point
+target to match within $\pm 1$ bin, and inventing one --- by taking a centroid, a box centre or the
+brightest cell inside the mask --- would mean scoring the detectors against a construct of this
+project rather than an annotation the dataset provides. Section~\ref{sec:prereg} settles that
+question before any result exists.
 
 \section{Pre-registration}
 \label{sec:prereg}
 
+Because the domain audit had already revealed that the synthetic metric could not transfer, the
+evaluation protocol had to be redesigned for real data --- and redesigning a metric while holding
+the results in view is exactly the situation in which unconscious bias operates. The protocol was
+therefore written in full, hashed and committed before any real detector output existed. The frozen
+document has SHA-256 \texttt{\PrereghashShort\ldots}, and it was not edited afterwards.
+Table~\ref{tab:prereg} summarises what it fixes; Appendix~\ref{app:prereg} reproduces it.
+
+\begin{table}[h!]
+\centering
+\caption{The pre-registered evaluation protocol, fixed before any real detector output existed.}
+\label{tab:prereg}
+\begin{tabular}{@{}p{0.28\textwidth}p{0.63\textwidth}@{}}
+\toprule
+\textbf{Element} & \textbf{Decision} \\
+\midrule
+Ground truth & The dense segmentation support. No point target is invented; centroid, box centre,
+brightest cell and sparse centroid are all explicitly rejected. \\
+Eligible region & The frozen $21\times 9$ detector-valid interior, unchanged from
+Chapter~\ref{chp:detectors}. \\
+Eligible object & One whose support intersects that region in at least one cell. \\
+Matching & One-to-one, maximum-cardinality, identical code for every detector arm; ties broken on
+detector score, then on a deterministic coordinate ordering. \\
+Primary metric & Exact dense-mask object recall: the fraction of eligible objects for which an
+assigned peak lies inside the annotated support. \\
+Tolerance analysis & The same recall with the mask dilated by $\pm 1$ and $\pm 3$ bins. \\
+Localisation & \textbf{Not reported.} CARRADA supplies no point truth, and distance-to-mask is
+identically zero for any success. \\
+False alarms & \textbf{Not reported as $P_{fa}$}, in any form. \\
+Burden metric & Unmatched detections per frame. \\
+Statistics & Paired bootstrap over the \RoneNseq{} test sequences, 10{,}000 replicates. Seed
+variability reported separately and never merged with sequence variability. \\
+Primary classical arm & CA-CFAR. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two of these deserve explanation, since they are the points on which this evaluation departs most
+sharply from Chapter~\ref{chp:synthetic}.
+
+\paragraph{Why no false-alarm rate is reported.} A false-alarm measurement requires knowing that a
+detection corresponds to nothing real. CARRADA annotates only its \CarradaTracks{} tracked road
+users; it does not annotate the buildings, parked vehicles, poles and roadside structure that a
+real scene contains, and the domain audit found bright unannotated returns in a measurable fraction
+of frames. A peak outside every annotated mask may therefore be infrastructure, static clutter,
+multipath, an unannotated object --- or a genuine false alarm, with no way to distinguish them.
+Reporting such counts as $P_{fa}$ would assert knowledge the dataset does not contain. They are
+reported instead as \emph{unmatched detections per frame}, an output-density measure, and that
+term is used consistently throughout.
+
+\paragraph{Why the operating point is a new protocol.} The synthetic benchmark sets the network's
+threshold per condition, from the ROC of the split being scored. That is an evaluation oracle, and
+it cannot transfer: it requires labels on the scored data, and CARRADA supplies no equivalent
+false-alarm axis. A single global threshold was therefore derived per frozen seed, from
+\emph{synthetic validation data alone}, pooled across all eight scenario conditions at a measured
+per-cell false-alarm rate of $10^{-4}$. No CARRADA data of any split entered that derivation, and a
+runtime file-access audit confirms it. The consequence, registered in advance, is that R1 operates
+under a different operating-point protocol from Chapter~\ref{chp:synthetic}, and its numbers are
+therefore \textbf{not poolable} with the synthetic tables.
+
 \section{Zero-shot transfer}
 \label{sec:r1}
 
+The official test sequences were scored once, with every quantity above already fixed. All eight
+frozen network seeds and all four CFAR variants were evaluated on the same
+\CarradaTestFrames{} frames.
+
 \subsection{Primary result}
+
+\begin{table}[h!]
+\centering
+\caption{Exact dense-mask object recall on the CARRADA test split, over
+\RoneEligibleObjects{} eligible object instances.}
+\label{tab:r1_primary}
+\begin{tabular}{@{}lc@{}}
+\toprule
+\textbf{Detector} & \textbf{Exact dense-mask object recall} \\
+\midrule
+Frozen CA-CFAR (primary classical arm) & \textbf{\RoneCFARCA} \\
+Frozen TinyCNN (mean over 8 seeds)     & \textbf{\RoneTinyCNN} \\
+\midrule
+Paired difference, TinyCNN $-$ CA-CFAR & \textbf{\RoneDelta} \\
+95\,\% confidence interval             & $[\RoneCIlo,\ \RoneCIhi]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The synthetic ordering does not survive. On real data the classical detector is ahead by
+\RoneDelta{} in recall, with a confidence interval that excludes zero, and it is ahead in
+\textbf{all \RoneNseq{} test sequences} --- there is no sequence in which the network wins
+(Figure~\ref{fig:r1_primary}). The secondary CFAR variants confirm that this is not an artefact of
+the particular classical arm chosen: GO, SO and OS reach \RoneCFARGO{}, \RoneCFARSO{} and
+\RoneCFAROS{} respectively, all within a narrow band, and all ahead of the network. CA remains the
+primary comparator as pre-registered; no variant was promoted after the fact.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter7/r1_fig1_primary_and_per_sequence.png}
+\caption[Primary real-data result and per-sequence breakdown]{Left: exact dense-mask object recall,
+with the eight individual network seeds overlaid. Right: the same comparison per test sequence.
+CA-CFAR is ahead in all \RoneNseq{}.}
+\label{fig:r1_primary}
+\end{figure}
+
+It bears repeating that this recall is \emph{not} comparable with the synthetic $P_d$ of
+Chapter~\ref{chp:synthetic}. The two use different truth definitions and different operating-point
+protocols. What is comparable is the \emph{direction} of the difference within each domain, and
+that is the subject of Section~\ref{sec:crossdomain}.
+
 \subsection{Stratified analysis}
+
+The pre-registered strata locate where the difference lives, and the answer is unusually
+concentrated (Table~\ref{tab:r1_strata}, Figure~\ref{fig:r1_strata}).
+
+\begin{table}[h!]
+\centering
+\caption{Exact dense-mask object recall by pre-registered stratum. Counts are eligible object
+instances.}
+\label{tab:r1_strata}
+\begin{tabular}{@{}lrcc@{}}
+\toprule
+\textbf{Stratum} & \textbf{$n$} & \textbf{TinyCNN} & \textbf{CA-CFAR} \\
+\midrule
+\multicolumn{4}{@{}l}{\emph{Zero-Doppler proximity}} \\
+\quad Support meets the ridge band & \RoneNearZeroN & \RoneNearZeroTinyCNN & \RoneNearZeroCFAR \\
+\quad Support clear of it          & \RoneAwayZeroN & \RoneAwayZeroTinyCNN & \RoneAwayZeroCFAR \\[2pt]
+\multicolumn{4}{@{}l}{\emph{Class}} \\
+\quad Car        & \RoneCarN & \RoneCarTinyCNN & \RoneCarCFAR \\
+\quad Pedestrian & \RonePedN & \RonePedTinyCNN & \RonePedCFAR \\
+\quad Cyclist    & \RoneCycN & \RoneCycTinyCNN & \RoneCycCFAR \\[2pt]
+\multicolumn{4}{@{}l}{\emph{Range block [bins]}} \\
+\quad \RoneRangeALabel & \RoneRangeAN & \RoneRangeATinyCNN & \RoneRangeACFAR \\
+\quad \RoneRangeBLabel & \RoneRangeBN & \RoneRangeBTinyCNN & \RoneRangeBCFAR \\
+\quad \RoneRangeCLabel & \RoneRangeCN & \RoneRangeCTinyCNN & \RoneRangeCCFAR \\
+\quad \RoneRangeDLabel & \RoneRangeDN & \RoneRangeDTinyCNN & \RoneRangeDCFAR \\
+\quad \RoneRangeELabel & \RoneRangeEN & \RoneRangeETinyCNN & \RoneRangeECFAR \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter7/r1_fig2_strata.png}
+\caption[Recall by pre-registered stratum]{Recall by class, zero-Doppler proximity and range block.
+Counts are annotated on each group.}
+\label{fig:r1_strata}
+\end{figure}
+
+\paragraph{Zero Doppler.} \RoneNearZeroFrac{} of eligible test objects have support intersecting the
+$\pm 4$-bin band around zero Doppler --- CARRADA's road users are largely slow-moving, and they sit
+inside the very structure the audit measured at \RzeroCarradaRidge{}\,dB. Within that stratum the
+network reaches \RoneNearZeroTinyCNN{} against CA-CFAR's \RoneNearZeroCFAR{}. Away from it the two
+are close: \RoneAwayZeroTinyCNN{} against \RoneAwayZeroCFAR{}. \textbf{Essentially the entire
+difference lives in the near-zero stratum.}
+
+The permitted reading is that performance degradation was concentrated among objects whose support
+intersects the strong zero-Doppler region. The stronger claim --- that the ridge \emph{caused} the
+failures --- is not supported by this evidence. Stratification locates an effect; establishing a
+mechanism would require an intervention, and none was performed.
+
+\paragraph{Class.} Both detectors rank the classes in the same order, and it is the order of mask
+size. This is a confound, not an incidental caveat: a larger annotated support is a larger area in
+which a peak can land and be counted correct, so per-class recall cannot be read as class
+difficulty alone. The cyclist figure additionally rests on only \RoneCycN{} instances drawn from
+two sequences and is treated as exploratory.
+
+\paragraph{Range.} The pattern is not monotone. The network is far behind in the nearest block
+(\RoneRangeATinyCNN{} against \RoneRangeACFAR{}) yet \emph{ahead} of CA-CFAR in the two middle
+blocks. Transfer failure is therefore structured rather than uniform --- a conclusion that a single
+pooled number would have hidden entirely, and one consistent with the range non-stationarity
+recorded in Section~\ref{sec:r0_background}.
+
+\subsection{Tolerance around the annotated support}
+
+Since the truth is a region rather than a point, it is worth asking whether the misses fall just
+outside it. Dilating the mask by $\pm 1$ and $\pm 3$ bins, identically for both arms, gives the
+ladder in Table~\ref{tab:r1_tolerance}.
+
+\begin{table}[h!]
+\centering
+\caption{Recall with the annotated support dilated. This measures tolerance around the annotation,
+\emph{not} localisation accuracy.}
+\label{tab:r1_tolerance}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Detector} & \textbf{Exact} & \textbf{$\pm 1$ bin} & \textbf{$\pm 3$ bins} \\
+\midrule
+TinyCNN  & \RoneTinyCNNExact & \RoneTinyCNNTolOne & \RoneTinyCNNTolThree \\
+CA-CFAR  & \RoneCFARCAExact  & \RoneCFARCATolOne  & \RoneCFARCATolThree \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The network gains substantially more from dilation than the classical detector does, so a larger
+share of its misses are near-misses lying just outside the annotated region. The gap narrows
+considerably by $\pm 3$ bins --- but it does not close. This is described as mask-support tolerance
+and not as localisation accuracy, because with extended truth there is no point against which
+localisation could be measured.
+
 \subsection{Unmatched-detection burden}
+
+\begin{table}[h!]
+\centering
+\caption{Unmatched detections per frame. This is an output-density measure and \textbf{not} a
+false-alarm rate.}
+\label{tab:r1_burden}
+\begin{tabular}{@{}lc@{}}
+\toprule
+\textbf{Detector} & \textbf{Unmatched detections / frame} \\
+\midrule
+TinyCNN & \RoneBurdenTinyCNN \\
+CA-CFAR & \RoneBurdenCFARCA \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At their frozen operating points the network produces more unmatched output than the classical
+detector while also recalling fewer objects; it is behind on both axes simultaneously.
+
+Three reasons why this must not be read as a false-alarm comparison have already been given: the
+annotation covers only tracked road users, the audit found bright unannotated returns, and the
+frozen suppression window was sized for point targets. That last point is measurable. An
+$11 \times 11$ suppression window is smaller than a median car's $18 \times 13$ support, so one real
+object can legitimately produce several surviving peaks --- which occurs for
+\RoneMultiPeakTinyCNN{} of objects for the network and \RoneMultiPeakCFARCA{} for CA-CFAR. Under
+one-to-one matching exactly one of those peaks is matched and the remainder are counted unmatched.
+A portion of the burden in Table~\ref{tab:r1_burden} is therefore an artefact of transferring a
+point-target suppression radius to extended truth, common to both arms. The suppression radius was
+not altered in response, since doing so would have changed a frozen detector after seeing real
+data.
+
 \subsection{Seed variability}
+
+The eight frozen seeds span \RoneSeedMin{} to \RoneSeedMax{}, a standard deviation of
+\RoneSeedSD{} (Figure~\ref{fig:r1_tolerance}). That spread is large relative to the
+\RoneDelta{} difference the chapter is measuring, and it is itself a finding: eight networks with
+near-identical synthetic development performance generalise appreciably differently under domain
+shift. Notably, \textbf{no individual seed reaches CA-CFAR's \RoneCFARCA{}} --- the best of them,
+at \RoneSeedMax{}, still trails it. No seed was selected, dropped or ensembled at any point.
+
+This is reported as a property of this detector and this training configuration. It is not evidence
+about neural networks in general, and one architecture on one dataset cannot support that claim.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter7/r1_fig3_tolerance_burden_seeds.png}
+\caption[Tolerance ladder, output burden and seed spread]{Left: recall against mask dilation.
+Centre: unmatched detections per frame. Right: the eight frozen seeds against CA-CFAR's recall,
+shown as a dashed line.}
+\label{fig:r1_tolerance}
+\end{figure}
 
 \section{Cross-domain synthesis}
 \label{sec:crossdomain}
 
+Figure~\ref{fig:crossdomain} places the two domains side by side. Its construction reflects a
+constraint stated throughout this chapter: the domains are shown as separate rows, each labelled
+with its own metric, because synthetic $P_d$ and CARRADA mask recall measure different things and a
+shared axis would imply otherwise. Within each row, the left panel shows levels and the right panel
+shows the paired difference --- and it is the difference that carries meaning across the rows,
+because within a domain it is a like-for-like contrast between two detectors on identical data.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter7/r1_fig5_crossdomain_4panel.png}
+\caption[Cross-domain comparison of the learned and classical detectors]{The learned detector's
+advantage reverses under domain shift. Top row: matched synthetic domain, point-target $P_d$.
+Bottom row: unseen real domain, dense-mask object recall. Left column: levels. Right column: the
+paired difference. \textbf{The two rows measure different quantities and must not be pooled}; the
+comparable statement is the ranking, which reverses between them.}
+\label{fig:crossdomain}
+\end{figure}
+
+The right-hand column carries the result. In the matched synthetic domain the difference is
+positive in \SynWins{} of \SynConditions{} conditions, reaching \SynClutterEdgeDiff{} on the
+clutter-edge stratum. In the unseen real domain it is negative in all \RoneNseq{} sequences, pooling
+to \RoneDelta{} with a confidence interval excluding zero. \textbf{The sign flips.}
+
+Figure~\ref{fig:rd_examples} shows what the two domains look like at the level of individual
+frames, with both detectors' outputs overlaid. Frames were chosen deterministically on annotation
+geometry alone, never on which detector performed better.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter7/r1_fig6_rd_examples.png}
+\caption[Range--Doppler examples with detector outputs]{Synthetic frames (top) and real CARRADA
+frames (bottom) under one display convention, with the annotated truth and both detectors' peaks.
+Frames were selected deterministically and independently of detector outcome.}
+\label{fig:rd_examples}
+\end{figure}
+
+Taken with the domain audit, the picture is coherent. R0 established, before any detector ran, that
+the real domain differs substantially in background distribution, in Doppler correlation, in the
+strength and width of its zero-Doppler structure, and in range stationarity. R1 then found that the
+learned detector's advantage did not survive that shift, and that the loss concentrates precisely
+in the stratum associated with the largest structural difference.
+
+What this supports is a statement about \emph{sensitivity}: the learned detector's advantage
+depended on properties of its training domain, and the classical detector, whose threshold adapts
+to local statistics by construction, degraded less. What it does not support is a causal attribution
+to any single measured difference. Establishing that would require training on modified data and
+observing the consequence --- a different experiment, described in Section~\ref{sec:limits} and in
+the future work of the General Conclusion.
+
 \section{Limitations}
 \label{sec:limits}
 
+The following bound what this chapter can claim. They are listed in full because several of them
+weaken the headline, and a reader who discovers them independently would be right to discount the
+result.
+
+\begin{enumerate}
+\itemsep2pt
+\item \textbf{One real dataset.} CARRADA is a single sensor on a single test track. It is not radar
+in general, and a second dataset could reverse or reinforce this.
+\item \textbf{Extended truth.} The primary metric scores whether a peak lands inside an annotated
+region. It is not the synthetic $P_d$ and the two are never pooled.
+\item \textbf{No false-alarm measurement exists}, so the comparison is one-sided: it measures what
+each detector finds, not what it invents.
+\item \textbf{Point-target suppression on extended objects} inflates the unmatched burden for both
+arms by a measurable amount.
+\item \textbf{Six test sequences.} That is the effective sample size, and it is small. The
+consistency of the sign across all six carries more weight than the interval width.
+\item \textbf{\RoneNearZeroFrac{} of test objects lie in the zero-Doppler band}, so the headline is
+dominated by that regime rather than describing the map uniformly.
+\item \textbf{Class sizes and mask extents are unbalanced}, and the most numerous class has the
+smallest masks.
+\item \textbf{No real-data training was performed.} This is a zero-shot bound and not a ceiling; a
+fine-tuned network might well close the gap, and that experiment has not been run.
+\item \textbf{CFAR is also zero-shot.} Its thresholds were calibrated for single-look statistics, so
+its operating point on real data is not the designed one. That it transferred well is an
+observation, not evidence that its calibration was correct here.
+\item \textbf{No causal intervention} was performed, so no measured domain difference can be said
+to have caused the result.
+\end{enumerate}
+
 \section{Conclusion}
-% TODO -- what was established, and what the next chapter needs from it.
+
+This chapter asked whether the frozen detectors transfer zero-shot from the simulator to real
+automotive radar data, and answered it under a protocol fixed in advance of the answer.
+
+Both detectors transfer in the sense that both work: neither collapses on real measurements, and
+both recall the majority of annotated objects from a purely synthetic development process. But the
+ordering established in Chapter~\ref{chp:synthetic} reverses. Frozen CA-CFAR reaches
+\RoneCFARCA{} exact dense-mask object recall against the frozen network's \RoneTinyCNN{}, a paired
+difference of \RoneDelta{} with a confidence interval of $[\RoneCIlo, \RoneCIhi]$, ahead in all
+\RoneNseq{} test sequences, while also producing less unmatched output. No individual network seed
+closes the gap.
+
+The difference is concentrated: among objects clear of the zero-Doppler ridge the two are close, and
+the loss lies almost entirely among objects whose support intersects it. The domain audit,
+performed before any detector ran, had independently identified that ridge --- narrow and
+\RzeroCarradaRidge{}\,dB strong against the simulator's broad \RzeroSimRidge{}\,dB --- as one of the
+largest structural differences between the domains.
+
+None of this retracts the synthetic findings of Chapters~\ref{chp:synthetic}
+and~\ref{chp:attribution}. Those were controlled experiments and they remain valid within the domain
+that produced them. What this chapter establishes is the boundary of that validity: the learned
+detector's measured advantage was specific to its training domain and did not survive transfer,
+whereas a classical detector whose threshold adapts to local statistics by construction proved more
+robust. That is a narrower claim than the synthetic result alone would have supported, and it is
+the claim the evidence sustains.

@@ -150,6 +150,33 @@ def main():
         macro("Syn" + nm + "Diff", "{:+.4f}".format(r["diff"]))
         macro("Syn" + nm + "Method", r["cfar_method"])
 
+    # ---------------------------------------------------------------- range blocks
+    lines.append("")
+    lines.append("% ---------- R1: range-stratified (R0 blocks) ----------")
+    words = {"10-60": "A", "60-110": "B", "110-160": "C", "160-210": "D", "210-246": "E"}
+    for blk, w in words.items():
+        v = R1["by_range"].get(blk)
+        if not v:
+            continue
+        macro("RoneRange" + w + "Label", blk.replace("-", "--"))
+        macro("RoneRange" + w + "N", "{:,}".format(v["eligible_objects"]))
+        macro("RoneRange" + w + "TinyCNN", f(v["tinycnn"], 4))
+        macro("RoneRange" + w + "CFAR", f(v["cfar_CA"], 4))
+
+    # ---------------------------------------------------------------- multi-peak
+    try:
+        import pandas as _pd
+        mp = _pd.read_csv(os.path.join(EXP, "results", "r1_test", "multipeak_test.csv"))
+        lines.append("")
+        lines.append("% ---------- R1: extended-object multi-peak diagnostic ----------")
+        for lab, sub in (("TinyCNN", mp[mp.detector == "tinycnn"]),
+                         ("CFARCA", mp[(mp.detector == "cfar") & (mp.cfar_kind == "CA")])):
+            v = sub["peaks_inside_support"].to_numpy()
+            macro("RoneMultiPeak" + lab,
+                  "{:.1f}\%".format(100.0 * float((v >= 2).mean())))
+    except Exception:
+        pass
+
     # ---------------------------------------------------------------- provenance
     FR = json.load(open(os.path.join(EXP, "results", "preregistration_freeze.json")))
     lines.append("")
