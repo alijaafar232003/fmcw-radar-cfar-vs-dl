@@ -150,6 +150,42 @@ def main():
         macro("Syn" + nm + "Diff", "{:+.4f}".format(r["diff"]))
         macro("Syn" + nm + "Method", r["cfar_method"])
 
+    # ---------------------------------------------------------------- Pd-vs-SNR (dB currency)
+    # The literature reports learned-vs-CFAR margins in dB of SNR at Pd 0.5.
+    # Recomputed here from the frozen sweep artefact so the report never quotes a log.
+    import math
+    sweep = pd.read_csv(os.path.join(ROOT, "results", "dl",
+                                     "pd_vs_snr_frozen_ep021.csv"))
+
+    def _snr50(sub):
+        sub = sub.sort_values("snr")
+        x, y = sub["snr"].to_numpy(), sub["pd"].to_numpy()
+        for i in range(1, len(y)):
+            if y[i - 1] < 0.5 <= y[i]:
+                return x[i - 1] + (0.5 - y[i - 1]) * (x[i] - x[i - 1]) / (y[i] - y[i - 1])
+        return float("nan")
+
+    PFA = 1e-4
+    # Clairvoyant single-cell square-law bound: Pd = Pfa^(1/(1+SNR)); set Pd = 0.5.
+    theory = 10.0 * math.log10(math.log(PFA) / math.log(0.5) - 1.0)
+
+    lines.append("")
+    lines.append("% ---------- Pd vs cell SNR, frozen ep021, matched measured Pfa 1e-4 ----------")
+    macro("SynSnrTheory", "{:.2f}".format(theory))
+    for m in ("CA", "GO", "OS", "SO", "DL"):
+        g1 = sweep[(sweep.gate == 1) & (sweep.method == m)]
+        g0 = sweep[(sweep.gate == 0) & (sweep.method == m)]
+        macro("SynSnrFifty" + m, "{:.2f}".format(_snr50(g1)))
+        v0 = _snr50(g0)
+        macro("SynSnrFiftyExact" + m,
+              "n/a" if math.isnan(v0) else "{:.2f}".format(v0))
+        macro("SynPdMaxExact" + m, "{:.3f}".format(float(g0["pd"].max())))
+    ca1 = _snr50(sweep[(sweep.gate == 1) & (sweep.method == "CA")])
+    dl1 = _snr50(sweep[(sweep.gate == 1) & (sweep.method == "DL")])
+    ca0 = _snr50(sweep[(sweep.gate == 0) & (sweep.method == "CA")])
+    macro("SynSnrGainDL", "{:.2f}".format(ca1 - dl1))
+    macro("SynCfarLossCA", "{:.2f}".format(ca0 - theory))
+
     # ---------------------------------------------------------------- range blocks
     lines.append("")
     lines.append("% ---------- R1: range-stratified (R0 blocks) ----------")

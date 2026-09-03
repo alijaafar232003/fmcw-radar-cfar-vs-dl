@@ -720,6 +720,238 @@ to any single measured difference. Establishing that would require training on m
 observing the consequence --- a different experiment, described in Section~\ref{sec:limits} and in
 the future work of the General Conclusion.
 
+\section{Comparison with published results}
+\label{sec:litcompare}
+
+A result of this kind is only interpretable against what the field has already measured. This
+section places both halves of the project --- the synthetic margin of
+Chapter~\ref{chp:synthetic} and the transfer loss just reported --- beside the published
+literature. The purpose is calibration, not advocacy: the question is whether the numbers obtained
+here are of a normal size, and whether the transfer loss is larger than a reader should expect.
+
+\subsection{Which published results are comparable at all}
+
+Most work described as ``deep learning versus CFAR'' does not measure what this project measures.
+The corpus separates into families that answer different questions, and pooling them is how
+inflated claims of learned superiority arise.
+
+\begin{table}[h!]
+\centering
+\caption{Families in the learned-detection literature, and whether their metric is commensurable
+with the per-cell $P_d$-at-matched-$P_{fa}$ protocol used here.}
+\label{tab:lit_families}
+\begin{tabular}{@{}p{4.2cm}p{5.4cm}p{3.6cm}@{}}
+\toprule
+\textbf{Family} & \textbf{Representative work} & \textbf{Commensurable?} \\
+\midrule
+Per-cell learned threshold, scored against CFAR &
+RadCNN~\cite{yavuz2021radcnn}, Gusland et al.~\cite{gusland2020deeptemporal},
+Lallouet et al.~\cite{lallouet2023loss}, Banerjee et al.~\cite{banerjee2025rctd},
+\emph{and this work} &
+\textbf{Yes} \\
+\addlinespace
+CFAR-property constrained learning &
+CFARnet~\cite{diskin2023cfarnet} &
+Partly --- optimises for the CFAR property, not for $P_d$ \\
+\addlinespace
+Object detection on RD maps &
+DAROD~\cite{decourt2022darod} &
+No --- bounding boxes scored by mAP at an IoU threshold \\
+\addlinespace
+Structure-preserving reformulation &
+Liu et al.~\cite{liu2024cacfarconv} &
+No --- CFAR re-expressed, detection performance unchanged \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Only the first family is used for numerical comparison below. The others are cited where they
+inform interpretation, and are never placed on a shared axis with results from this work.
+
+One theoretical result from the last family bears directly on the design of this project.
+Liu et al.~\cite{liu2024cacfarconv} show that CA-CFAR can be written exactly as a convolution
+followed by a thresholding nonlinearity, with fixed weights: $+1$ on the cell under test and
+$-\alpha/N$ on each training cell. Banerjee et al.~\cite{banerjee2025rctd} restate this result and
+observe that a convolutional layer with \emph{learned} weights and bias is the data-driven
+generalisation of the same operator. The receptive-field-matched TinyCNN of
+Chapter~\ref{chp:detectors} is therefore not merely a small network placed beside CFAR by
+analogy; it occupies the same operator family, with the weights learned rather than derived. This
+is the strongest available justification for treating the two arms as a controlled comparison.
+
+\subsection{The synthetic margin against the literature}
+
+The comparable works report their margin in decibels of cell SNR at a fixed false-alarm rate.
+Table~\ref{tab:lit_db} converts the synthetic benchmark of Chapter~\ref{chp:synthetic} into that
+currency. At the $\pm 1$-bin gate and matched \emph{measured} $P_{fa}$ of $10^{-4}$, the frozen
+network reaches $P_d = 0.5$ at \SynSnrFiftyDL{}\,dB against CA-CFAR's \SynSnrFiftyCA{}\,dB --- a
+margin of \SynSnrGainDL{}\,dB.
+
+\begin{table}[h!]
+\centering
+\caption{Learned-versus-classical margins reported in the comparable literature, beside the
+synthetic result of this work. Positive favours the learned detector.}
+\label{tab:lit_db}
+\begin{tabular}{@{}p{2.9cm}p{3.1cm}p{3.4cm}p{3.6cm}@{}}
+\toprule
+\textbf{Work} & \textbf{Data} & \textbf{Best case} & \textbf{Worst case} \\
+\midrule
+RadCNN~\cite{yavuz2021radcnn} & Simulated pulse-Doppler, Weibull and K clutter &
+$+1$\,dB, target covered by clutter & $-0.8$\,dB, target near clutter with a noise-filled
+reference window \\
+\addlinespace
+Gusland et al.~\cite{gusland2020deeptemporal} & Real X-band FMCW, UAV truth &
+$+0.25$ to $+0.35$ $P_d$ at clutter transitions & Parity below 450\,m \\
+\addlinespace
+Lallouet et al.~\cite{lallouet2023loss} & Simulated exoclutter &
+All network variants ahead of CFAR & Not reported \\
+\addlinespace
+Banerjee et al.~\cite{banerjee2025rctd} & Simulated and on-air, 12--53\,dB SNR &
+Comparable $P_d$ at consistently lower $P_{fa}$ & $P_d$ below 80\,\% under strong
+interference on quantised hardware \\
+\midrule
+\textbf{This work,} \newline \textbf{synthetic} & Simulated FMCW, seven conditions &
+$\mathbf{+\SynSnrGainDL}$\,\textbf{dB} overall; $\SynClutterEdgeDiff{}$ $P_d$ at clutter edges &
+$\SynClutterDiff{}$ $P_d$ in homogeneous clutter (not significant) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two observations follow, and they point in opposite directions.
+
+The first is corroboration. The clutter-edge margin measured here, \SynClutterEdgeDiff{} in $P_d$,
+falls inside the $+0.25$ to $+0.35$ band that Gusland et al.\ report for clutter transitions on
+real X-band data, with a different architecture, a different waveform and a different target class.
+Two independent measurements of the same phenomenon agreeing to that precision is stronger evidence
+than either alone. The homogeneous-clutter tie recorded here (\SynClutterDiff{}, not significant)
+likewise reproduces both RadCNN's noise-only scenario and Gusland's sub-450\,m regime. The overall
+\SynSnrGainDL{}\,dB is of the same order as RadCNN's $+0.5$\,dB average, and was measured under a
+stricter condition: RadCNN matches $P_{fa}$ by \emph{design} and reports its CFAR arms drifting to
+between $1.2$ and $1.7 \times 10^{-3}$ against a design value of $10^{-3}$, whereas the arms
+compared here are matched at measured $P_{fa}$.
+
+The second observation is less comfortable. Every comparable work reports a condition in which its
+network loses. RadCNN loses $0.8$\,dB when the target sits near clutter but the reference window is
+mostly noise; Banerjee's detector falls below 80\,\% $P_d$ under strong interference on quantised
+hardware. The synthetic benchmark of Chapter~\ref{chp:synthetic} contains no such condition: the
+network is ahead or level in all \SynConditions{}. That is atypical, and the honest reading is not
+that this network is better than published ones, but that the synthetic suite does not contain the
+condition that would expose it. RadCNN's losing scenario --- target in noise with clutter
+intruding into the reference window --- has no counterpart in the seven conditions evaluated here,
+and constructing one would be a direct and informative extension of this work.
+
+A third quantity in Table~\ref{tab:lit_db} deserves separate mention, because it bears on a
+disagreement in the literature about \emph{why} a learned detector wins in homogeneous conditions.
+Lallouet et al.\ attribute the win to CFAR loss: because the threshold is estimated from a finite
+reference window it is itself a random variable, and the detector pays for that. The sweep reported
+here measures the quantity directly. At the exact-cell gate, CA-CFAR reaches $P_d = 0.5$ at
+\SynSnrFiftyExactCA{}\,dB against a clairvoyant single-cell bound of \SynSnrTheory{}\,dB --- a
+measured CFAR loss of \SynCfarLossCA{}\,dB. That is a real effect, of the right order to matter near
+the knee of the curve, and it is smaller than the \SynSnrGainDL{}\,dB margin, so it accounts for
+part of that margin but not all of it. Chapter~\ref{chp:attribution} pursues the remainder.
+
+\subsection{An asymmetry that both domains share}
+
+The dB comparison above uses the $\pm 1$-bin gate, and that choice conceals something the
+literature comparison brings into view. At the exact-cell gate the ordering reverses within the
+synthetic domain itself: CA-CFAR reaches $P_d = 0.5$ at \SynSnrFiftyExactCA{}\,dB, while the
+network never reaches it at all, peaking at $P_d = \SynPdMaxExactDL{}$. The network buys sensitivity
+and pays for it in localisation precision.
+
+This is worth stating here rather than in Chapter~\ref{chp:synthetic} alone, because it is the
+same asymmetry that the real-data tolerance ladder of Section~\ref{sec:crossdomain} exposes:
+exact dense-mask recall \RoneTinyCNNExact{} rising to \RoneTinyCNNTolThree{} once a three-bin
+tolerance is allowed. One mechanism --- a detector whose response is broader than a single cell ---
+accounts for a synthetic weakness and a real-data weakness that would otherwise look unrelated.
+That is a more economical explanation than two separate ones, and it is testable: the label
+representation and the decision receptive field are independent design axes, and neither was varied
+in this work.
+
+\subsection{The transfer result against the literature}
+
+For this chapter, the comparison that matters is not the size of the margin but the
+\emph{training regime} under which each result was obtained. Table~\ref{tab:lit_regime} sets them
+out.
+
+\begin{table}[h!]
+\centering
+\caption{Training and evaluation regimes in the comparable literature. No published work in this
+family evaluates a detector on real data drawn from a domain it never saw in training.}
+\label{tab:lit_regime}
+\begin{tabular}{@{}p{3.0cm}p{2.6cm}p{4.6cm}p{2.9cm}@{}}
+\toprule
+\textbf{Work} & \textbf{Trained on} & \textbf{Evaluated on} & \textbf{Test domain seen
+in training?} \\
+\midrule
+RadCNN~\cite{yavuz2021radcnn} & Simulation & The same simulator & Yes \\
+Lallouet et al.~\cite{lallouet2023loss} & Simulation & The same simulator & Yes \\
+Gusland et al.~\cite{gusland2020deeptemporal} & Real measurements & Real measurements from a
+different physical location & Yes --- same sensor, same domain \\
+Banerjee et al.~\cite{banerjee2025rctd} & Simulation & Simulation, plus on-air captures of a
+single parked reflector at high SNR & Partly \\
+DAROD~\cite{decourt2022darod} & CARRADA train split, 50 epochs & CARRADA test split & Yes \\
+\midrule
+\textbf{This work} & \textbf{Simulation only} & \textbf{CARRADA, six held-out sequences} &
+\textbf{No --- zero-shot} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+No work in the comparable family performs the evaluation reported in this chapter. The nearest is
+Banerjee et al., whose on-air data consists of a single parked car, bicycle or pedestrian at a
+nominal single-cell SNR of 53\,dB with a cooperative interferer --- a controlled capture, not a
+moving multi-object street scene. Gusland et al.\ come closest in spirit by training and testing at
+different physical locations, but both sets are real measurements from the same sensor: the domain
+gap there is one of scene, not of data-generating process.
+
+This matters for interpreting the \RoneDelta{} loss reported in Section~\ref{sec:crossdomain}. It
+cannot be placed beside a published transfer number, because no such number exists in this family.
+What can be said is that the one adjacent observation in the wider corpus points the same way. Tosi
+et al.~\cite{tosi2025benchmarking} train a CNN peak detector on a linearised signal model and
+evaluate it on data containing hardware nonlinearities. They find the network comparable to CFAR
+variants within its training regime and degrading outside it, and attribute the degradation to the
+coverage of the training distribution rather than to the architecture. That is the same failure
+mode measured here, observed independently, on a different problem.
+
+A second calibration is available, though it must be handled carefully. DAROD, a
+$3.4$-million-parameter detector trained on the CARRADA training split for 50 epochs, reports a
+recall of $46.03\,\%$ at an IoU threshold of $0.5$, and $52.52\,\%$ at $0.3$, on the same test
+split used here. \textbf{That number is not comparable with the \RoneTinyCNN{} of
+Table~\ref{tab:r1_primary}}: DAROD's metric requires a predicted bounding box to overlap the
+annotation by a fixed fraction \emph{and} to carry the correct class label, whereas the metric used
+here asks only whether a detected peak falls inside the annotated support. The metric used here is
+by a wide margin the more permissive of the two, and no ranking between the two systems is claimed
+or implied. The comparison is admissible for one purpose only: it establishes that CARRADA is a
+demanding benchmark, on which a purpose-built supervised detector trained on the dataset itself
+still misses roughly half of the annotated objects under its own criterion. Read against that, the
+transfer loss reported in this chapter reads as a cost of domain shift rather than as evidence of a
+defective network.
+
+\subsection{What this comparison licenses}
+
+Three statements are supported.
+
+\begin{enumerate}
+\itemsep2pt
+\item \textbf{The synthetic margin is of a normal size.} At \SynSnrGainDL{}\,dB it sits alongside
+RadCNN's $+0.5$\,dB, and the clutter-edge margin reproduces the band Gusland et al.\ measured
+independently on real data. Nothing in the synthetic result requires special explanation.
+\item \textbf{The transfer loss is of the expected shape.} A detector that gains roughly a decibel
+within its own domain and loses recall under a change of data-generating process is behaving as the
+one adjacent published observation predicts.
+\item \textbf{The evaluation is stricter than the family standard} in three specific respects:
+matching at measured rather than design $P_{fa}$; reporting a tolerance ladder rather than a single
+gate; and evaluating on a domain never seen in training.
+\end{enumerate}
+
+Two statements are \emph{not} supported, and are recorded here so that the summary in the General
+Conclusion cannot be read more broadly than the evidence allows. First, none of these comparisons
+establishes that the detector built here outperforms any published detector. The systems differ in
+architecture, data, waveform, metric and operating point, and no controlled comparison between them
+was run; the tables above compare \emph{margins over a classical baseline}, not detectors. Second,
+because no published zero-shot result exists in this family, the transfer loss reported here has no
+external benchmark. It is the first measurement of its kind within the scope of this corpus, and a
+single measurement is not a norm.
+
 \section{Limitations}
 \label{sec:limits}
 

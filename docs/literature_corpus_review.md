@@ -23,7 +23,7 @@ fair?"
 | **A1** | **Yavuz, RadCNN**, EUSIPCO 2021 | 1 conv layer (4 filters 5×3) on 25×5 RD patches, stride 1 | CA/SOCA/GOCA/OS | Pd vs SNR at Pfa 1e-3 | sim, pulse-Doppler, **Weibull + K clutter** | +0.5 dB avg, ~1 dB in clutter, **−0.8 dB in one scenario, TIE in pure noise** |
 | **A2** | **Diskin et al., CFARnet**, 2023 | MMD penalty forcing H0 output distribution invariance | GLRT, Kelly, plain NN | ROC / **CFAR** / **NP** / speed | sim, generic detection | Plain NN has best ROC but **is not CFAR**; CFARnet trades a little ROC for CFAR + best worst-case |
 | **A3** | **Gusland et al.**, FFI, RadarConf 2020 | Fully-conv CNN, **receptive field restricted to match CA-CFAR**, no guard cells; + temporal 3-frame stacking | CA-CFAR | full ROC, Pd vs range | **real** X-band FMCW, UAV GPS truth | Parity below 450 m; +0.25–0.35 Pd in clutter transitions; +40 % detection range |
-| **A4** | **Banerjee et al., RCTD**, IEEE Sensors J 2025 | Recursive quadrant search over 8×8 tiles + light CNN; **proves CA-CFAR ≡ conv + ReLU** | CA/GO/SO | full ROC (Pfa swept 1e-5…1e-1) | sim + on-air IWR1642; FPGA | Comparable Pd, consistently lower Pfa; real-time on ZCU102 |
+| **A4** | **Banerjee et al., RCTD**, IEEE Sensors J 2025 | Recursive quadrant search over 8×8 tiles + light CNN; restates Liu et al.'s CA-CFAR ≡ conv + ReLU result and **generalises it to learned weights** | CA/GO/SO | full ROC (Pfa swept 1e-5…1e-1) | sim + on-air IWR1642; FPGA | Comparable Pd, consistently lower Pfa; real-time on ZCU102 |
 | **A5** | **Lallouet et al.**, Thales | U-Net 2.1 M params; **Dice / Tversky / Lagrangian-constrained** losses | CA-CFAR | Pd vs SNR at fixed Pfa | sim, exoclutter | All NNs beat CFAR; constrained loss best. Attributes win to **CFAR loss from finite reference window** |
 | **B1** | **Yu & Wu, RF-LEGO**, MobiCom '26 | **Deep unrolling**: CFAR structure kept, noise estimator → differentiable state-space model | CA/OS/GO/SO + DL-CFAR | DR at matched FAR 1e-3 | real UWB/mmWave/Wi-Fi | Beats classical CFAR, competitive with black-box DL, **keeps explicit operating-point control** |
 | **B2** | **Tran Vu Hop et al.**, Viettel, 2025 | **Two-stage CFAR**: global CA-CFAR → HDBSCAN clustering → per-region PDF estimation → local CFAR | single-stage CFAR | false-plot reduction | **real** 3D S-band surveillance radar | A *classical* adaptive detector — no DL needed |
@@ -80,9 +80,11 @@ authors recognised that **a network with a better ROC can still be a worse detec
 **B1 RF-LEGO, and Banerjee's conv+ReLU formalism (A4).**
 Keep the CFAR pipeline; make its parameters learnable. RF-LEGO writes CFAR as
 `s_n = C·g₁(r_n) + g₂(r_n)` (g₁ = noise-level selection, g₂ = testing) and replaces the
-non-differentiable g₁ with a differentiable state-space model. Banerjee proves CA-CFAR is exactly a
-convolution + ReLU with weights `+1` on the CUT and `−α/N` on each training cell, bias 0 — with a
-learned kernel as the general case.
+non-differentiable g₁ with a differentiable state-space model. **Liu et al. (MECO 2024) prove** CA-CFAR is exactly a
+convolution + ReLU with weights `+1` on the CUT and `−α/N` on each training cell, bias 0. Banerjee
+(A4) restates this and adds the generalisation: a conv layer with *learned* weights and bias is the
+data-driven extension of the same operator. **Cite Liu for the equivalence, Banerjee for the
+generalisation** — Banerjee credits Liu as [14], not himself.
 
 ### Family 4 — Object detection on RD/RAD (computer-vision transplant)
 **C1 DAROD, C3 Major, B4 Ng.**

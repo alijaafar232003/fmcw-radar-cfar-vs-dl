@@ -385,7 +385,7 @@ comparison against CFAR meaningful. Conflating families is how "DL beats CFAR by
   (a) mainlobe integration — the CNN convolves the whole ~5×5 mainlobe, CFAR tests one cell; and
   (b) **CFAR loss** — the finite reference window makes CFAR's threshold a random variable
   (Lallouet et al., Thales). They must be separated by experiment, not argued.
-- **Banerjee et al. prove CA-CFAR *is* a convolution + ReLU** with fixed weights (+1 on the CUT,
+- **Liu et al. (MECO 2024) prove CA-CFAR *is* a convolution + ReLU** with fixed weights (+1 on the CUT,
   −α/N on each training cell, bias 0). Our matched-receptive-field TinyCNN is therefore the *learned
   instance of a proven generalisation of CA-CFAR* — not merely "a small CNN". This is the theoretical
   backbone the project was missing.
@@ -3887,6 +3887,85 @@ Any CARRADA training, fine-tuning, simulator-realism modification, domain random
 recalibration or NMS adaptation will be treated as a **NEW experiment** with its own
 pre-registration. **No frozen TinyCNN, CFAR, synthetic result, E2, E3 or E4 asset was modified at
 any point during the real-data experiment.**
+
+## Milestone 24 — Quantitative comparison against the published corpus  ✅
+Written into the report as **§7.8 "Comparison with published results"**. Bibliography grown from 1
+to 10 entries. Nine new `numbers.tex` macros (159 total) so no dB figure in the report is typed by
+hand — all recomputed from `results/dl/pd_vs_snr_frozen_ep021.csv` at build time.
+
+**Why this was needed.** Chapters 5–7 reported margins with no external calibration. A jury's first
+question about a −0.109 transfer loss is "is that bad?", and until now the report had no answer.
+
+**The dB currency.** The comparable literature reports margins in dB of cell SNR at Pd 0.5. Ours,
+recomputed from the frozen sweep at matched *measured* Pfa 1e-4, ±1 gate:
+
+| Detector | SNR₅₀ (±1 gate) | SNR₅₀ (exact cell) |
+|---|---|---|
+| Clairvoyant bound | 10.89 dB | 10.89 dB |
+| CA-CFAR | 9.12 dB | 11.36 dB |
+| GO / OS / SO | 9.18 / 9.21 / 9.26 | 11.54 / 11.68 / 11.52 |
+| **TinyCNN** | **8.05 dB** | **never reaches Pd 0.5** (max 0.415) |
+
+→ **TinyCNN +1.07 dB over CA-CFAR** at the ±1 gate; **strictly worse** at the exact-cell gate.
+
+**How that sits against the field:**
+
+| Work | Data | Best case | Worst case |
+|---|---|---|---|
+| RadCNN (Yavuz, EUSIPCO 2021) | sim, Weibull+K | +1 dB (target covered by clutter) | **−0.8 dB** (target near clutter, noise-filled window); tie in pure noise |
+| Gusland (FFI, RadarConf 2020) | real X-band FMCW | +0.25–0.35 Pd at clutter transitions; +30–40 % range | parity below 450 m |
+| Lallouet (Thales, CAID 2023) | sim exoclutter | all NN variants > CFAR | not reported |
+| Banerjee (IEEE Sensors J 2025) | sim + on-air, 12–53 dB | comparable Pd, lower Pfa | Pd < 80 % under strong interference (INT8 HW) |
+| **Ours, synthetic** | sim FMCW, 7 conditions | **+1.07 dB**; +0.302 Pd at clutter edges | −0.002 Pd homogeneous clutter (n.s.) |
+
+**Three findings.**
+1. **Independent replication.** Our clutter-edge +0.302 Pd lands inside Gusland's independently
+   measured +0.25–0.35 band — different architecture, waveform, band, target class. Our homogeneous
+   tie (−0.002, p=0.79) reproduces RadCNN S4 and Gusland <450 m. This is the strongest external
+   corroboration the project has.
+2. **We lose nowhere on synthetic data, and that is a weakness not a strength.** Every comparable
+   work has a losing condition. RadCNN's is S3 (target in noise, clutter intruding into the
+   reference window) — a condition our seven-condition suite does not contain. Constructing it is
+   the single most informative extension available.
+3. **CFAR loss measured, not asserted.** Lallouet attributes the homogeneous-case win to the finite
+   reference window making CFAR's threshold random. Measured here: CA-CFAR SNR₅₀ 11.36 dB at the
+   exact-cell gate vs clairvoyant 10.89 dB → **0.47 dB CFAR loss**. Real, right order of magnitude,
+   but smaller than the 1.07 dB margin — so it explains part of it, not all. Feeds Ch. 6 (H2).
+
+**On the transfer result — nobody in this family has done what we did.**
+
+| Work | Trained on | Test domain seen in training? |
+|---|---|---|
+| RadCNN / Lallouet | sim | Yes (same simulator) |
+| Gusland | real | Yes (same sensor, different location) |
+| Banerjee | sim | Partly — on-air is a single *parked* reflector at 53 dB nominal SNR |
+| DAROD | CARRADA train, 50 epochs | Yes |
+| **Ours** | **sim only** | **No — zero-shot** |
+
+So the −0.109 has **no external benchmark**. The one adjacent observation: Tosi et al. 2025 (ISAC
+benchmark, arXiv 2505.10969) train a CNN on a linearised signal model, evaluate on nonlinear data,
+and find it comparable to CFAR in-regime and degrading out of it — attributing this to training
+distribution coverage, not architecture. Same failure mode, independent problem.
+
+**Scale check on CARRADA difficulty.** DAROD (3.4 M params, trained *on CARRADA*, 50 epochs) reports
+recall **46.03 % @ IoU 0.5** / 52.52 % @ 0.3 on the same test split. **NOT comparable** to our 0.7124
+— ours is far more permissive (any peak inside the mask; no class requirement). Recorded solely to
+establish that CARRADA punishes purpose-built supervised detectors too, which reframes our loss as a
+domain-shift cost. §7.8 states the non-comparability explicitly and claims no ranking.
+
+**One mechanism explains two weaknesses.** Exact-cell failure on synthetic (Pd max 0.415) and exact
+dense-mask recall on CARRADA (0.7124 → 0.8742 at ±3 bins) are the same asymmetry: the network buys
+sensitivity and pays in localisation precision. More economical than two unrelated excuses, and
+testable — label representation and decision receptive field are independent axes, neither varied.
+
+**Citation error found and fixed.** `literature_corpus_review.md:26,83` and `PROGRESS.md:388`
+credited **Banerjee** with proving CA-CFAR ≡ conv + ReLU. Banerjee's own paper credits **Liu,
+Kelber, Vogginger & Mayr, MECO 2024** (DOI 10.1109/MECO62516.2024.10577789) as [14] and *generalises*
+it to learned weights. Both files corrected; both papers now cited in §7.8 for their respective
+contributions. Had this reached the report it would have miscredited a proof.
+
+**Build state:** 48 pages, 0 errors, 0 undefined references, 3 overfull boxes (all pre-existing —
+the new tables add none).
 
 ## Decision history — how the configuration got here
 

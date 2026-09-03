@@ -10,3 +10,116 @@
   year      = {2021},
   doi       = {10.1109/ICPR48806.2021.9413248}
 }
+
+% ======================================================================
+%  Family 1 -- per-cell learned threshold, scored against CFAR.
+%  These are the only works whose metric is commensurable with ours
+%  (P_d at matched P_fa, per cell). See Chapter 7, comparison section.
+% ======================================================================
+
+@inproceedings{yavuz2021radcnn,
+  author    = {Yavuz, Faruk},
+  title     = {Radar Target Detection with {CNN}},
+  booktitle = {29th European Signal Processing Conference (EUSIPCO)},
+  pages     = {1581--1585},
+  year      = {2021},
+  publisher = {IEEE}
+}
+
+@inproceedings{gusland2020deeptemporal,
+  author    = {Gusland, Daniel and Rolfsjord, Sigmund and Torvik, B{\o}rge},
+  title     = {Deep Temporal Detection --- A Machine Learning Approach to
+               Multiple-Dwell Target Detection},
+  booktitle = {2020 IEEE International Radar Conference (RADAR)},
+  pages     = {1--6},
+  year      = {2020},
+  publisher = {IEEE},
+  note      = {Norwegian Defence Research Establishment (FFI)}
+}
+
+@inproceedings{lallouet2023loss,
+  author    = {Lallouet, No{\'e} and Enderli, Cyrille and Cazenave, Tristan and
+               Gourdin, St{\'e}phanie},
+  title     = {Loss Function Design for Training Robust Radar Detectors
+               Using Deep Learning},
+  booktitle = {Conference on Artificial Intelligence for Defense (CAID)},
+  address   = {Rennes, France},
+  year      = {2023}
+}
+
+@article{banerjee2025rctd,
+  author    = {Banerjee, Bhaskar and Khan, Zaheer and Lehtom{\"a}ki, Janne J.},
+  title     = {Efficient Recursive Convolutional Target Detector for {FMCW}
+               Radar with Implementation on a Programmable Deep Learning
+               Processor Unit},
+  journal   = {IEEE Sensors Journal},
+  volume    = {25},
+  number    = {18},
+  pages     = {35039--35052},
+  year      = {2025},
+  doi       = {10.1109/JSEN.2025.3594086}
+}
+
+@inproceedings{liu2024cacfarconv,
+  author    = {Liu, Chen and Kelber, Florian and Vogginger, Bernhard and
+               Mayr, Christian},
+  title     = {{CA-CFAR} is Convolution: Fast Target Detection with
+               Machine Learning Accelerator},
+  booktitle = {13th Mediterranean Conference on Embedded Computing (MECO)},
+  pages     = {1--6},
+  year      = {2024},
+  doi       = {10.1109/MECO62516.2024.10577789}
+}
+
+@misc{tosi2025benchmarking,
+  author       = {Tosi, Paolo and Schieler, Steffen and Henninger, Marcus and
+                  Semper, Sebastian and Mandelli, Silvio},
+  title        = {Benchmarking {CFAR} and {CNN}-based Peak Detection
+                  Algorithms in {ISAC} under Hardware Impairments},
+  year         = {2025},
+  eprint       = {2505.10969},
+  archivePrefix = {arXiv},
+  primaryClass = {eess.SP}
+}
+
+@article{diskin2023cfarnet,
+  author  = {Diskin, Tzvi and Beer, Yiftach and Okun, Uri and Wiesel, Ami},
+  title   = {{CFARnet}: Deep Learning for Target Detection with
+             Constant False Alarm Rate},
+  journal = {Signal Processing},
+  volume  = {223},
+  pages   = {109543},
+  year    = {2024},
+  doi     = {10.1016/j.sigpro.2024.109543}
+}
+
+% ----------------------------------------------------------------------
+%  Object detection on range-Doppler maps. Different task and metric
+%  (mAP at an IoU threshold); cited for scale, never compared directly.
+% ----------------------------------------------------------------------
+
+@inproceedings{decourt2022darod,
+  author    = {Decourt, Colin and Van-Rullen, Rufin and Salle, Didier and
+               Oberlin, Thomas},
+  title     = {{DAROD}: A Deep Automotive Radar Object Detector on
+               Range-Doppler Maps},
+  booktitle = {2022 IEEE Intelligent Vehicles Symposium (IV)},
+  pages     = {112--118},
+  year      = {2022},
+  doi       = {10.1109/IV51971.2022.9827281}
+}
+
+% ----------------------------------------------------------------------
+%  Classical CFAR reference.
+% ----------------------------------------------------------------------
+
+@article{gandhi1988cfar,
+  author  = {Gandhi, Pramod P. and Kassam, Saleem A.},
+  title   = {Analysis of {CFAR} Processors in Nonhomogeneous Background},
+  journal = {IEEE Transactions on Aerospace and Electronic Systems},
+  volume  = {24},
+  number  = {4},
+  pages   = {427--445},
+  year    = {1988},
+  doi     = {10.1109/7.7185}
+}
