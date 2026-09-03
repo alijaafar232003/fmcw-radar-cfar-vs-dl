@@ -24,6 +24,24 @@ Written to be reusable in the report and defensible in a viva.
 >
 > Read "21×21" below as **21 × 9**, and "256 × 128" as **256 × 64**.
 
+> ## ⚠️ Two things that substitution rule does NOT fix (4 Sep 2026)
+> Found while writing report Chapter 2. Both are scheduled for correction when Chapter 4 is
+> written; noted here so nobody uses them in the meantime.
+>
+> 1. **§3.5(b) "it sees all 441 cells" is wrong.** 441 = 21×21. Under the real 21 × 9 window the
+>    footprint is **189 cells**, the guard region is 5 × 5 = **25**, so CFAR estimates from
+>    **164 reference cells**. The *argument* of §3.5(b) is unaffected — the network is not forced
+>    to discard the guard cells and CFAR is — but the numbers are.
+> 2. **§3.2 "both detectors see the same information" overstates the match**, and §3.5's
+>    "Report phrasing" repeats it. Matching the receptive field matches the **spatial footprint**,
+>    which gives comparable local context; it does not make the two decision rules use that context
+>    identically. CFAR takes the CUT as its test statistic, excludes the guard ring, and estimates
+>    the background from the reference cells only. Report Chapter 1 §1.3 (O1) carries the corrected
+>    wording; use that, not the phrasing suggested in §3.5.
+>
+> Also note §9 line "params ≈ 4,945" counts convolution weights only. With BatchNorm the total is
+> **5,041**, which is the figure the frozen configuration and the report use.
+
 ---
 
 # 1. Problem formulation — what kind of ML problem is this?
