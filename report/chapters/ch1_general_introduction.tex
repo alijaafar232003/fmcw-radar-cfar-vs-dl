@@ -1,23 +1,194 @@
 % !TEX root = ../main.tex
-\chapter*{Chapter 1: General Introduction}
-\addcontentsline{toc}{chapter}{Chapter 1: General Introduction}
-\markboth{Chapter 1: General Introduction}{Chapter 1: General Introduction}
-\label{chp:intro}
+\ulfgchapter{1}{General Introduction}{chp:intro}
 
-\section*{Motivation}
-% TODO
+\section{Motivation}
 
-\section*{Problem Statement}
-% TODO
+Automotive radar occupies a position in the perception stack that no other sensor holds. A camera
+fails in darkness, fog and direct glare; a lidar degrades in rain, snow and airborne dust. A
+millimetre-wave radar continues to measure range and radial velocity through all of them, and it
+measures velocity \emph{directly}, from the Doppler shift, rather than inferring it by differencing
+successive frames. For an advanced driver assistance system that must decide whether the object
+ahead is closing at \SI{2}{\metre\per\second} or \SI{20}{\metre\per\second}, that distinction is not
+a convenience but the basis of the decision.
 
-\section*{Objectives}
-% TODO
+The frequency-modulated continuous-wave (FMCW) waveform is what makes this affordable. A linear
+frequency ramp, mixed with its own echo, produces a low-frequency beat whose frequency encodes range
+and whose phase evolution across successive ramps encodes velocity. Two Fourier transforms convert a
+block of received samples into a \emph{range--Doppler map}: a two-dimensional image in which a target
+appears as a localised concentration of energy at its range and its radial velocity. Everything that
+follows in a radar processing chain --- clustering, tracking, classification, and ultimately the
+decision to brake --- operates on what is extracted from that image.
 
-\section*{Contributions}
-% TODO -- the three that matter:
-%  1. a controlled, like-for-like CFAR vs CNN comparison (matched receptive field / window)
-%  2. an attribution programme explaining WHERE the learned advantage comes from
-%  3. a pre-registered zero-shot external validation on real CARRADA data
+Extraction is a detection problem, and it is the first irreversible step in the chain. A target that
+the detector misses is not recovered by any downstream stage: the tracker never receives it, the
+classifier never sees it, the planner never accounts for it. A spurious detection propagates in the
+opposite direction, consuming track resources and, in the worst case, triggering an intervention
+that was never warranted. The detector therefore sets a ceiling on the performance of everything
+built above it.
 
-\section*{Report Outline}
-% TODO
+For roughly fifty years the standard answer has been the constant false alarm rate (CFAR) family of
+detectors. Their central idea is elegant and remains compelling: rather than compare each cell
+against a fixed threshold --- which would require knowing the noise power, a quantity that varies
+with temperature, terrain, weather and interference --- estimate the local background from the cells
+surrounding the cell under test, and scale that estimate by a multiplier chosen to hold the
+false-alarm rate constant. The detector adapts to conditions it was never told about. It is
+analytically tractable, requires no training data, costs almost nothing to compute, and its
+behaviour can be predicted in closed form under stated assumptions.
+
+Those assumptions are also its limitation, and they were characterised early. Gandhi and
+Kassam~\cite{gandhi1988cfar} showed that cell-averaging CFAR degrades sharply in exactly the
+situations that matter operationally: at clutter edges, where the reference window straddles two
+different background levels and the threshold is set from the wrong one; and under target masking,
+where a second target inside the reference window inflates the background estimate and suppresses
+the detection of the first. Variants --- greatest-of, smallest-of, order-statistic --- each repair
+one failure mode and worsen another. Their conclusion was that no single CFAR detector performs well
+across all backgrounds, and that an adaptive approach may be required if operating conditions change.
+
+That conclusion is, in effect, an invitation to learn the detector from data, and over the past
+decade a substantial body of work has accepted it. Convolutional networks applied to range--Doppler
+maps have been reported to outperform CFAR by margins ranging from a fraction of a decibel to
+several orders of magnitude in false-alarm rate. The claims are, on their face, considerable.
+
+\section{Problem statement}
+
+The difficulty is that these claims are hard to compare, and in several cases hard to interpret at
+all.
+
+A comparison between a classical and a learned detector is only meaningful if both are given the
+same information, evaluated at the same operating point, and scored by the same rule. In much of the
+published literature at least one of these conditions fails, usually silently. A network may be
+given a preprocessed input --- windowed, matched-filtered, or presented at several resolutions ---
+while the CFAR baseline receives the raw magnitude. A network may observe a spatial context far
+larger than the CFAR reference window, so that the two are not solving the same local problem. A
+network may be retrained for each test condition while the classical detector keeps a single global
+parameter set. False-alarm rates may be matched by \emph{design}, using the analytic CFAR
+expression, rather than by measurement --- and it is well documented, including by
+authors reporting learned wins~\cite{yavuz2021radcnn}, that CFAR detectors do not attain their
+design $\Pfa$ in clutter. Finally, a detection may be scored as correct if it lands within some
+tolerance of the truth, in which case a detector that responds over a broad region is rewarded for
+imprecision.
+
+Each of these is defensible in isolation. Together they make the reported margin a property of the
+experimental setup as much as of the detector. A reader is left unable to answer three questions
+that ought to be separable:
+
+\begin{enumerate}
+\itemsep2pt
+\item \textbf{Is there a real advantage} when the two detectors are given genuinely equivalent
+information and scored at a genuinely matched operating point?
+\item \textbf{Where does it come from?} A margin that is not attributed to a mechanism is not
+understood, and cannot be relied upon to appear again under different conditions.
+\item \textbf{Does it survive outside the training domain?} A detector trained on simulated data and
+evaluated on the same simulator has demonstrated that it learned the simulator. Whether it learned
+\emph{radar} is a separate question, and one that the majority of the literature does not ask.
+\end{enumerate}
+
+The third question carries particular weight for a learned detector, and for a reason specific to
+this problem. CFAR estimates its threshold from the data in front of it at inference time, so its
+adaptation mechanism travels with it to any domain. A trained network carries its adaptation in
+frozen weights, fitted to whatever distribution produced its training data. If that distribution and
+the deployment distribution differ, there is no mechanism by which the network can notice.
+
+\section{Objectives}
+
+This project sets out to answer those three questions under conditions strict enough that the
+answers mean something. Four objectives follow.
+
+\begin{description}
+\itemsep3pt
+\item[O1 --- Build a controlled comparison.] Construct a classical arm and a learned arm that
+receive the same input representation, observe the same spatial context, and are scored by a single
+evaluator at a matched \emph{measured} false-alarm rate. The learned arm's receptive field is
+matched deliberately to the CFAR reference window, so that neither detector sees information the
+other does not.
+
+\item[O2 --- Measure the margin.] Quantify the difference across a suite of conditions chosen to
+include both the regimes where CFAR is known to be near-optimal and those where it is known to fail,
+with confidence intervals and correction for multiple comparisons.
+
+\item[O3 --- Attribute it.] Determine \emph{why} any margin exists, by separating rival explanations
+experimentally rather than by argument. Two candidates are identified in the literature and both
+predict a learned advantage in homogeneous conditions, so neither can be accepted without excluding
+the other.
+
+\item[O4 --- Test external validity.] Evaluate the frozen detectors, without retraining or
+recalibration of any kind, on real automotive radar measurements from a public dataset, under a
+protocol registered and hash-frozen before the test data were scored.
+\end{description}
+
+An objective that is deliberately \emph{not} adopted should be stated alongside them. This project
+does not aim to produce a state-of-the-art detector. A larger network, trained on real data with
+modern augmentation, would almost certainly detect more targets than the one built here. The aim is
+to measure a difference under conditions where the measurement can be trusted, and a small
+well-understood result serves that aim better than a large unexplained one.
+
+\section{Contributions}
+
+\begin{enumerate}
+\itemsep4pt
+\item \textbf{A controlled like-for-like protocol.} The learned detector's receptive field is matched
+to the CFAR window, both arms are scored by one evaluator through a single code path, operating
+points are matched at measured rather than design $\Pfa$, and results are reported across a
+tolerance ladder rather than at one gate. Each of these choices closes a specific asymmetry
+identified in the literature, and each is documented with the asymmetry it addresses.
+
+\item \textbf{A quantified and externally calibrated margin.} On synthetic data the learned detector
+leads by \SynSnrGainDL{}\,dB of cell signal-to-noise ratio at matched measured $\Pfa$, reaching
+\SynClutterEdgeDiff{} in $\Pd$ at clutter edges --- a figure that falls inside the band independently
+reported for clutter transitions on real X-band measurements~\cite{gusland2020deeptemporal}. The
+CFAR loss hypothesised as the cause of learned wins in homogeneous
+conditions~\cite{lallouet2023loss} is measured directly rather than assumed, at
+\SynCfarLossCA{}\,dB against a clairvoyant bound.
+
+\item \textbf{An attribution programme} that decomposes the margin into named mechanisms, each with
+an experiment capable of falsifying it, rather than reporting the margin as a single unexplained
+number.
+
+\item \textbf{A pre-registered zero-shot external validation.} The frozen detectors are evaluated on
+the CARRADA automotive radar dataset~\cite{ouaknine2021carrada} with no real-data training,
+fine-tuning or recalibration, under a protocol frozen by cryptographic hash before any test frame
+was scored. No published work in the comparable family performs this evaluation. \textbf{The
+ordering established on synthetic data reverses}, and the report treats that reversal as the
+principal finding rather than as an anomaly to be explained away.
+
+\item \textbf{A reproducibility apparatus} proportionate to the claims: frozen model and detector
+artefacts, isolation manifests protecting completed experiments from later modification, immutable
+raw evidence retained alongside the derived tables, and a corrections log recording every analysis
+error found and superseded during the work.
+\end{enumerate}
+
+\section{Report outline}
+
+The report follows the order in which the work was done, because several of its conclusions depend
+on what was known at the time a decision was taken.
+
+\textbf{Chapter~\ref{chp:background}} develops the radar background needed for the rest: the FMCW
+waveform, range and Doppler estimation, the construction of the range--Doppler map, and the CFAR
+family with its documented failure modes. It then reviews learned detection, and argues that the
+published literature separates into families whose metrics are not interchangeable --- a distinction
+the remainder of the report observes strictly.
+
+\textbf{Chapter~\ref{chp:simulator}} describes the simulator, the radar specification, and the design
+of the labelled datasets. The radar parameters were chosen to reproduce the range--Doppler bin
+geometry of the real dataset used in Chapter~\ref{chp:realdata}, so that a target occupies a
+comparable number of cells in both domains and any later transfer failure cannot be dismissed as a
+scaling artefact.
+
+\textbf{Chapter~\ref{chp:detectors}} specifies both detectors and freezes the evaluation protocol:
+peak extraction, matching, the operating-point definition, and the statistical treatment. The
+protocol is fixed before any comparative result is produced.
+
+\textbf{Chapter~\ref{chp:synthetic}} reports the synthetic benchmark across the seven conditions,
+including the detection probability as a function of cell signal-to-noise ratio that puts the result
+into the units the literature uses.
+
+\textbf{Chapter~\ref{chp:attribution}} asks where the measured margin comes from, and reports the
+experiments that separate the competing explanations.
+
+\textbf{Chapter~\ref{chp:realdata}} evaluates the frozen detectors zero-shot on real automotive radar
+data under the pre-registered protocol, audits the domain difference before scoring, reports the
+reversal, and places both halves of the project against the published literature.
+
+The \textbf{General Conclusion} states what the evidence supports, what it does not, and what the
+natural continuations are. Three appendices record the corrections log, the frozen pre-registration
+and the supporting tables.
