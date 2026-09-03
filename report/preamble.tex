@@ -80,5 +80,30 @@
 \newtcolorbox{keynote}[1][]{colback=shade, colframe=dlblue!70!black, boxrule=0.6pt,
   left=6pt, right=6pt, top=5pt, bottom=5pt, breakable, #1}
 
+
+% ----------------------------------------------------------------------
+%  ULFG chapter heading.
+%
+%  The department house style uses an UNNUMBERED chapter whose number is
+%  written into the title text. Done naively with a starred chapter, LaTeX
+%  never increments the chapter counter, so it stays at 0 and every section,
+%  figure and table numbers as 0.1, 0.2, 0.3 ... running globally across the
+%  whole report. Setting the counter explicitly restores 7.1, 7.2, Figure 7.3
+%  and so on while keeping the unnumbered heading the style calls for.
+%
+%  Usage:  \ulfgchapter{7}{Real-Data External Validation}{chp:realdata}
+% ----------------------------------------------------------------------
+\newcommand{\ulfgchapter}[3]{%
+  \setcounter{chapter}{#1}%
+  \setcounter{section}{0}%
+  \setcounter{figure}{0}%
+  \setcounter{table}{0}%
+  \setcounter{equation}{0}%
+  \chapter*{Chapter #1: #2}%
+  \addcontentsline{toc}{chapter}{Chapter #1: #2}%
+  \markboth{Chapter #1: #2}{Chapter #1: #2}%
+  \label{#3}%
+}
+
 % Auto-generated results. NEVER hand-type a number in the body text.
 \input{numbers.tex}
