@@ -432,7 +432,7 @@ Table~\ref{tab:families} groups the reviewed literature accordingly. Only the fi
 $\Pd$ against CFAR at a matched false-alarm rate on a per-cell decision, which is the quantity this
 report measures.
 
-\begin{table}[h!]
+\begin{table}[H]
 \centering
 \caption{Families in the learned-detection literature. Only the first measures the same quantity as
 this work.}
@@ -467,33 +467,59 @@ No \\
 
 \subsection{The four directly relevant works}
 
-Four studies compare a learned detector against CFAR in the same terms as this report.
+Four studies are particularly relevant to this work, and each for a different reason. RadCNN and
+Gusland et al.\ provide direct CNN-versus-CFAR performance comparisons. Lallouet et al.\ motivate
+the CFAR-loss hypothesis. Liu et al.\ and Banerjee et al.\ supply the theoretical connection
+between fixed CFAR processing and learned convolutional processing.
 
-\textbf{RadCNN}~\cite{yavuz2021radcnn} evaluates a convolutional detector against CA, GO, SO and OS
-CFAR on simulated data with Weibull and K-distributed clutter. The reported picture is mixed by
-design: the network gains in some clutter conditions, ties CFAR in simple homogeneous noise, and
-\emph{loses} in one scenario, where the target lies near clutter but its reference window is filled
-mostly with noise.
+\subsubsection*{RadCNN: a learned detector does not always win}
 
-\textbf{Gusland et al.}~\cite{gusland2020deeptemporal} train a fully convolutional detector on real
-X-band FMCW measurements, with UAV GPS truth, and deliberately restrict the network's receptive
-field to match the CA-CFAR patch. They report approximate parity with CFAR in homogeneous
-conditions, and gains of roughly $0.25$ to $0.35$ in $\Pd$ around clutter transitions. That figure
-is quoted here because Chapter~\ref{chp:realdata} compares it against the clutter-edge result
+RadCNN~\cite{yavuz2021radcnn} evaluates a convolutional detector against CA, GO, SO and OS CFAR on
+simulated data with Weibull and K-distributed clutter. Its value here is that the reported outcome
+is mixed rather than uniformly favourable. The network gains over CFAR in some clutter conditions.
+It ties CFAR in simple homogeneous noise. And it loses in at least one scenario, where the target
+lies near clutter but its reference window is filled mostly with noise.
+
+\subsubsection*{Gusland et al.: the closest experimental comparison to this work}
+
+Of the reviewed studies, Gusland et al.~\cite{gusland2020deeptemporal} is the one whose experimental
+setup most resembles the present work. They use real X-band FMCW measurements, with a UAV carrying
+GPS for ground truth, rather than simulation. They deliberately restrict the network's receptive
+field to match the CA-CFAR patch, so that both detectors work from comparable local context.
+
+Their results are consistent with RadCNN. In homogeneous regions the network approximately ties
+CFAR. Around clutter transitions it gains roughly $0.25$ to $0.35$ in $\Pd$. That figure is quoted
+here because Chapter~\ref{chp:realdata} compares it directly against the clutter-edge result
 measured in this work.
 
-\textbf{Lallouet et al.}~\cite{lallouet2023loss} report a learned detector outperforming CFAR on
-simulated exoclutter data, and propose the finite-reference CFAR loss of
-Section~\ref{sec:cfar_loss} as one possible explanation.
+\subsubsection*{Lallouet et al.: a proposed explanation for the gains}
 
-\textbf{Liu et al.}~\cite{liu2024cacfarconv} and \textbf{Banerjee et al.}~\cite{banerjee2025rctd}
-supply the structural result of Section~\ref{sec:cfar_as_conv}: CA-CFAR can be represented using
-convolution-like fixed weights, and later work extends that idea towards learned weights.
+Lallouet et al.~\cite{lallouet2023loss} report a learned detector outperforming CFAR on simulated
+exoclutter data. Their contribution to this report is not the margin but the explanation they offer
+for it: the finite reference window of Section~\ref{sec:cfar_loss} makes CFAR's threshold an
+estimate rather than a known quantity, and a learned detector does not pay that penalty.
 
-Two patterns run through the first three, and both shape this report. A well-constructed CNN
-typically \emph{ties} CFAR in simple homogeneous conditions rather than beating it, and it normally
-loses somewhere. And at least two different explanations are offered for the gains that do occur:
-the network's different use of its local context, and CFAR estimation loss.
+This is a testable claim, and it is one of the candidate mechanisms examined in the attribution
+experiments of Chapter~\ref{chp:attribution}.
+
+\subsubsection*{Liu et al.\ and Banerjee et al.: the structural connection}
+
+These two works are conceptual support rather than a further detector benchmark, and they are cited
+for that reason. Liu et al.~\cite{liu2024cacfarconv} show that CA-CFAR can be represented using
+convolution-like fixed weights. Banerjee et al.~\cite{banerjee2025rctd} extend the idea towards
+learned weights.
+
+Together they support the framing used throughout this report: \textbf{CFAR is a fixed local rule,
+and a CNN is a learned local rule}, applied over comparable context.
+
+\subsubsection*{Two patterns}
+
+Two observations run through the comparative studies. First, learned detectors often provide little
+advantage over a well-configured CFAR in homogeneous conditions, but can gain in more difficult
+clutter. Second, the reasons for those gains are not fully established.
+
+These two observations motivate what follows: a controlled benchmark that measures the difference
+under matched conditions, and a set of attribution experiments that tests why it arises.
 
 \section{Gap addressed by this work}
 
