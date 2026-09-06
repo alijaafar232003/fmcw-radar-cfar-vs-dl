@@ -53,10 +53,12 @@ work.
 \centering
 \includegraphics[width=0.92\textwidth]{figures/Chapter2/ch2_fig1_fmcw_chirp.png}
 \caption[FMCW chirp geometry and the beat frequency]{Top: the received echo is a delayed copy of
-the transmitted chirp, so the two differ by a constant frequency $f_b$. The delay is drawn
-magnified by 60 for visibility; the true value at \SI{20}{\metre} is stated on the figure and is
-only \SI{0.133}{\micro\second}. Bottom: the resulting beat tone, shown over a
-\SI{4}{\micro\second} window so that individual cycles are visible.}
+the transmitted chirp, so mixing the two produces a beat frequency proportional to range. The delay
+is drawn magnified by a factor of 60 for visibility, \emph{and the vertical gap labelled $f_b$ is
+exaggerated by the same factor} --- it is not drawn at \SI{1.42}{\mega\hertz}. The true values at
+\SI{20}{\metre} are $\tau = \SI{0.133}{\micro\second}$ and $f_b = \SI{1.42}{\mega\hertz}$. Bottom:
+the resulting beat tone at true scale, over a \SI{4}{\micro\second} window so that individual
+cycles are visible.}
 \label{fig:chirp}
 \end{figure}
 
@@ -67,14 +69,18 @@ converts the tone into a peak at a known frequency bin. By equation~\eqref{eq:be
 corresponds to a range. This first transform is called the \emph{range FFT}, and it is taken along
 what is known as \emph{fast time}, meaning the samples within a single chirp.
 
-Two targets are resolved in range only if their beat tones differ by at least one frequency bin,
-which yields the standard range resolution
+As a nominal resolution criterion, two targets require approximately one range-resolution cell of
+separation before they appear as separate peaks. This gives
 \begin{equation}
 \Delta R = \frac{c}{2B}.
 \label{eq:range_res}
 \end{equation}
-Resolution depends on the swept bandwidth alone. It does not depend on the chirp duration, the
-transmitted power, or the range of the target.
+The nominal FMCW range resolution is therefore determined primarily by the swept bandwidth, under
+the standard assumptions of a linear sweep, an unwindowed transform and sufficient
+signal-to-noise ratio. In particular it does not improve with a longer chirp, with higher
+transmitted power, or at shorter target range. Window functions applied before the transform, which
+suppress sidelobes, broaden the main lobe and so widen the achieved resolution beyond this nominal
+value.
 
 \subsection{Doppler estimation and the range--Doppler map}
 
@@ -86,15 +92,21 @@ of a wavelength and therefore produces a measurable phase rotation.
 
 Taking a second Fourier transform across the $M$ chirps, at each range bin, converts that phase
 rotation into a frequency: the Doppler shift. This transform is taken along \emph{slow time},
-meaning across chirps. The velocity resolution follows the same reasoning as
-equation~\eqref{eq:range_res}:
+meaning across chirps. The relevant time step here is the \emph{chirp repetition interval} $T_r$,
+the spacing between the starts of consecutive chirps, which in general is the chirp duration plus
+any idle time between chirps. \textbf{The radar modelled in this work transmits chirps
+back to back with no idle time, so $T_r = T_c$ throughout}; the two symbols are used
+interchangeably from here on, and the simulator samples slow time at exactly this spacing. The
+velocity resolution then follows the same reasoning as equation~\eqref{eq:range_res}:
 \begin{equation}
-\Delta v = \frac{\lambda}{2 M T_c},
+\Delta v = \frac{\lambda}{2 M T_r},
 \qquad
-v_{\max} = \pm\frac{\lambda}{4 T_c},
+v_{\max} = \pm\frac{\lambda}{4 T_r},
+\qquad T_r = T_c \text{ here},
 \end{equation}
 where $\lambda = c/f_c$ is the wavelength at carrier frequency $f_c$. Longer observation, meaning
-more chirps, gives finer velocity resolution; shorter chirps extend the unambiguous velocity range.
+more chirps, gives finer velocity resolution; a shorter repetition interval extends the unambiguous
+velocity range.
 
 The output of the two transforms is a two-dimensional array indexed by range bin and Doppler bin:
 the \emph{range--Doppler map}. Each target appears as a localised concentration of energy at its
@@ -121,7 +133,9 @@ Figure~\ref{fig:rdmap} shows both effects on one frame of the benchmark used in 
 \includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig3_rd_map_example.png}
 \caption[A range--Doppler map and the detection problem]{Left: the target response on its own.
 Centre: the same frame as the sensor delivers it. Right: a cut through the target's range bin. The
-detection problem is to decide, cell by cell, which peaks are targets and which are background.}
+detector assigns scores or decisions to RD cells, after which local peaks are extracted as target
+candidates; Chapter~\ref{chp:detectors} specifies that extraction step and makes it identical for
+both detectors.}
 \label{fig:rdmap}
 \end{figure}
 

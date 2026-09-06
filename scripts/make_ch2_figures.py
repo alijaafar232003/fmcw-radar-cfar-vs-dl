@@ -99,9 +99,9 @@ def fig_chirp():
     f_tx = t0 / Tc_us * B_MHz
     f_rx = (t0 - tau_plot) / Tc_us * B_MHz
     a.plot([t0, t0], [f_rx, f_tx], color=GOLD, lw=3.0, solid_capstyle="butt")
-    a.annotate("$f_b$: the two differ by a\nconstant frequency",
+    a.annotate("the two differ by a constant\nfrequency $f_b$ (gap NOT to scale)",
                xy=(t0, (f_rx + f_tx) / 2),
-               xytext=(t0 + 0.07 * Tc_us, 0.30 * B_MHz),
+               xytext=(t0 + 0.07 * Tc_us, 0.26 * B_MHz),
                arrowprops=dict(arrowstyle="->", color=GOLD, lw=1.1),
                color=GOLD, fontsize=8.2)
 
@@ -113,8 +113,10 @@ def fig_chirp():
     a.set_title("The echo is a delayed copy of the chirp, so the delay becomes a frequency")
     a.spines[["top", "right"]].set_visible(False)
     a.text(0.985, 0.06,
-           "delay drawn $\\times$%d for visibility;\ntrue $\\tau$ = %.3f $\\mu$s at $R$ = 20 m"
-           % (EXAG, tau_us),
+           "Delay drawn $\\times$%d for visibility, so the vertical\n"
+           "gap is exaggerated by the same factor.\n"
+           "True values at $R$ = 20 m: $\\tau$ = %.3f $\\mu$s, $f_b$ = %.2f MHz."
+           % (EXAG, tau_us, fb / 1e6),
            transform=a.transAxes, ha="right", va="bottom", fontsize=7.4, color=GREY)
 
     # --- beat tone, over a short window so individual cycles are visible
@@ -127,9 +129,11 @@ def fig_chirp():
     b.set_yticks([])
     b.set_xlim(20.0, 20.0 + span)
     b.spines[["top", "right", "left"]].set_visible(False)
-    b.set_title("The resulting beat tone: one frequency per target range", fontsize=9)
+    b.set_title("Mixing the transmitted chirp with its delayed echo produces a beat "
+                "frequency proportional to range", fontsize=9)
     b.text(0.985, 0.94,
-           "$f_b = 2BR / (c\\,T_c)$;    $R = 20$ m $\\Rightarrow f_b = %.2f$ MHz" % (fb / 1e6),
+           "$f_b = 2BR / (c\\,T_c)$;    $R = 20$ m $\\Rightarrow f_b = %.2f$ MHz "
+           "(shown here at true scale)" % (fb / 1e6),
            transform=b.transAxes, ha="right", va="top", fontsize=8.4, color=INK)
 
     fig.tight_layout()
@@ -144,37 +148,48 @@ def fig_chirp():
 # ----------------------------------------------------------------------- Fig 2.2
 def fig_chain():
     """From received samples to the range-Doppler map: two FFTs."""
-    fig, ax = plt.subplots(figsize=(7.0, 2.5))
-    ax.axis("off")
-    ax.set_xlim(0, 100)
-    ax.set_ylim(0, 34)
+    # Five boxes of width w with gap g: the row spans 5w + 4g. Lay it out symmetrically
+    # inside the axes so the final box is never clipped at the right edge.
+    w, h, g = 18, 15, 5
+    n_box = 5
+    span = n_box * w + (n_box - 1) * g          # 99
+    margin = 2.0
+    x_lim = span + 2 * margin                   # 103
 
-    boxes = [
-        (2,  "Received\nsamples", "$N \\times M$\n%d $\\times$ %d" % (CFG.N, CFG.M)),
-        (23, "Range FFT\n(fast time)", "along $N$"),
-        (44, "Doppler FFT\n(slow time)", "along $M$"),
-        (65, "Range--Doppler\nmap", "%d $\\times$ %d bins" % (CFG.N // 2, CFG.M)),
-        (86, "Detector", "CFAR or CNN"),
+    fig, ax = plt.subplots(figsize=(7.2, 2.1))
+    ax.axis("off")
+    ax.set_xlim(0, x_lim)
+    ax.set_ylim(3, 34)
+
+    # NB: matplotlib is not LaTeX -- "--" would render as two hyphens, so use the
+    # en-dash character directly.
+    labels = [
+        ("Received\nsamples", "$N \\times M$\n%d $\\times$ %d" % (CFG.N, CFG.M), 8.2),
+        ("Range FFT\n(fast time)", "along $N$", 8.2),
+        ("Doppler FFT\n(slow time)", "along $M$", 8.2),
+        ("Range–Doppler\nmap", "%d $\\times$ %d bins" % (CFG.N // 2, CFG.M), 7.5),
+        ("Detector", "CFAR or CNN", 8.2),
     ]
-    w, h = 15, 15
-    for x, title, sub in boxes:
+    boxes = [(margin + i * (w + g), t, s, fs) for i, (t, s, fs) in enumerate(labels)]
+    for x, title, sub, fs in boxes:
         edge = BLUE if "Detector" not in title else RED
         ax.add_patch(Rectangle((x, 11), w, h, fill=True, facecolor="white",
                                edgecolor=edge, lw=1.5, zorder=2))
-        ax.text(x + w / 2, 21.5, title, ha="center", va="center", fontsize=8.6,
+        ax.text(x + w / 2, 21.5, title, ha="center", va="center", fontsize=fs,
                 color=INK, zorder=3)
         ax.text(x + w / 2, 15.0, sub, ha="center", va="center", fontsize=7.4,
                 color=GREY, zorder=3)
 
-    for x, _, _ in boxes[:-1]:
-        ax.annotate("", xy=(x + w + 5.4, 18.5), xytext=(x + w + 0.6, 18.5),
+    for x, _, _, _ in boxes[:-1]:
+        ax.annotate("", xy=(x + w + g - 0.6, 18.5), xytext=(x + w + 0.6, 18.5),
                     arrowprops=dict(arrowstyle="->", color=INK, lw=1.2))
 
-    ax.text(30.5, 7.0, "range resolution\n$c/2B$ = %.3f m" % DER.range_res,
+    ax.text(boxes[1][0] + w / 2, 7.0, "range resolution\n$c/2B$ = %.3f m" % DER.range_res,
             ha="center", fontsize=7.4, color=BLUE)
-    ax.text(51.5, 7.0, "velocity resolution\n$\\lambda/2MT_c$ = %.3f m/s" % DER.vel_res,
+    ax.text(boxes[2][0] + w / 2, 7.0,
+            "velocity resolution\n$\\lambda/2MT_r$ = %.3f m/s" % DER.vel_res,
             ha="center", fontsize=7.4, color=BLUE)
-    ax.text(50, 30, "This chapter concerns the final stage only.",
+    ax.text(x_lim / 2, 30, "This chapter concerns the final stage only.",
             ha="center", fontsize=8.4, color=RED)
     save(fig, "ch2_fig2_processing_chain.png")
 
@@ -238,7 +253,8 @@ def fig_rd_example():
     ax[2].set_title("Cut through the target's range bin")
     ax[2].spines[["top", "right"]].set_visible(False)
     ax[2].text(0.03, 0.03,
-               "The detector must decide,\ncell by cell, which peaks\nare targets.",
+               "The detector scores each cell;\nlocal peaks are then extracted\n"
+               "as target candidates.",
                transform=ax[2].transAxes, va="bottom", fontsize=7.4, color=GREY)
 
     fig.tight_layout()
