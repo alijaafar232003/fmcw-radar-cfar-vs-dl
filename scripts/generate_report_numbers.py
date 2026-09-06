@@ -9,6 +9,7 @@ Usage:  python scripts/generate_report_numbers.py
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 
@@ -150,10 +151,50 @@ def main():
         macro("Syn" + nm + "Diff", "{:+.4f}".format(r["diff"]))
         macro("Syn" + nm + "Method", r["cfar_method"])
 
+    # ---------------------------------------------------------------- Chapter 3: radar + datasets
+    # Read from src/radar/config.py so the report cannot drift from the simulator.
+    sys.path.insert(0, os.path.join(ROOT, "src"))
+    from radar.config import RadarConfig, derive_radar_params            # noqa: E402
+    from radar.calibration import snr_processing_gain_db                 # noqa: E402
+
+    rc = RadarConfig()
+    rd = derive_radar_params(rc)
+
+    lines.append("")
+    lines.append("% ---------- Chapter 3: sensor specification ----------")
+    macro("RadarFc", "{:.0f}".format(rc.fc / 1e9))
+    macro("RadarB", "{:.0f}".format(rc.B / 1e6))
+    macro("RadarTc", "{:.1f}".format(rc.Tc * 1e6))
+    macro("RadarN", rc.N)
+    macro("RadarM", rc.M)
+    macro("RadarRangeBins", rc.N // 2)
+    macro("RadarLambda", "{:.4f}".format(rd.lambda_m * 1e3))
+    macro("RadarSlope", "{:.4f}".format(rd.slope / 1e12))
+    macro("RadarFs", "{:.4f}".format(rd.fs / 1e6))
+    macro("RadarRangeRes", "{:.4f}".format(rd.range_res))
+    macro("RadarRangeMax", "{:.2f}".format(rd.range_max))
+    macro("RadarVelRes", "{:.4f}".format(rd.vel_res))
+    macro("RadarVelMax", "{:.2f}".format(rd.vel_max))
+    macro("RadarFrameTime", "{:.4f}".format(rc.M * rc.Tc * 1e3))
+    macro("RadarCoherentGain", "{:.2f}".format(10.0 * math.log10(rc.N * rc.M)))
+    macro("RadarProcGain", "{:.2f}".format(snr_processing_gain_db(rc)))
+    # The effective bandwidth implied by CARRADA's own bin geometry (Chapter 3 derivation).
+    macro("CarradaBeff", "{:.0f}".format(
+        2.998e8 * (rc.N // 2) / (2.0 * 50.0) / 1e6))
+    macro("CarradaQuotedB", "4")
+    macro("CarradaBinSpacing", "{:.3f}".format(50.0 / (rc.N // 2)))
+
+    lines.append("")
+    lines.append("% ---------- Chapter 3: dataset splits ----------")
+    for split in ("train", "val", "tune", "test", "snr_sweep"):
+        d = os.path.join(ROOT, "data", "bench2_" + split, "frames")
+        n = len(os.listdir(d)) if os.path.isdir(d) else 0
+        nm = "".join(w.capitalize() for w in split.split("_"))
+        macro("Bench" + nm + "Frames", "{:,}".format(n))
+
     # ---------------------------------------------------------------- Pd-vs-SNR (dB currency)
     # The literature reports learned-vs-CFAR margins in dB of SNR at Pd 0.5.
     # Recomputed here from the frozen sweep artefact so the report never quotes a log.
-    import math
     sweep = pd.read_csv(os.path.join(ROOT, "results", "dl",
                                      "pd_vs_snr_frozen_ep021.csv"))
 
