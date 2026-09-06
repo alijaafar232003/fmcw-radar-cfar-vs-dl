@@ -418,9 +418,15 @@ def fig_failure_modes():
 
 # ----------------------------------------------------------------------- Fig 2.6
 def fig_cfar_as_convolution(n_ref):
-    """CA-CFAR written as a convolution kernel, beside the learned generalisation."""
-    k = np.zeros((WIN_D, WIN_R))
+    """Two decision rules over the same local footprint: fixed versus learned.
+
+    The earlier version of this figure showed a random 21x9 "learned kernel" beside the CFAR
+    kernel, which wrongly suggested TinyCNN is a single learned 21x9 convolution. It is a stack
+    of four dilated 3x3 layers whose composed receptive field is 21x9, and the figure now shows
+    that structure instead.
+    """
     cd, cr = WIN_D // 2, WIN_R // 2
+    k = np.zeros((WIN_D, WIN_R))
     for i in range(WIN_D):
         for j in range(WIN_R):
             dr, dd = abs(j - cr), abs(i - cd)
@@ -431,31 +437,96 @@ def fig_cfar_as_convolution(n_ref):
             else:
                 k[i, j] = -1.0 / n_ref            # -alpha/N, alpha folded into the threshold
 
-    fig, ax = plt.subplots(1, 2, figsize=(7.2, 2.5))
-    v = np.abs(k).max()
-    im = ax[0].imshow(k, cmap="coolwarm", origin="lower", vmin=-v, vmax=v)
-    ax[0].set_title("CA-CFAR as a fixed convolution kernel")
-    fig.colorbar(im, ax=ax[0], pad=0.02)
+    # TinyCNN layer stack, from src/dl/models.py. RF = 1 + sum(2*d) per axis, cumulative.
+    dil_r, dil_d = (1, 2, 3, 4), (1, 1, 1, 1)
+    chans = (16, 16, 16, 1)
+    rf_r = np.cumsum([2 * d for d in dil_r]) + 1
+    rf_d = np.cumsum([2 * d for d in dil_d]) + 1
 
-    rng = np.random.default_rng(3)
-    learned = k + rng.normal(0, 0.35 * v, k.shape)
-    im2 = ax[1].imshow(learned, cmap="coolwarm", origin="lower", vmin=-v, vmax=v)
-    ax[1].set_title("A learned kernel over the same footprint")
-    fig.colorbar(im2, ax=ax[1], pad=0.02)
+    fig = plt.figure(figsize=(7.3, 5.0))
+    gs = fig.add_gridspec(3, 2, height_ratios=[0.34, 1.5, 1.35], hspace=0.30, wspace=0.22)
 
-    for a in ax:
-        a.set_xlabel("Range offset [bins]")
-        a.set_xticks([0, cr, WIN_R - 1])
-        a.set_xticklabels([-cr, 0, cr])
-        a.set_yticks([0, cd, WIN_D - 1])
-        a.set_yticklabels([-cd, 0, cd])
-    ax[0].set_ylabel("Doppler offset [bins]")
-    fig.text(0.5, -0.10,
-             "Left: weights $+1$ on the cell under test, $0$ on the guard cells and "
-             "$-1/N$ on each of the $N = %d$ reference cells.\n"
-             "Right: the same footprint with weights fitted to data. The right panel is "
-             "illustrative, not a trained kernel." % n_ref,
-             ha="center", fontsize=7.6, color=INK)
+    # ---- shared header
+    hdr = fig.add_subplot(gs[0, :])
+    hdr.axis("off")
+    hdr.add_patch(Rectangle((0.24, 0.18), 0.52, 0.62, facecolor="#eef2f6",
+                            edgecolor=GREY, lw=1.0))
+    hdr.text(0.5, 0.49, "Same local range–Doppler footprint:  %d $\\times$ %d bins"
+             % (WIN_R, WIN_D), ha="center", va="center", fontsize=10, color=INK)
+    for x in (0.38, 0.62):
+        hdr.annotate("", xy=(x, -0.30), xytext=(x, 0.14),
+                     arrowprops=dict(arrowstyle="->", color=INK, lw=1.3))
+    hdr.set_xlim(0, 1)
+    hdr.set_ylim(-0.35, 1)
+
+    # ---- left: fixed rule
+    axl = fig.add_subplot(gs[1, 0])
+    # The CUT weight (+1) is ~164x larger than each reference weight (-1/164). Scaling to the
+    # CUT would render every other cell white, so the scale is set by the reference weights and
+    # the CUT deliberately saturates; it is labelled instead.
+    v = 2.0 / n_ref
+    axl.imshow(k, cmap="coolwarm", origin="lower", vmin=-v, vmax=v)
+    axl.text(cr, cd + 1.6, "CUT: $+1$\n(off scale)", ha="center", va="bottom",
+             fontsize=7.2, color=RED)
+    axl.set_title("CA-CFAR: fixed, hand-designed rule", fontsize=9.5, color=BLUE)
+    axl.set_xticks([0, cr, WIN_R - 1]); axl.set_xticklabels([-cr, 0, cr])
+    axl.set_yticks([0, cd, WIN_D - 1]); axl.set_yticklabels([-cd, 0, cd])
+    axl.set_xlabel("Range offset [bins]", fontsize=8)
+    axl.set_ylabel("Doppler offset [bins]", fontsize=8)
+    axl.tick_params(labelsize=7.5)
+
+    axl2 = fig.add_subplot(gs[2, 0])
+    axl2.axis("off"); axl2.set_xlim(0, 1); axl2.set_ylim(0, 1)
+    axl2.text(0.5, 0.92, "One fixed weight per cell:", ha="center", fontsize=8.4, color=INK)
+    axl2.text(0.5, 0.70, "$+1$ on the CUT,   $0$ on the %d guard cells,\n"
+                         "$-\\alpha/N$ on each of the $N=%d$ reference cells"
+              % (int((k == 0).sum()) - 0, n_ref),
+              ha="center", va="center", fontsize=8.0, color=GREY)
+    axl2.annotate("", xy=(0.5, 0.30), xytext=(0.5, 0.52),
+                  arrowprops=dict(arrowstyle="->", color=INK, lw=1.2))
+    axl2.add_patch(Rectangle((0.22, 0.05), 0.56, 0.22, facecolor="white",
+                             edgecolor=BLUE, lw=1.4))
+    axl2.text(0.5, 0.16, "detection score", ha="center", va="center",
+              fontsize=9, color=INK)
+
+    # ---- right: learned rule
+    axr = fig.add_subplot(gs[1, 1])
+    axr.axis("off"); axr.set_xlim(0, 1); axr.set_ylim(0, 1)
+    axr.set_title("TinyCNN: learned, multi-layer rule", fontsize=9.5, color=RED)
+    n_l = len(dil_r)
+    top, bh, gap = 0.94, 0.17, 0.055
+    for i in range(n_l):
+        y = top - i * (bh + gap) - bh
+        axr.add_patch(Rectangle((0.06, y), 0.60, bh, facecolor="white",
+                                edgecolor=RED, lw=1.3))
+        axr.text(0.36, y + bh / 2,
+                 "Conv $3\\times3$,  %d ch,\ndilation (%d, %d)"
+                 % (chans[i], dil_r[i], dil_d[i]),
+                 ha="center", va="center", fontsize=7.6, color=INK)
+        axr.text(0.70, y + bh / 2, "%d$\\times$%d" % (rf_r[i], rf_d[i]),
+                 ha="left", va="center", fontsize=7.8, color=GREY)
+        if i < n_l - 1:
+            axr.annotate("", xy=(0.36, y - 0.005), xytext=(0.36, y - gap + 0.005),
+                         arrowprops=dict(arrowstyle="<-", color=RED, lw=1.1))
+    axr.text(0.70, top + 0.05, "receptive field", ha="left", va="bottom",
+             fontsize=7.2, color=GREY)
+
+    axr2 = fig.add_subplot(gs[2, 1])
+    axr2.axis("off"); axr2.set_xlim(0, 1); axr2.set_ylim(0, 1)
+    axr2.text(0.5, 0.92, "Weights fitted to data, not derived:", ha="center",
+              fontsize=8.4, color=INK)
+    axr2.text(0.5, 0.70, "5,041 parameters over four layers.\n"
+                         "The %d $\\times$ %d footprint is the COMPOSED receptive\n"
+                         "field of the stack, not a single %d $\\times$ %d kernel."
+              % (rf_r[-1], rf_d[-1], rf_r[-1], rf_d[-1]),
+              ha="center", va="center", fontsize=8.0, color=GREY)
+    axr2.annotate("", xy=(0.5, 0.30), xytext=(0.5, 0.52),
+                  arrowprops=dict(arrowstyle="->", color=INK, lw=1.2))
+    axr2.add_patch(Rectangle((0.22, 0.05), 0.56, 0.22, facecolor="white",
+                             edgecolor=RED, lw=1.4))
+    axr2.text(0.5, 0.16, "detection score", ha="center", va="center",
+              fontsize=9, color=INK)
+
     save(fig, "ch2_fig6_cfar_as_convolution.png")
 
 

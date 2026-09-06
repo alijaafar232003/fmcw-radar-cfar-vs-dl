@@ -285,7 +285,7 @@ interferer, the more effectively it hides its neighbour.
 Figure~\ref{fig:cfarfail} illustrates both mechanisms on a one-dimensional cut, using the same
 guard and reference counts per side as the window used in the rest of this work.
 
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig5_cfar_failure_modes.png}
 \caption[The two dominant CFAR failure modes]{\textbf{An illustrative simulation of the two
@@ -314,17 +314,23 @@ Chapter~\ref{chp:synthetic} are chosen to span both.
 \subsection{CFAR loss}
 \label{sec:cfar_loss}
 
-There is a third limitation, less often discussed, which becomes important in
-Chapter~\ref{chp:attribution}. Because $Z$ is estimated from a finite number of reference cells, it
-is itself a random variable. A detector that knew the true background power exactly could use the
-threshold $T = -\sigma^2 \ln \Pfa$; a CFAR detector must use equation~\eqref{eq:alpha_ca}, which is
-larger, to keep the false-alarm rate correct despite the uncertainty in its own estimate. The
-resulting penalty in signal-to-noise ratio is called \emph{CFAR loss}, and it shrinks as $N$ grows.
+A third limitation applies even when the background is perfectly homogeneous, so it is not a
+failure mode in the sense above.
 
-This matters here because CFAR loss predicts that a learned detector will outperform CFAR even in
-perfectly homogeneous noise, where CFAR has no failure mode at all. It is therefore a rival
-explanation for any measured advantage, and one that must be separated from the more obvious
-explanation that the network simply uses its window differently.
+CFAR estimates the background power from a finite number of reference cells. That estimate is
+therefore imperfect, and it varies from one window to the next. To keep the false-alarm rate at its
+design value despite this variability, the threshold must be set slightly higher than a detector
+that somehow knew the true background power would need. The resulting penalty in signal-to-noise
+ratio is called \emph{CFAR loss}. It becomes smaller as the number of reference cells grows,
+because the estimate becomes more reliable.
+
+The reason this matters for the present work is that CFAR loss offers a second possible explanation
+for any advantage a learned detector shows. The obvious explanation is that the network uses its
+local context differently. But a detector that avoids the estimation penalty would also be expected
+to do better, even where CFAR has no failure mode at all. Both explanations predict the same
+observation, so neither can be accepted without testing the other.
+Chapter~\ref{chp:attribution} treats this as one of the candidate mechanisms to be separated
+experimentally.
 
 \section{Learned detection on the range--Doppler map}
 
@@ -335,11 +341,20 @@ Both properties suit a convolutional neural network. A convolutional layer appli
 kernel at every position, which matches the translation invariance of the problem and means the
 number of parameters does not grow with the size of the map.
 
-Most learned detectors on RD maps follow one of two formulations. In the \emph{patch} formulation,
-a small window around each cell is extracted and classified independently, which mirrors CFAR
-closely but requires one network evaluation per cell. In the \emph{fully convolutional}
-formulation, the whole map is processed at once and the network emits a score for every cell in a
-single pass. The second is far cheaper and is used in this work.
+Most learned detectors on RD maps use one of two formulations:
+
+\begin{itemize}
+\itemsep2pt
+\item \textbf{Patch.} A small window around each cell is extracted and classified on its own. This
+mirrors CFAR closely, but it needs one network evaluation per cell.
+\item \textbf{Fully convolutional.} The whole map is passed through the network once, producing a
+score for every cell in a single pass.
+\end{itemize}
+
+The second is far cheaper and is the formulation used in this work. Importantly, processing the
+whole map at once does not mean each output depends on the whole map: every output cell still
+depends only on the input cells within its receptive field, which is a local neighbourhood set by
+the network's depth and kernel sizes.
 
 \subsection{CA-CFAR as a convolution}
 \label{sec:cfar_as_conv}
@@ -357,52 +372,65 @@ convolution followed by a rectifier. Their purpose was practical: writing the de
 allows it to run on machine-learning hardware.
 
 Banerjee et al.~\cite{banerjee2025rctd} restate this result and draw the consequence that matters
-here. If CA-CFAR is a convolution with \emph{fixed} weights, then a convolutional layer with
-\emph{learned} weights and bias is the data-driven generalisation of the same operator. The two
-detectors are not different species. They occupy one operator family, and the difference between
-them is whether the weights are derived analytically or fitted to data.
+here. If CA-CFAR is a convolution with \emph{fixed} weights, then convolutional layers with
+\emph{learned} weights are the data-driven extension of the same idea. Both detectors compute a
+score for a cell from a local neighbourhood of that cell. The difference is how the rule that maps
+neighbourhood to score is obtained:
+\begin{center}
+CA-CFAR $=$ a \textbf{fixed} local decision rule \qquad TinyCNN $=$ a \textbf{learned} local
+decision rule.
+\end{center}
+
+One qualification should be stated now, because it is easy to lose. The equivalence above is exact
+for CA-CFAR and a \emph{single} linear filter. The network used in this work is not a single
+$21 \times 9$ filter: it is a stack of four small convolutional layers with non-linearities between
+them, whose \emph{composed} receptive field is $21 \times 9$. It is therefore a strictly richer
+function than any single kernel over that footprint, which is precisely why it might learn
+something CFAR cannot express. Figure~\ref{fig:cfarconv} contrasts the two.
 
 \begin{figure}[h!]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig6_cfar_as_convolution.png}
-\caption[CA-CFAR expressed as a convolution kernel]{Left: the fixed kernel equivalent to CA-CFAR
-over the window of Figure~\ref{fig:cfarwin}. Right: the same footprint with weights fitted to data.
-The right panel is illustrative and is not a trained kernel.}
+\caption[A fixed and a learned decision rule over the same footprint]{Both detectors decide from
+the same $21 \times 9$ local footprint, but obtain their rule differently. Left: CA-CFAR is one
+fixed weight per cell --- $+1$ on the cell under test, $0$ on the guard cells, $-\alpha/N$ on each
+reference cell. The colour scale is set by the reference weights, so the cell under test saturates
+and is labelled instead. Right: TinyCNN reaches the same footprint by composing four small dilated
+convolutions, the receptive field growing layer by layer. \textbf{The $21 \times 9$ extent is the
+composed receptive field of the stack, not a single learned kernel.}}
 \label{fig:cfarconv}
 \end{figure}
 
-This is the theoretical basis for the comparison made in this report. It is what allows the
-learned and classical arms to be treated as a controlled experiment in which the decision rule is
-varied and the available context is held comparable, rather than as an unstructured contest between
-two arbitrary systems. It also identifies precisely what the experiment is testing: whether fitting
-those weights to data buys anything over deriving them.
+This is the theoretical basis for the comparison made in this report. It allows the learned and
+classical arms to be treated as a controlled experiment in which the decision rule is varied while
+the available local context is held comparable, rather than as an unstructured contest between two
+arbitrary systems. It also identifies what the experiment is testing: whether learning the rule
+from data buys anything over deriving it analytically.
 
 \subsection{Label representation and supervision}
 
-A learned detector must be told what to predict, and that choice is less obvious than it appears. A
-target occupies several cells of the RD map, but the truth available in a simulator is a single
-range--velocity coordinate. Three representations are common: labelling the single nearest cell;
-labelling a small Gaussian region around it; or labelling a segmentation mask covering the target's
-support.
+Unlike CFAR, a learned detector must be given a training target: some representation of where the
+targets are. Three forms are common --- a single point, a weighted local region around it, or an
+object mask covering the target's support.
 
-The choice interacts with evaluation. A network trained to mark one exact cell is being asked to
-localise as well as detect, whereas one trained on a broad mask is not. This matters when comparing
-against CFAR, whose output is a per-cell decision with no notion of extent, and it becomes central
-in Chapter~\ref{chp:realdata}, where the real dataset provides segmentation masks rather than point
-coordinates.
+The choice is not neutral. It affects both what the network learns to detect and how precisely it
+localises, because it defines what a single output cell is being asked to mean. The representation
+used in this work, and the reasons for it, are specified in Chapter~\ref{chp:detectors}.
 
 \section{State of the art: learned detectors versus CFAR}
 \label{sec:sota}
 
-\subsection{Why the literature cannot be pooled}
+\subsection{Not every result is directly comparable}
 
-A substantial body of work reports learned detectors outperforming CFAR. Read together, the results
-appear to show a consistent and sometimes very large advantage. Read carefully, they do not
-combine, because the works measure different things.
+A substantial body of work reports learned detectors outperforming CFAR, and read together the
+results appear to show a large and consistent advantage. They do not actually combine, because the
+works are solving different tasks: some perform per-cell detection, others object detection with
+bounding boxes, others reconstruction or hardware reformulation. A gain reported for one task is
+not evidence about another.
 
-Table~\ref{tab:families} groups the reviewed literature into families by what each family actually
-measures. Only the first reports $\Pd$ against CFAR at a matched false-alarm rate on a per-cell
-decision, which is the quantity this report measures.
+Table~\ref{tab:families} groups the reviewed literature accordingly. Only the first family reports
+$\Pd$ against CFAR at a matched false-alarm rate on a per-cell decision, which is the quantity this
+report measures.
 
 \begin{table}[h!]
 \centering
@@ -437,103 +465,76 @@ No \\
 \end{tabular}
 \end{table}
 
-The distinction is not pedantic. An object detector scored by mean average precision at an IoU
-threshold is solving a different problem from a per-cell detector scored by $\Pd$ at a fixed
-$\Pfa$: it must produce a box of the right extent and, usually, the right class label. A
-reformulation paper that maps CFAR onto machine-learning hardware changes the cost of the detector
-and not its accuracy. Quoting an improvement from one family as evidence about another is how
-claims that learned detectors dominate CFAR by orders of magnitude arise.
+\subsection{The four directly relevant works}
 
-\subsection{What the comparable family actually reports}
+Four studies compare a learned detector against CFAR in the same terms as this report.
 
-Within the family that is comparable, the reported picture is more measured than the general
-impression suggests.
+\textbf{RadCNN}~\cite{yavuz2021radcnn} evaluates a convolutional detector against CA, GO, SO and OS
+CFAR on simulated data with Weibull and K-distributed clutter. The reported picture is mixed by
+design: the network gains in some clutter conditions, ties CFAR in simple homogeneous noise, and
+\emph{loses} in one scenario, where the target lies near clutter but its reference window is filled
+mostly with noise.
 
-RadCNN~\cite{yavuz2021radcnn} evaluates a single-convolution detector against CA, GO, SO and OS
-CFAR on simulated data with Weibull and K-distributed clutter, at a design $\Pfa$ of $10^{-3}$. It
-reports an average gain of about $0.5$\,dB at low SNR, roughly $1$\,dB when the target is covered by
-clutter, parity in pure noise, and a \emph{loss} of about $0.8$\,dB in one scenario, where the
-target lies near clutter but its reference window is filled mostly with noise.
+\textbf{Gusland et al.}~\cite{gusland2020deeptemporal} train a fully convolutional detector on real
+X-band FMCW measurements, with UAV GPS truth, and deliberately restrict the network's receptive
+field to match the CA-CFAR patch. They report approximate parity with CFAR in homogeneous
+conditions, and gains of roughly $0.25$ to $0.35$ in $\Pd$ around clutter transitions. That figure
+is quoted here because Chapter~\ref{chp:realdata} compares it against the clutter-edge result
+measured in this work.
 
-Gusland et al.~\cite{gusland2020deeptemporal} train a fully convolutional detector on measured
-X-band FMCW data, using a UAV with GPS truth, and deliberately restrict the network's receptive
-field to match the CA-CFAR patch. They report parity below \SI{450}{\metre}, where the background
-is homogeneous, and gains of $0.25$ to $0.35$ in $\Pd$ at clutter transitions. They also observe
-that a CNN does not need explicit guard cells in the way CFAR does.
+\textbf{Lallouet et al.}~\cite{lallouet2023loss} report a learned detector outperforming CFAR on
+simulated exoclutter data, and propose the finite-reference CFAR loss of
+Section~\ref{sec:cfar_loss} as one possible explanation.
 
-Lallouet et al.~\cite{lallouet2023loss} compare loss functions for a U-Net detector on simulated
-exoclutter data and report that all their network variants exceed CFAR. Their explanation is the
-CFAR loss of Section~\ref{sec:cfar_loss}: the finite reference window makes CFAR's threshold noisy,
-and the network does not pay that penalty.
+\textbf{Liu et al.}~\cite{liu2024cacfarconv} and \textbf{Banerjee et al.}~\cite{banerjee2025rctd}
+supply the structural result of Section~\ref{sec:cfar_as_conv}: CA-CFAR can be represented using
+convolution-like fixed weights, and later work extends that idea towards learned weights.
 
-Banerjee et al.~\cite{banerjee2025rctd} evaluate a recursive convolutional detector on simulated
-and on-air FMCW data and report comparable $\Pd$ at consistently lower $\Pfa$, with a hardware
-implementation on FPGA.
-
-Three points follow, and all three shape this report. First, in homogeneous conditions a
-well-constructed CNN typically \emph{ties} CFAR rather than beating it. Second, a learned detector
-normally loses somewhere; RadCNN's losing scenario is reported openly. Third, two distinct
-explanations are offered for a win in homogeneous noise --- the network's different use of its
-window, and CFAR loss --- and both predict the same observation, so neither can be accepted without
-testing the other. This is the origin of objective O3.
-
-\subsection{Recurring methodological asymmetries}
-
-Section~\ref{sec:problem} listed five differences that make published comparisons hard to
-interpret. Having reviewed the corpus, three deserve specific comment.
-
-\emph{Design versus measured $\Pfa$.} Several works match operating points using the analytic CFAR
-expression rather than measuring the achieved rate. RadCNN reports its CFAR arms achieving
-$1.2$ to $1.7 \times 10^{-3}$ against a design $10^{-3}$ under clutter, and states plainly that the
-CFAR algorithms cannot maintain their preset rate. If the classical arm is not at the operating
-point it is assumed to be at, the comparison is not at a matched operating point either.
-
-\emph{Spatial context.} The amount of surrounding data a detector may use is a design variable in
-its own right. Gusland et al.\ are unusual in restricting the network's receptive field to the CFAR
-patch deliberately; where this is not done, a measured advantage may reflect a larger field of view
-rather than a better decision rule.
-
-\emph{Scoring tolerance.} A detection is usually counted as correct if it falls within some
-distance of the truth, but the tolerance is often reported at a single value. Reporting several
-tolerances separates detection from localisation, and its absence leaves the two confounded.
+Two patterns run through the first three, and both shape this report. A well-constructed CNN
+typically \emph{ties} CFAR in simple homogeneous conditions rather than beating it, and it normally
+loses somewhere. And at least two different explanations are offered for the gains that do occur:
+the network's different use of its local context, and CFAR estimation loss.
 
 \section{Gap addressed by this work}
 
-The review supports four observations, which together define what this project adds.
+The review supports four observations, which together define what this project adds. They are
+stated briefly here; the underlying fairness arguments were set out in
+Section~\ref{sec:problem}.
 
 \begin{enumerate}
 \itemsep3pt
-\item \textbf{The comparable evidence is thinner than it appears.} Of the reviewed corpus, only a
-handful of works measure $\Pd$ against CFAR at a matched $\Pfa$ on a per-cell decision. The
-remainder answer different questions.
-\item \textbf{Matched spatial context is rare.} Only Gusland et al.\ constrain the network's
-receptive field to the CFAR window. This work does the same, and states explicitly that matching
-the footprint does not make the two decision rules identical.
-\item \textbf{Two explanations for the same observation remain unseparated.} The window-usage
-explanation and the CFAR-loss explanation both predict a learned win in homogeneous noise. No
-reviewed work distinguishes them experimentally. Chapter~\ref{chp:attribution} attempts to.
-\item \textbf{External validity is largely untested.} Simulation-trained detectors are almost
-always evaluated on the same simulator, and measurement-trained detectors on the same sensor. None
-of the directly comparable studies identified here evaluates a frozen, simulation-trained detector
-on real measurements without retraining. Chapter~\ref{chp:realdata} reports that evaluation.
+\item \textbf{Only a small subset of published work is directly comparable} to the per-cell
+CFAR-versus-learned detection task addressed here. Most of the corpus answers a different question.
+\item \textbf{Matching the network's spatial context to the CFAR window is uncommon.} Among the
+reviewed works only Gusland et al.\ do so deliberately. This work does the same, while stating
+explicitly that matching the footprint does not make the two decision rules identical.
+\item \textbf{The competing explanations for learned gains are rarely separated experimentally.}
+CFAR estimation loss and a different use of local context both predict the same observation, and no
+reviewed work distinguishes them. Chapter~\ref{chp:attribution} attempts to.
+\item \textbf{Zero-shot synthetic-to-real validation is rarely tested.} Simulation-trained
+detectors are almost always evaluated on the same simulator, and measurement-trained detectors on
+the same sensor. None of the directly comparable studies identified here evaluates a frozen,
+simulation-trained detector on real measurements without retraining. Chapter~\ref{chp:realdata}
+reports that evaluation.
 \end{enumerate}
 
 \section{Conclusion}
 
-This chapter established the material the rest of the report uses. An FMCW radar converts range
-into a beat frequency and velocity into a phase rotation across chirps, and two Fourier transforms
-turn received samples into a range--Doppler map on which detection is performed. CFAR detection
-estimates the local background from a reference window and scales it by a multiplier chosen to fix
-the false-alarm rate; its variants differ only in how that estimate is formed, and each repairs one
-documented failure mode while worsening another.
+An FMCW radar turns range into a beat frequency and velocity into a phase rotation across chirps,
+and two Fourier transforms produce the range--Doppler map on which detection is performed. CFAR
+detects by estimating the local background from a reference window and applying an adaptive
+threshold proportional to it. Its variants --- CA, GO, SO and OS --- differ only in how that
+estimate is formed, and each has different strengths and weaknesses across homogeneous background,
+clutter edges and multiple targets.
 
-Two results carry forward. Liu et al.'s equivalence, generalised by Banerjee et al., shows that
-CA-CFAR is a convolution with fixed weights, so a small convolutional network over the same
-footprint is the learned member of the same operator family. That is what makes the comparison in
-this report controlled rather than arbitrary. And the review of the comparable literature shows
-that a learned detector usually ties CFAR in homogeneous conditions, usually loses somewhere, and
-has two competing explanations for its wins that no published work has separated.
+Two ideas from this chapter carry into the rest of the report. CFAR can be interpreted as a
+\emph{fixed} local operator applied to a neighbourhood of each cell, and a convolutional network
+can be interpreted as a \emph{learned} local operator over comparable context. That is what makes
+the comparison in this report a controlled one. And the literature shows that learned detectors can
+gain in difficult clutter but often tie CFAR in simple conditions.
 
-Chapter~\ref{chp:simulator} now specifies the simulator and the datasets, chosen so that the
+Two questions are left open. Why those gains occur, and whether they survive a change of domain,
+are both unresolved in the reviewed work. They motivate the experiments of the following chapters.
+Chapter~\ref{chp:simulator} begins by specifying the simulator and the datasets, chosen so that the
 conditions identified in Section~\ref{sec:cfar_failures} are represented and so that the
 range--Doppler geometry matches the real dataset used later.
