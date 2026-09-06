@@ -143,8 +143,11 @@ both detectors.}
 
 \subsection{The detection problem}
 
-Detection is a binary hypothesis test applied to every cell of the RD map. For a cell with observed
-power $x$, the two hypotheses are
+Detection is a binary hypothesis test applied to every cell of the RD map. Throughout this report
+$x$ denotes the \emph{measured power} in an RD cell, that is the squared magnitude of the complex
+range--Doppler sample, $x = |X|^2$. This is the output of a square-law detector, and it is a power
+quantity rather than an amplitude; every threshold expression below is written in those units. For
+a cell with measured power $x$, the two hypotheses are
 \begin{align}
 H_0 &: \text{background only (noise, clutter, interference)}, \\
 H_1 &: \text{background plus a target return}.
@@ -155,8 +158,10 @@ of false alarm $\Pfa$ at an acceptable value, and maximise the probability of de
 subject to that constraint. This is the reason $\Pd$ at a fixed $\Pfa$ is the standard metric in
 the field, and it is the metric this report uses.
 
-Fixing $\Pfa$ is straightforward if the background power is known: for square-law detection in
-exponential noise of mean power $\sigma^2$, the threshold is $T = -\sigma^2 \ln \Pfa$. The
+Fixing $\Pfa$ is straightforward if the background power is known. Under the standard single-look
+model the background power $x$ is exponentially distributed with mean $\sigma^2$, so
+$\Pr(x > T \mid H_0) = \exp(-T/\sigma^2)$ and the threshold that achieves a chosen $\Pfa$ is
+$T = -\sigma^2 \ln \Pfa$, again in units of power. The
 difficulty is that $\sigma^2$ is not known. It varies with temperature, with the terrain being
 illuminated, with weather, and with interference from other radars. A fixed threshold set for one
 condition produces either a flood of false alarms or no detections at all in another.
@@ -178,6 +183,17 @@ threshold scales with the estimated background, a uniform change in received pow
 $Z$ together and leaves the decision unchanged. This is the constant false alarm rate property, and
 it is what allows a single detector to operate across widely varying conditions.
 
+It is worth being precise about what that property guarantees. The rate is held constant
+\emph{under the assumed background model}: the reference cells are taken to be independent,
+identically distributed and free of target energy, and to share the statistics of the cell under
+test. When those assumptions hold, the achieved false-alarm rate is close to the design value
+regardless of the absolute power level. When they do not hold --- at a clutter edge, where the
+reference cells no longer share the statistics of the cell under test, or under target masking,
+where they are not target-free --- the achieved rate can depart from the design value in either
+direction. Section~\ref{sec:cfar_failures} describes both cases, and this departure is measured
+rather than assumed in Chapter~\ref{chp:detectors}, which is why operating points in this report
+are matched at the \emph{measured} rather than the design rate.
+
 The window has a specific structure, shown in Figure~\ref{fig:cfarwin}. Immediately around the cell
 under test is a ring of \emph{guard cells}, which are excluded from the estimate. They must be
 excluded: a target's own response spreads over several cells, so including them would let the
@@ -187,9 +203,14 @@ target inflate its own threshold and suppress its own detection. Beyond the guar
 \begin{figure}[h!]
 \centering
 \includegraphics[width=0.95\textwidth]{figures/Chapter2/ch2_fig4_cfar_window.png}
-\caption[CFAR reference window geometry]{The reference window used throughout this work. The cell
-under test provides the test statistic; the guard cells are excluded so that a target cannot raise
-its own threshold; the remaining reference cells form the background estimate $Z$. The window is
+\caption[CFAR reference window geometry]{The reference window used throughout this work. It spans
+21 bins in range by 9 in Doppler, so it covers 189 cells in total, divided into three roles:
+\textbf{1 cell under test}, which supplies the test statistic $x$; \textbf{24 guard cells}
+immediately surrounding it, excluded so that a target cannot raise its own threshold; and
+\textbf{164 reference cells}, which form the background estimate $Z$. The guard region is the
+$5 \times 5$ block at the centre, from which the cell under test itself is excluded. Counting
+outwards from the centre along each axis, range has 2 guard cells and then 8 reference cells on
+each side, and Doppler has 2 guard cells and then 2 reference cells on each side. The window is
 rectangular because the two axes of the RD map are not alike, as Chapter~\ref{chp:detectors}
 explains.}
 \label{fig:cfarwin}
@@ -208,9 +229,12 @@ noise, the multiplier that achieves a design false-alarm rate is available in cl
 \label{eq:alpha_ca}
 \end{equation}
 
-CA-CFAR is optimal, in the sense of maximising $\Pd$ at a given $\Pfa$, when the background really
-is homogeneous and the reference cells really are target-free~\cite{gandhi1988cfar}. It is also the
-cheapest variant, requiring only a sum.
+Under a specific and quite restrictive set of conditions --- a homogeneous exponential background,
+and reference cells that are genuinely free of target energy --- CA-CFAR is optimal in the sense of
+maximising $\Pd$ at a given $\Pfa$, because the sample mean is then the most efficient estimator of
+the background power~\cite{gandhi1988cfar}. Outside those conditions the optimality claim does not
+carry over, and the variants below exist precisely because real backgrounds often violate them.
+CA-CFAR is also the cheapest variant, requiring only a sum.
 
 \subsection{Greatest-of, smallest-of and order-statistic variants}
 
@@ -220,20 +244,26 @@ into $Z$. That single choice determines the variant's strengths and weaknesses.
 \begin{description}
 \itemsep3pt
 \item[GO-CFAR (greatest-of).] The reference cells are split into a leading and a lagging half, and
-$Z$ is the larger of the two means. Keeping the higher estimate suppresses the false-alarm burst
-that CA-CFAR suffers at a clutter edge, at the cost of masking targets more readily.
+$Z$ is the larger of the two means. Keeping the higher estimate limits the increase in false-alarm
+rate that CA-CFAR shows at a clutter edge, at the cost of masking targets more readily.
 \item[SO-CFAR (smallest-of).] The mirror image: $Z$ is the smaller of the two half-means. If an
 interfering target contaminates one half, the clean half is used, so closely spaced targets are
-resolved. At a clutter edge the threshold collapses and false alarms rise sharply.
+resolved. At a clutter edge the estimate is taken from the quieter side, the threshold is set too
+low, and the false-alarm rate can increase substantially.
 \item[OS-CFAR (order-statistic).] The reference cells are sorted and the $k$-th ranked value is
 taken as $Z$, typically with $k \approx 0.75N$. Interfering targets are high outliers and are
 excluded by the ranking, which makes the variant robust in multi-target scenes. The cost is a sort
 per cell and a small additional loss in homogeneous background.
 \end{description}
 
-For GO, SO and OS there is no equivalent of equation~\eqref{eq:alpha_ca} that holds under the
-conditions of this work, so their multipliers are obtained by Monte-Carlo calibration, as
-Chapter~\ref{chp:detectors} describes.
+Analytical threshold relationships exist for GO, SO and OS as well, but they are considerably more
+involved than equation~\eqref{eq:alpha_ca}: they depend on the split of the reference cells or on
+the distribution of an order statistic, and the published closed forms assume a one-dimensional
+window and independent reference cells. Neither assumption holds exactly for the
+two-dimensional window and correlated RD background used here. This work therefore obtains all four
+multipliers by Monte-Carlo calibration on noise-only data, so that every variant is calibrated
+under the same conditions in which it is evaluated. Chapter~\ref{chp:detectors} describes that
+procedure and reports the resulting values.
 
 \subsection{Known failure modes}
 \label{sec:cfar_failures}
@@ -252,27 +282,33 @@ step that is sharper than the window is wide.
 raises $Z$ and therefore raises the threshold at the very cell being tested. The stronger the
 interferer, the more effectively it hides its neighbour.
 
-Figure~\ref{fig:cfarfail} shows both, simulated on the same window geometry used in the rest of this
-work.
+Figure~\ref{fig:cfarfail} illustrates both mechanisms on a one-dimensional cut, using the same
+guard and reference counts per side as the window used in the rest of this work.
 
 \begin{figure}[h!]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig5_cfar_failure_modes.png}
-\caption[The two dominant CFAR failure modes]{Left: at a clutter edge the threshold lags the
-background step, missing a target before the edge and admitting a false alarm after it. Right: an
-interfering target inside the reference window raises the threshold at the cell being tested, and
-the weaker target is missed.}
+\caption[The two dominant CFAR failure modes]{\textbf{An illustrative simulation of the two
+classical failure mechanisms, not a measured benchmark result.} A one-dimensional cut through an
+exponential background is used, with the same guard and reference counts per side as the window of
+Figure~\ref{fig:cfarwin}, so that the mechanisms can be seen directly; the outcome for any single
+realisation depends on the random draw. Left: at a clutter edge the threshold lags the background
+step, missing a target before the edge and admitting a false alarm after it. Right: an interfering
+target inside the reference window raises the threshold at the cell being tested, and the weaker
+target is missed. Measured performance under these conditions is reported in
+Chapter~\ref{chp:synthetic}.}
 \label{fig:cfarfail}
 \end{figure}
 
 The conclusion Gandhi and Kassam reached is the starting point of this project: no single CFAR
-variant performs well across all backgrounds, and each variant repairs one failure mode while
-worsening another. GO controls clutter edges but masks more; SO resolves close targets but fails at
-edges. They suggested that an adaptive approach might be required when operating conditions change.
+variant performs well across all backgrounds, and each variant tends to repair one failure mode
+while worsening another. GO tends to handle clutter edges better than CA but may worsen masking;
+SO tends to help in multiple-target cases but can perform poorly at clutter transitions. They
+suggested that an adaptive approach might be required when operating conditions change.
 
 These failure modes also determine the design of the benchmark. A comparison evaluated only in
-homogeneous noise would test the one condition in which CA-CFAR is already optimal, and would say
-nothing about the conditions that motivate a learned detector. The conditions used in
+homogeneous noise would test the one condition under which CA-CFAR is already close to optimal, and
+would say nothing about the conditions that motivate a learned detector. The conditions used in
 Chapter~\ref{chp:synthetic} are chosen to span both.
 
 \subsection{CFAR loss}

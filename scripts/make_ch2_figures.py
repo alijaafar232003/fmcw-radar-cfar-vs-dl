@@ -300,16 +300,18 @@ def fig_cfar_window():
     ax.set_yticklabels(range(-cd, cd + 1))
     ax.set_xlabel("Range offset from the cell under test [bins]")
     ax.set_ylabel("Doppler offset [bins]")
-    ax.set_title("CFAR reference window, %d $\\times$ %d bins (guard %d/%d, training %d/%d)"
-                 % (WIN_R, WIN_D, GUARD_R, GUARD_D, TRAIN_R, TRAIN_D))
+    ax.set_title("CFAR reference window: %d bins in range $\\times$ %d in Doppler = %d cells\n"
+                 "(%d guard and %d reference cells per side in range; %d and %d in Doppler)"
+                 % (WIN_R, WIN_D, WIN_R * WIN_D,
+                    GUARD_R, TRAIN_R, GUARD_D, TRAIN_D), fontsize=9)
 
     handles = [
         matplotlib.patches.Patch(facecolor="#e8913c", edgecolor="white",
-                                 label="Cell under test (the test statistic)"),
+                                 label="1 cell under test (supplies $x$)"),
         matplotlib.patches.Patch(facecolor="#9fc3e8", edgecolor="white",
-                                 label="Guard cells, excluded (%d)" % n_guard),
+                                 label="%d guard cells (excluded)" % n_guard),
         matplotlib.patches.Patch(facecolor="#eef2f6", edgecolor="#cccccc",
-                                 label="Reference cells, estimate $Z$ (%d)" % n_ref),
+                                 label="%d reference cells (estimate $Z$)" % n_ref),
     ]
     ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.30),
               ncol=3, frameon=False, fontsize=8)
