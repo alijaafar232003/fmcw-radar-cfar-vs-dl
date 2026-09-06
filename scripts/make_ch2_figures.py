@@ -1,9 +1,14 @@
 """Generate the explanatory figures for Chapter 2 (Radar Background and State of the Art).
 
-Every quantity is read from the project's own configuration or data -- nothing here is a
-hand-drawn illustration with invented numbers. The chirp geometry comes from src/radar/config.py,
-the CFAR window from src/cfar/cfar.py defaults, the alphas from configs/cfar_alpha_table.json,
-and the example RD map from a real frame of bench2_test.
+Chapter 2 is background. It must not pre-empt the sensor specification of Chapter 3 or the
+detector specification of Chapter 4, so these figures carry NO project-specific numeric values:
+no bandwidth, chirp duration, bin count, resolution, span, window size or parameter count. Axes
+are normalised or in bins, and every figure that could be mistaken for a specification says so
+and points forward to the chapter that gives it.
+
+Structure still comes from the real configuration where that costs nothing (the CFAR window
+shape, the failure-mode simulation), and Figure 2.3 uses a real frame of bench2_test, but the
+numbers are not printed.
 
 Run:  venv/Scripts/python.exe scripts/make_ch2_figures.py
 Out:  report/figures/Chapter2/
@@ -62,86 +67,63 @@ def save(fig, name):
 
 # ----------------------------------------------------------------------- Fig 2.1
 def fig_chirp():
-    """Transmitted and received chirp: the beat frequency is the range measurement."""
-    Tc_us = CFG.Tc * 1e6
-    B_MHz = CFG.B / 1e6
+    """Chirp geometry, drawn in normalised units.
 
-    R = 20.0                                  # a target at 20 m
-    tau = 2 * R / 2.998e8                     # round-trip delay [s]
-    tau_us = tau * 1e6
-    fb = DER.slope * tau                      # beat frequency [Hz]
-
-    # The true delay is invisible at chirp scale (0.13 us against 72.4 us), so the ramps would
-    # lie exactly on top of one another. The delay is drawn magnified, and the magnification is
-    # stated on the figure; every printed number is the true one.
-    EXAG = 60.0
-    tau_plot = tau_us * EXAG
-
-    fig, ax = plt.subplots(2, 1, figsize=(6.8, 4.6),
+    Chapter 2 is background: it must not pre-empt the sensor specification of Chapter 3. Axes
+    are therefore labelled with symbols only, and no numeric radar parameter appears.
+    """
+    fig, ax = plt.subplots(2, 1, figsize=(6.8, 4.4),
                            gridspec_kw={"height_ratios": [2.1, 1]})
 
-    # --- frequency-vs-time ramps
+    # Normalised: time runs 0..1 in units of Tc, frequency 0..1 in units of B.
+    TAU = 0.11                                # illustrative, exaggerated (see label)
+
     a = ax[0]
-    n = 400
-    t = np.linspace(0, Tc_us, n)
-    a.plot(t, t / Tc_us * B_MHz, color=BLUE, lw=1.9, label="Transmitted chirp")
-    tr = np.linspace(tau_plot, Tc_us + tau_plot, n)
-    a.plot(tr, (tr - tau_plot) / Tc_us * B_MHz, color=RED, lw=1.9, ls="--",
-           label="Received echo, delayed by $\\tau$")
+    t = np.linspace(0, 1, 300)
+    a.plot(t, t, color=BLUE, lw=1.9, label="Transmitted chirp")
+    tr = np.linspace(TAU, 1 + TAU, 300)
+    a.plot(tr, tr - TAU, color=RED, lw=1.9, ls="--",
+           label=r"Received echo, delayed by $\tau$")
 
-    # delay marker
-    a.annotate("", xy=(0, -0.06 * B_MHz), xytext=(tau_plot, -0.06 * B_MHz),
+    a.annotate("", xy=(0, -0.06), xytext=(TAU, -0.06),
                arrowprops=dict(arrowstyle="<->", color=INK, lw=1.0))
-    a.text(tau_plot / 2, -0.155 * B_MHz, "$\\tau = 2R/c$", ha="center", color=INK, fontsize=8.5)
+    a.text(TAU / 2, -0.15, r"$\tau = 2R/c$", ha="center", color=INK, fontsize=8.5)
 
-    # beat frequency marker at a readable instant
-    t0 = 0.60 * Tc_us
-    f_tx = t0 / Tc_us * B_MHz
-    f_rx = (t0 - tau_plot) / Tc_us * B_MHz
-    a.plot([t0, t0], [f_rx, f_tx], color=GOLD, lw=3.0, solid_capstyle="butt")
+    t0 = 0.60
+    a.plot([t0, t0], [t0 - TAU, t0], color=GOLD, lw=3.0, solid_capstyle="butt")
     a.annotate("the two differ by a constant\nfrequency $f_b$ (gap NOT to scale)",
-               xy=(t0, (f_rx + f_tx) / 2),
-               xytext=(t0 + 0.07 * Tc_us, 0.26 * B_MHz),
+               xy=(t0, t0 - TAU / 2), xytext=(t0 + 0.07, 0.26),
                arrowprops=dict(arrowstyle="->", color=GOLD, lw=1.1),
                color=GOLD, fontsize=8.2)
 
-    a.set_ylabel("Frequency offset [MHz]")
-    a.set_xlabel("Time within one chirp [$\\mu$s]")
-    a.set_ylim(-0.20 * B_MHz, 1.10 * B_MHz)
-    a.set_xlim(-0.03 * Tc_us, 1.20 * Tc_us)
+    a.set_ylabel("Frequency offset")
+    a.set_xlabel("Time within one chirp")
+    a.set_xticks([0, 1]); a.set_xticklabels(["$0$", "$T_c$"])
+    a.set_yticks([0, 1]); a.set_yticklabels(["$0$", "$B$"])
+    a.set_ylim(-0.20, 1.10)
+    a.set_xlim(-0.03, 1.20)
     a.legend(loc="upper left", frameon=False, fontsize=8)
     a.set_title("The echo is a delayed copy of the chirp, so the delay becomes a frequency")
     a.spines[["top", "right"]].set_visible(False)
     a.text(0.985, 0.06,
-           "Delay drawn $\\times$%d for visibility, so the vertical\n"
-           "gap is exaggerated by the same factor.\n"
-           "True values at $R$ = 20 m: $\\tau$ = %.3f $\\mu$s, $f_b$ = %.2f MHz."
-           % (EXAG, tau_us, fb / 1e6),
+           "Illustrative geometry. In practice "
+           r"$\tau \ll T_c$" + ", so both the\n"
+           "delay and the vertical gap are far smaller than drawn here.",
            transform=a.transAxes, ha="right", va="bottom", fontsize=7.4, color=GREY)
 
-    # --- beat tone, over a short window so individual cycles are visible
     b = ax[1]
-    span = 4.0                                   # microseconds
-    tb = np.linspace(20.0, 20.0 + span, 3000)
-    b.plot(tb, np.cos(2 * np.pi * fb * (tb * 1e-6)), color=GOLD, lw=1.1)
-    b.set_xlabel("Time within one chirp [$\\mu$s]   (%.0f $\\mu$s window)" % span)
+    tb = np.linspace(0, 1, 2000)
+    b.plot(tb, np.cos(2 * np.pi * 6 * tb), color=GOLD, lw=1.1)
+    b.set_xlabel("Time within one chirp")
     b.set_ylabel("Beat signal")
-    b.set_yticks([])
-    b.set_xlim(20.0, 20.0 + span)
+    b.set_xticks([]); b.set_yticks([])
     b.spines[["top", "right", "left"]].set_visible(False)
     b.set_title("Mixing the transmitted chirp with its delayed echo produces a beat "
                 "frequency proportional to range", fontsize=9)
-    b.text(0.985, 0.94,
-           "$f_b = 2BR / (c\\,T_c)$;    $R = 20$ m $\\Rightarrow f_b = %.2f$ MHz "
-           "(shown here at true scale)" % (fb / 1e6),
-           transform=b.transAxes, ha="right", va="top", fontsize=8.4, color=INK)
+    b.text(0.985, 0.94, r"$f_b = 2BR / (c\,T_c)$",
+           transform=b.transAxes, ha="right", va="top", fontsize=9, color=INK)
 
     fig.tight_layout()
-    fig.text(0.5, -0.03,
-             "Radar of this work: $B$ = %.0f MHz, $T_c$ = %.1f $\\mu$s, "
-             "slope = %.3f MHz/$\\mu$s, $N$ = %d samples per chirp"
-             % (B_MHz, Tc_us, DER.slope / 1e12, CFG.N),
-             ha="center", fontsize=8, color=GREY)
     save(fig, "ch2_fig1_fmcw_chirp.png")
 
 
@@ -164,10 +146,10 @@ def fig_chain():
     # NB: matplotlib is not LaTeX -- "--" would render as two hyphens, so use the
     # en-dash character directly.
     labels = [
-        ("Received\nsamples", "$N \\times M$\n%d $\\times$ %d" % (CFG.N, CFG.M), 8.2),
+        ("Received\nsamples", "$N \\times M$", 8.2),
         ("Range FFT\n(fast time)", "along $N$", 8.2),
         ("Doppler FFT\n(slow time)", "along $M$", 8.2),
-        ("Range–Doppler\nmap", "%d $\\times$ %d bins" % (CFG.N // 2, CFG.M), 7.5),
+        ("Range–Doppler\nmap", "one cell per\nrange--velocity pair", 7.5),
         ("Detector", "CFAR or CNN", 8.2),
     ]
     boxes = [(margin + i * (w + g), t, s, fs) for i, (t, s, fs) in enumerate(labels)]
@@ -184,11 +166,11 @@ def fig_chain():
         ax.annotate("", xy=(x + w + g - 0.6, 18.5), xytext=(x + w + 0.6, 18.5),
                     arrowprops=dict(arrowstyle="->", color=INK, lw=1.2))
 
-    ax.text(boxes[1][0] + w / 2, 7.0, "range resolution\n$c/2B$ = %.3f m" % DER.range_res,
-            ha="center", fontsize=7.4, color=BLUE)
+    ax.text(boxes[1][0] + w / 2, 7.0, "range resolution\n$\\Delta R = c/2B$",
+            ha="center", fontsize=7.6, color=BLUE)
     ax.text(boxes[2][0] + w / 2, 7.0,
-            "velocity resolution\n$\\lambda/2MT_r$ = %.3f m/s" % DER.vel_res,
-            ha="center", fontsize=7.4, color=BLUE)
+            "velocity resolution\n$\\Delta v = \\lambda/2MT_r$",
+            ha="center", fontsize=7.6, color=BLUE)
     ax.text(x_lim / 2, 30, "This chapter concerns the final stage only.",
             ha="center", fontsize=8.4, color=RED)
     save(fig, "ch2_fig2_processing_chain.png")
@@ -223,7 +205,9 @@ def fig_rd_example():
     rr, dd = np.meshgrid(np.arange(db.shape[0]), np.arange(db.shape[1]), indexing="ij")
     clean = db.max() * np.exp(-(((rr - r0) / 1.1) ** 2 + ((dd - d0) / 1.1) ** 2) / 2.0)
 
-    ext = [-DER.vel_max, DER.vel_max, 0, DER.range_max]
+    # Axes in bins, not metres: Chapter 2 must not pre-empt the sensor specification, and bins
+    # are what the detector actually operates on.
+    ext = [0, db.shape[1], 0, db.shape[0]]
     vmax = max(28, db.max())
 
     fig, ax = plt.subplots(1, 3, figsize=(7.4, 2.9),
@@ -232,7 +216,7 @@ def fig_rd_example():
     ax[0].imshow(clean, aspect="auto", origin="lower", cmap="viridis",
                  extent=ext, vmin=-6, vmax=vmax)
     ax[0].set_title("Target response alone")
-    ax[0].set_ylabel("Range [m]")
+    ax[0].set_ylabel("Range bin")
 
     im = ax[1].imshow(db, aspect="auto", origin="lower", cmap="viridis",
                       extent=ext, vmin=-6, vmax=vmax)
@@ -240,15 +224,14 @@ def fig_rd_example():
     ax[1].set_yticklabels([])
 
     for a in ax[:2]:
-        a.set_xlabel("Radial velocity [m/s]")
+        a.set_xlabel("Doppler bin")
     cb = fig.colorbar(im, ax=ax[1], pad=0.02)
     cb.set_label("dB above noise floor", fontsize=7.5)
 
     prof = db[r0, :]
-    ax[2].plot(np.linspace(-DER.vel_max, DER.vel_max, db.shape[1]), prof,
-               color=BLUE, lw=1.3)
+    ax[2].plot(np.arange(db.shape[1]), prof, color=BLUE, lw=1.3)
     ax[2].axhline(0, color=GREY, lw=0.9, ls=":")
-    ax[2].set_xlabel("Radial velocity [m/s]")
+    ax[2].set_xlabel("Doppler bin")
     ax[2].set_ylabel("dB above noise floor")
     ax[2].set_title("Cut through the target's range bin")
     ax[2].spines[["top", "right"]].set_visible(False)
@@ -259,10 +242,8 @@ def fig_rd_example():
 
     fig.tight_layout()
     fig.text(0.5, -0.04,
-             "One frame of the simulated benchmark (%s), %d $\\times$ %d bins, "
-             "0--%.0f m and $\\pm$%.1f m/s."
-             % (frame_name.replace("_", "\\_"), db.shape[0], db.shape[1],
-                DER.range_max, DER.vel_max),
+             "One frame of the simulated dataset. The sensor parameters, axes and "
+             "dataset design are specified in Chapter 3.",
              ha="center", fontsize=7.6, color=GREY)
     save(fig, "ch2_fig3_rd_map_example.png")
 
@@ -300,18 +281,17 @@ def fig_cfar_window():
     ax.set_yticklabels(range(-cd, cd + 1))
     ax.set_xlabel("Range offset from the cell under test [bins]")
     ax.set_ylabel("Doppler offset [bins]")
-    ax.set_title("CFAR reference window: %d bins in range $\\times$ %d in Doppler = %d cells\n"
-                 "(%d guard and %d reference cells per side in range; %d and %d in Doppler)"
-                 % (WIN_R, WIN_D, WIN_R * WIN_D,
-                    GUARD_R, TRAIN_R, GUARD_D, TRAIN_D), fontsize=9)
+    ax.set_title("CFAR reference window: cell under test, guard ring, reference cells\n"
+                 "(illustrative geometry; the window used in this work is specified "
+                 "in Chapter 4)", fontsize=9)
 
     handles = [
         matplotlib.patches.Patch(facecolor="#e8913c", edgecolor="white",
-                                 label="1 cell under test (supplies $x$)"),
+                                 label="Cell under test (supplies $x$)"),
         matplotlib.patches.Patch(facecolor="#9fc3e8", edgecolor="white",
-                                 label="%d guard cells (excluded)" % n_guard),
+                                 label="Guard cells (excluded)"),
         matplotlib.patches.Patch(facecolor="#eef2f6", edgecolor="#cccccc",
-                                 label="%d reference cells (estimate $Z$)" % n_ref),
+                                 label="Reference cells (estimate $Z$)"),
     ]
     ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.30),
               ncol=3, frameon=False, fontsize=8)
@@ -451,8 +431,8 @@ def fig_cfar_as_convolution(n_ref):
     hdr.axis("off")
     hdr.add_patch(Rectangle((0.24, 0.18), 0.52, 0.62, facecolor="#eef2f6",
                             edgecolor=GREY, lw=1.0))
-    hdr.text(0.5, 0.49, "Same local range–Doppler footprint:  %d $\\times$ %d bins"
-             % (WIN_R, WIN_D), ha="center", va="center", fontsize=10, color=INK)
+    hdr.text(0.5, 0.49, "The same local range–Doppler footprint",
+             ha="center", va="center", fontsize=10, color=INK)
     for x in (0.38, 0.62):
         hdr.annotate("", xy=(x, -0.30), xytext=(x, 0.14),
                      arrowprops=dict(arrowstyle="->", color=INK, lw=1.3))
@@ -478,9 +458,8 @@ def fig_cfar_as_convolution(n_ref):
     axl2 = fig.add_subplot(gs[2, 0])
     axl2.axis("off"); axl2.set_xlim(0, 1); axl2.set_ylim(0, 1)
     axl2.text(0.5, 0.92, "One fixed weight per cell:", ha="center", fontsize=8.4, color=INK)
-    axl2.text(0.5, 0.70, "$+1$ on the CUT,   $0$ on the %d guard cells,\n"
-                         "$-\\alpha/N$ on each of the $N=%d$ reference cells"
-              % (int((k == 0).sum()) - 0, n_ref),
+    axl2.text(0.5, 0.70, "$+1$ on the CUT,   $0$ on each guard cell,\n"
+                         "$-\\alpha/N$ on each of the $N$ reference cells",
               ha="center", va="center", fontsize=8.0, color=GREY)
     axl2.annotate("", xy=(0.5, 0.30), xytext=(0.5, 0.52),
                   arrowprops=dict(arrowstyle="->", color=INK, lw=1.2))
@@ -492,7 +471,7 @@ def fig_cfar_as_convolution(n_ref):
     # ---- right: learned rule
     axr = fig.add_subplot(gs[1, 1])
     axr.axis("off"); axr.set_xlim(0, 1); axr.set_ylim(0, 1)
-    axr.set_title("TinyCNN: learned, multi-layer rule", fontsize=9.5, color=RED)
+    axr.set_title("CNN: learned, multi-layer rule", fontsize=9.5, color=RED)
     n_l = len(dil_r)
     top, bh, gap = 0.94, 0.17, 0.055
     for i in range(n_l):
@@ -500,11 +479,10 @@ def fig_cfar_as_convolution(n_ref):
         axr.add_patch(Rectangle((0.06, y), 0.60, bh, facecolor="white",
                                 edgecolor=RED, lw=1.3))
         axr.text(0.36, y + bh / 2,
-                 "Conv $3\\times3$,  %d ch,\ndilation (%d, %d)"
-                 % (chans[i], dil_r[i], dil_d[i]),
+                 "Convolutional layer %d\n(small kernel, non-linearity)" % (i + 1),
                  ha="center", va="center", fontsize=7.6, color=INK)
-        axr.text(0.70, y + bh / 2, "%d$\\times$%d" % (rf_r[i], rf_d[i]),
-                 ha="left", va="center", fontsize=7.8, color=GREY)
+        axr.text(0.70, y + bh / 2, "grows" if i < n_l - 1 else "full footprint",
+                 ha="left", va="center", fontsize=7.6, color=GREY)
         if i < n_l - 1:
             axr.annotate("", xy=(0.36, y - 0.005), xytext=(0.36, y - gap + 0.005),
                          arrowprops=dict(arrowstyle="<-", color=RED, lw=1.1))
@@ -515,10 +493,9 @@ def fig_cfar_as_convolution(n_ref):
     axr2.axis("off"); axr2.set_xlim(0, 1); axr2.set_ylim(0, 1)
     axr2.text(0.5, 0.92, "Weights fitted to data, not derived:", ha="center",
               fontsize=8.4, color=INK)
-    axr2.text(0.5, 0.70, "5,041 parameters over four layers.\n"
-                         "The %d $\\times$ %d footprint is the COMPOSED receptive\n"
-                         "field of the stack, not a single %d $\\times$ %d kernel."
-              % (rf_r[-1], rf_d[-1], rf_r[-1], rf_d[-1]),
+    axr2.text(0.5, 0.70, "The footprint is the COMPOSED receptive field of\n"
+                         "the whole stack, not a single learned kernel.\n"
+                         "The network used here is specified in Chapter 4.",
               ha="center", va="center", fontsize=8.0, color=GREY)
     axr2.annotate("", xy=(0.5, 0.30), xytext=(0.5, 0.52),
                   arrowprops=dict(arrowstyle="->", color=INK, lw=1.2))

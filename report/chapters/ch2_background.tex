@@ -53,12 +53,11 @@ work.
 \centering
 \includegraphics[width=0.92\textwidth]{figures/Chapter2/ch2_fig1_fmcw_chirp.png}
 \caption[FMCW chirp geometry and the beat frequency]{Top: the received echo is a delayed copy of
-the transmitted chirp, so mixing the two produces a beat frequency proportional to range. The delay
-is drawn magnified by a factor of 60 for visibility, \emph{and the vertical gap labelled $f_b$ is
-exaggerated by the same factor} --- it is not drawn at \SI{1.42}{\mega\hertz}. The true values at
-\SI{20}{\metre} are $\tau = \SI{0.133}{\micro\second}$ and $f_b = \SI{1.42}{\mega\hertz}$. Bottom:
-the resulting beat tone at true scale, over a \SI{4}{\micro\second} window so that individual
-cycles are visible.}
+the transmitted chirp, so mixing the two produces a beat frequency proportional to range. Axes are
+normalised, in units of the swept bandwidth $B$ and the chirp duration $T_c$. The geometry is
+illustrative: in practice $\tau \ll T_c$, so both the delay and the vertical gap labelled $f_b$ are
+far smaller than drawn. Bottom: the resulting beat tone. The sensor parameters used in this work
+are given in Chapter~\ref{chp:simulator}.}
 \label{fig:chirp}
 \end{figure}
 
@@ -116,8 +115,8 @@ range and radial velocity. Figure~\ref{fig:chain} summarises the chain.
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig2_processing_chain.png}
 \caption[FMCW processing chain]{From received samples to the range--Doppler map. The detector,
-which is the subject of this report, operates on the final stage only. Resolutions shown are those
-of the radar specified in Chapter~\ref{chp:simulator}.}
+which is the subject of this report, operates on the final stage only. The sensor parameters that
+fix the two resolutions are specified in Chapter~\ref{chp:simulator}.}
 \label{fig:chain}
 \end{figure}
 
@@ -203,16 +202,13 @@ target inflate its own threshold and suppress its own detection. Beyond the guar
 \begin{figure}[h!]
 \centering
 \includegraphics[width=0.95\textwidth]{figures/Chapter2/ch2_fig4_cfar_window.png}
-\caption[CFAR reference window geometry]{The reference window used throughout this work. It spans
-21 bins in range by 9 in Doppler, so it covers 189 cells in total, divided into three roles:
-\textbf{1 cell under test}, which supplies the test statistic $x$; \textbf{24 guard cells}
-immediately surrounding it, excluded so that a target cannot raise its own threshold; and
-\textbf{164 reference cells}, which form the background estimate $Z$. The guard region is the
-$5 \times 5$ block at the centre, from which the cell under test itself is excluded. Counting
-outwards from the centre along each axis, range has 2 guard cells and then 8 reference cells on
-each side, and Doppler has 2 guard cells and then 2 reference cells on each side. The window is
-rectangular because the two axes of the RD map are not alike, as Chapter~\ref{chp:detectors}
-explains.}
+\caption[CFAR reference window geometry]{The three roles a CFAR window assigns to the cells around
+each decision. The \textbf{cell under test} supplies the test statistic $x$. The \textbf{guard
+cells} immediately surrounding it are excluded, so that a target cannot raise its own threshold.
+The remaining \textbf{reference cells} form the background estimate $Z$. The geometry drawn here is
+illustrative: the window is rectangular because the two axes of the RD map are not alike, and the
+size actually used in this work, together with the reason for it, is specified in
+Chapter~\ref{chp:detectors}.}
 \label{fig:cfarwin}
 \end{figure}
 
@@ -377,27 +373,29 @@ here. If CA-CFAR is a convolution with \emph{fixed} weights, then convolutional 
 score for a cell from a local neighbourhood of that cell. The difference is how the rule that maps
 neighbourhood to score is obtained:
 \begin{center}
-CA-CFAR $=$ a \textbf{fixed} local decision rule \qquad TinyCNN $=$ a \textbf{learned} local
+CFAR $=$ a \textbf{fixed} local decision rule \qquad CNN $=$ a \textbf{learned} local
 decision rule.
 \end{center}
 
 One qualification should be stated now, because it is easy to lose. The equivalence above is exact
-for CA-CFAR and a \emph{single} linear filter. The network used in this work is not a single
-$21 \times 9$ filter: it is a stack of four small convolutional layers with non-linearities between
-them, whose \emph{composed} receptive field is $21 \times 9$. It is therefore a strictly richer
-function than any single kernel over that footprint, which is precisely why it might learn
-something CFAR cannot express. Figure~\ref{fig:cfarconv} contrasts the two.
+for CA-CFAR and a \emph{single} linear filter. The network used in this work is not a single filter
+of that size: it is a stack of small convolutional layers with non-linearities between them, whose
+\emph{composed} receptive field covers the footprint. It is therefore a strictly richer function
+than any single kernel over that footprint, which is precisely why it might learn something CFAR
+cannot express. Figure~\ref{fig:cfarconv} contrasts the two, and
+Chapter~\ref{chp:detectors} gives the architecture.
 
 \begin{figure}[h!]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig6_cfar_as_convolution.png}
 \caption[A fixed and a learned decision rule over the same footprint]{Both detectors decide from
-the same $21 \times 9$ local footprint, but obtain their rule differently. Left: CA-CFAR is one
-fixed weight per cell --- $+1$ on the cell under test, $0$ on the guard cells, $-\alpha/N$ on each
-reference cell. The colour scale is set by the reference weights, so the cell under test saturates
-and is labelled instead. Right: TinyCNN reaches the same footprint by composing four small dilated
-convolutions, the receptive field growing layer by layer. \textbf{The $21 \times 9$ extent is the
-composed receptive field of the stack, not a single learned kernel.}}
+the same local footprint, but obtain their rule differently. Left: CA-CFAR is one fixed weight per
+cell --- $+1$ on the cell under test, $0$ on the guard cells, $-\alpha/N$ on each reference cell.
+The colour scale is set by the reference weights, so the cell under test saturates and is labelled
+instead. Right: a convolutional network reaches the same footprint by composing several small
+convolutions, the receptive field growing layer by layer. \textbf{That footprint is the composed
+receptive field of the whole stack, not a single learned kernel.} The network used in this work is
+specified in Chapter~\ref{chp:detectors}.}
 \label{fig:cfarconv}
 \end{figure}
 
