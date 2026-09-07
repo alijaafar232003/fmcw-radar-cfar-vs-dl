@@ -192,6 +192,58 @@ def main():
         nm = "".join(w.capitalize() for w in split.split("_"))
         macro("Bench" + nm + "Frames", "{:,}".format(n))
 
+    # ---------------------------------------------------------------- Chapter 4: detectors
+    # Window geometry and alphas from the artefacts that define them, model facts from the
+    # frozen contract, so the chapter cannot drift from what was actually run.
+    import yaml                                                          # noqa: E402
+    fz = yaml.safe_load(open(os.path.join(ROOT, "configs", "frozen_dl.yaml"), encoding="utf-8"))
+    at = json.load(open(os.path.join(ROOT, "configs", "cfar_alpha_table.json"), encoding="utf-8"))
+
+    gr, tr = fz["cfar"]["guard"], fz["cfar"]["train"]
+    gd, td = fz["cfar"]["guard_v"], fz["cfar"]["train_v"]
+    win_r, win_d = 1 + 2 * (gr + tr), 1 + 2 * (gd + td)
+    n_guard = (1 + 2 * gr) * (1 + 2 * gd) - 1
+    n_ref = win_r * win_d - n_guard - 1
+
+    lines.append("")
+    lines.append("% ---------- Chapter 4: CFAR window and calibrated multipliers ----------")
+    macro("CfarWinR", win_r)
+    macro("CfarWinD", win_d)
+    macro("CfarWinCells", win_r * win_d)
+    macro("CfarGuardR", gr)
+    macro("CfarTrainR", tr)
+    macro("CfarGuardD", gd)
+    macro("CfarTrainD", td)
+    macro("CfarNGuard", n_guard)
+    macro("CfarNRef", n_ref)
+    macro("CfarOsRank", "{:.2f}".format(fz["cfar"]["os_rank_frac"]))
+    for k, v in at["entries"].items():
+        macro("CfarAlpha" + k.split("|")[0], "{:.4f}".format(v))
+    # The closed form applies to CA only; quoted beside the calibrated value as a check.
+    macro("CfarAlphaCAAnalytic",
+          "{:.4f}".format(n_ref * ((1e-4) ** (-1.0 / n_ref) - 1.0)))
+
+    lines.append("")
+    lines.append("% ---------- Chapter 4: frozen network ----------")
+    macro("TinyParams", "{:,}".format(fz["model"]["params"]))
+    macro("TinyWidth", fz["model"]["width"])
+    macro("TinyRFR", fz["model"]["receptive_field"][0])
+    macro("TinyRFD", fz["model"]["receptive_field"][1])
+    macro("TinyDilR", ", ".join(str(d) for d in fz["model"]["dilations_range"]))
+    macro("TinyDilD", ", ".join(str(d) for d in fz["model"]["dilations_doppler"]))
+    macro("TinyEpochs", fz["training"]["epochs"])
+    macro("TinyPosWeight", "{:.0f}".format(fz["training"]["pos_weight"]))
+    macro("TinyLR", fz["training"]["lr"])
+    macro("TinyBatch", fz["training"]["batch_size"])
+    macro("TinySeeds", len(fz["training"]["seeds"]))
+    macro("TinyThreads", fz["training"]["threads"])
+    macro("ProtocolNms", fz["evaluation"]["nms_size"])
+    macro("ProtocolGate", fz["evaluation"]["gate"])
+    macro("ProtocolGateRobust", fz["evaluation"]["gate_robustness"])
+    macro("ProtocolBootstrap", "{:,}".format(fz["evaluation"]["n_bootstrap"]))
+    macro("ProtocolPfa", "{:.0e}".format(fz["evaluation"]["target_pfa"]).replace("e-04", "^{-4}"))
+    macro("ProtocolBonf", "{:.4f}".format(0.05 / 7))
+
     # ---------------------------------------------------------------- Pd-vs-SNR (dB currency)
     # The literature reports learned-vs-CFAR margins in dB of SNR at Pd 0.5.
     # Recomputed here from the frozen sweep artefact so the report never quotes a log.

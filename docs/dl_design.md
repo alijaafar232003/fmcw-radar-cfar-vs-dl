@@ -24,23 +24,26 @@ Written to be reusable in the report and defensible in a viva.
 >
 > Read "21×21" below as **21 × 9**, and "256 × 128" as **256 × 64**.
 
-> ## ⚠️ Two things that substitution rule does NOT fix (4 Sep 2026)
-> Found while writing report Chapter 2. Both are scheduled for correction when Chapter 4 is
-> written; noted here so nobody uses them in the meantime.
+> ## ✅ Two things the substitution rule did NOT fix — now corrected at source (8 Sep 2026)
+> Found while writing report Chapter 2, corrected while writing Chapter 4. Both are fixed in
+> place below; this note records what changed so the edit is auditable.
 >
-> 1. **§3.5(b) "it sees all 441 cells" is wrong.** 441 = 21×21. Under the real 21 × 9 window the
->    footprint is **189 cells**, the guard region is 5 × 5 = **25**, so CFAR estimates from
->    **164 reference cells**. The *argument* of §3.5(b) is unaffected — the network is not forced
->    to discard the guard cells and CFAR is — but the numbers are.
-> 2. **§3.2 "both detectors see the same information" overstates the match**, and §3.5's
->    "Report phrasing" repeats it. Matching the receptive field matches the **spatial footprint**,
->    which gives comparable local context; it does not make the two decision rules use that context
->    identically. CFAR takes the CUT as its test statistic, excludes the guard ring, and estimates
->    the background from the reference cells only. Report Chapter 1 §1.3 (O1) carries the corrected
->    wording; use that, not the phrasing suggested in §3.5.
+> 1. **§3.5(b) said "it sees all 441 cells".** 441 = 21×21, from the pre-CARRADA configuration.
+>    Under the real 21 × 9 window the footprint is **189 cells**, the guard region is 5 × 5 so the
+>    CUT plus **24** guard cells are excluded, leaving **164 reference cells**. Corrected in place.
+>    The *argument* of §3.5(b) was unaffected — the network is not forced to discard the guard
+>    cells and CFAR is — only the numbers were wrong.
+> 2. **§3.2 said "both detectors see the **same information**".** That overstates the match, and
+>    §3.5's "Report phrasing" repeated it. Matching the receptive field matches the **spatial
+>    footprint**, giving comparable local context; it does not make the two decision rules use
+>    that context identically. Both places now say so, and point to report Chapter 4,
+>    §"What matched does and does not mean", which is the authoritative wording.
 >
-> Also note §9 line "params ≈ 4,945" counts convolution weights only. With BatchNorm the total is
-> **5,041**, which is the figure the frozen configuration and the report use.
+> §3.3 was also rewritten: it gave one square RF table, but the two axes are dilated
+> independently (range [1,2,3,4] → 21, Doppler [1,1,1,1] → 9).
+>
+> Still note that §9's "params ≈ 4,945" counts convolution weights only. With BatchNorm the total
+> is **5,041**, which is the figure the frozen configuration and the report use.
 
 ---
 
@@ -106,16 +109,26 @@ model?"
 
 ## 3.2 The key design decision: match the receptive field to CFAR
 
-CA-CFAR's decision for a cell is a function of a **21 × 21 window**:
+CA-CFAR's decision for a cell is a function of a **21 × 9 window** (guard 2/2, train 8/2):
 
 ```
-window half-width = guard + train = 2 + 8 = 10   ->   2 x 10 + 1 = 21
+range   half-width = guard + train = 2 + 8 = 10   ->   2 x 10 + 1 = 21
+Doppler half-width = guard + train = 2 + 2 =  4   ->   2 x  4 + 1 =  9
 ```
 
 Within that window it applies a hand-derived rule (mean of the training ring × α, compare).
 
-If the CNN's receptive field is **also 21 × 21**, both detectors see the **same information** and
-differ *only* in the decision rule. That isolates one variable:
+> ⚠️ **Corrected 8 Sep 2026.** This section previously said both detectors "see the **same
+> information**". That overstates the match and is not the wording used in the report. Matching
+> the receptive field matches the **spatial footprint**, giving comparable local context; it does
+> **not** make the two decision rules use that context identically. CFAR takes the CUT as its test
+> statistic, excludes the 24 guard cells entirely, and estimates the background from the remaining
+> 164 reference cells. The CNN partitions nothing — all 189 cells of the footprint are available to
+> it. Report Chapter 4 §"What matched does and does not mean" carries the correct framing, and
+> treats the guard-cell asymmetry as one of the findings rather than as a flaw.
+
+If the CNN's receptive field is **also 21 × 9**, both detectors work from comparable local context
+and differ in the decision rule. That isolates one variable:
 
 > **Model 0 asks:** given identical context, can a learned rule beat a hand-derived one?
 
@@ -133,15 +146,22 @@ For stacked 3 × 3 convolutions at stride 1 with dilation `d_i`:
 RF = 1 + Σ 2·d_i
 ```
 
-| Dilations | Σd | RF | Assessment |
-|---|---|---|---|
-| [1, 1, 1, 1] | 4 | 9 × 9 | ✘ **less** context than CFAR — a loss would be confounded |
-| [1, 2, 4, 2] | 9 | 19 × 19 | ≈ matched, but not exact |
-| **[1, 2, 3, 4]** | **10** | **21 × 21** | ✔ **exact match — chosen** |
-| [1, 2, 4, 8] | 15 | 31 × 31 | more context than CFAR |
+The two axes are dilated **independently**, because the window is rectangular:
+
+| Axis | Dilations | Σd | RF | Assessment |
+|---|---|---|---|---|
+| range | [1, 1, 1, 1] | 4 | 9 | ✘ **less** context than the 21-cell CFAR span |
+| range | [1, 2, 4, 2] | 9 | 19 | ≈ matched, but not exact |
+| **range** | **[1, 2, 3, 4]** | **10** | **21** | ✔ **exact match — chosen** |
+| range | [1, 2, 4, 8] | 15 | 31 | more context than CFAR |
+| **Doppler** | **[1, 1, 1, 1]** | **4** | **9** | ✔ **exact match — chosen** |
+
+Composed receptive field **21 × 9**, verified by backprop from a single output pixel (`models.py`,
+`measure_receptive_field`). Parameter count **5,041** including BatchNorm (4,945 convolution
+weights + 96 BatchNorm parameters).
 
 **Why dilation at all?** It expands the receptive field **without adding parameters and without
-downsampling** — exactly what is needed when the output must stay at full 256 × 128 resolution.
+downsampling** — exactly what is needed when the output must stay at full 256 × 64 resolution.
 
 **Why [1,2,3,4] and not [1,2,4,3] or [1,2,4,8]?** Stacked dilated convolutions can suffer
 **gridding artifacts**: when dilations share common factors, some input positions are never
@@ -177,20 +197,25 @@ Parameter breakdown: 160 + 2,320 + 2,320 + 145 = **4,945**.
 
 Both should be stated rather than hidden — an examiner can push on either.
 
-**(a) Nominal RF ≠ effective RF.** The *theoretical* receptive field is 21 × 21, but the
+**(a) Nominal RF ≠ effective RF.** The *theoretical* receptive field is 21 × 9, but the
 **effective** receptive field is smaller and centre-weighted: influence decays roughly Gaussian
 from the middle, because central pixels contribute through many more paths than edge pixels. CFAR
 weights all training cells **uniformly**. So the CNN's *usable* context is somewhat tighter than
 CFAR's at the same nominal RF.
 
-*Report phrasing:* "the CNN's receptive field was matched to the CFAR reference window (21 × 21)
-so the comparison isolates the decision rule rather than the extent of available context, noting
-that a CNN's effective receptive field is centre-weighted rather than uniform."
+*Report phrasing:* see Chapter 4, "What matched does and does not mean". The wording once suggested
+here — that the match "isolates the decision rule" — was too strong and has been superseded; use
+the report's version, which says the two arms share a **footprint**, not a decision rule.
 
 **(b) The CNN sees slightly *more* information.** CFAR deliberately **excludes the guard region**
-(5 × 5 around the cell) from its noise estimate — it must, or a target's own leaked mainlobe
-energy would inflate its threshold and mask it. The CNN has no such exclusion: it sees all 441
-cells.
+(5 × 5 around the cell, i.e. the CUT plus **24** guard cells) from its noise estimate — it must, or
+a target's own leaked mainlobe energy would inflate its threshold and mask it, leaving **164**
+reference cells. The CNN has no such exclusion: all **189** cells of the 21 × 9 footprint are
+available to it.
+
+> ⚠️ **Corrected 8 Sep 2026.** This paragraph previously said "all 441 cells", which was 21 × 21
+> from the pre-CARRADA configuration. The counts above (189 / 24 / 164) are the real ones. The
+> *argument* is unchanged.
 
 This is **not unfairness — it is one of the findings.** CFAR excludes those cells out of
 *necessity*, because a simple mean cannot distinguish "this neighbour is bright because of my own
