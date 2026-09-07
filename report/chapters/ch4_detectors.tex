@@ -4,20 +4,45 @@
 \section{Introduction}
 
 This chapter specifies the two detectors compared in this report and fixes the rules by which they
-are scored. Both are specified before any comparative result appears, because a protocol chosen
-after seeing results is not a measurement.
+are scored. Choosing an evaluation protocol after seeing comparative results risks introducing
+bias, so the protocol is fixed before the benchmark result is examined.
 
 The chapter is organised around the fairness problem set out in Section~\ref{sec:problem}. Each of
 the asymmetries listed there is addressed by a specific choice recorded here: the network's
 receptive field is matched to the CFAR window; both detectors are reduced to the same output type
 and scored by one code path; operating points are matched at measured rather than design
-false-alarm rate; and results are reported across a range of matching tolerances rather than at a
-single one.
+false-alarm rate; and results are reported at more than one matching tolerance.
 
-One point of vocabulary is worth fixing at the outset. The two arms are not two different
-\emph{systems}; they are two ways of obtaining the same kind of local decision rule, as
-Section~\ref{sec:cfar_as_conv} established. Everything in this chapter follows from trying to hold
-everything else constant so that the decision rule is what varies.
+\subsection*{What is held in common, and what is not}
+\label{sec:whatiscommon}
+
+It is worth being exact about this at the outset, because the fairness of the comparison rests on
+it and it is easy to overstate.
+
+Both arms are detector arms that turn the same range--Doppler map into a per-cell score map, and
+both score maps are then handled identically. What they share is:
+
+\begin{itemize}
+\itemsep2pt
+\item the \textbf{same underlying range--Doppler data} --- the identical frames, from the identical
+processing chain of Chapter~\ref{chp:simulator};
+\item a \textbf{comparable local spatial footprint}, $\CfarWinR \times \CfarWinD$ cells, by
+construction;
+\item the \textbf{same downstream evaluation} --- one peak extractor, one matcher, one set of
+metrics, one code path.
+\end{itemize}
+
+What they do \emph{not} share is the transform applied between the map and the score. CFAR operates
+on range--Doppler power and forms a local ratio statistic. TinyCNN applies a fixed logarithmic
+normalisation relative to the frame median before inference, described in
+Section~\ref{sec:inputrep}. \textbf{Their input processing is therefore not mathematically
+identical}, and this report does not claim it is. Each arm has a fixed, detector-specific transform
+that is part of what that detector \emph{is}: a CFAR detector without its ratio is not CFAR, and a
+network evaluated on a different normalisation from the one it was trained on is not the trained
+network.
+
+The controlled variable is therefore the local decision rule, with as many other factors held
+common as is practical --- not every factor, and the exceptions are stated where they arise.
 
 \section{The classical arm}
 
@@ -56,13 +81,21 @@ candidate geometries evaluated on the dedicated tuning split.
 \includegraphics[width=0.88\textwidth]{figures/Chapter4/ch4_fig3_geometry_sweep.png}
 \caption[Window geometry selection]{Mean detection probability across conditions for each candidate
 window, measured on \texttt{bench2\_tune}. The selected geometry was fixed before any read of the
-test split.}
+test split. Only CA, GO and OS appear, for the reason given below.}
 \label{fig:geomsweep}
 \end{figure}
 
 The selection was made on \texttt{bench2\_tune}, a split used for nothing else. This matters
 because the network's operating point is selected on \texttt{bench2\_val}: if both selections used
 the same data, one arm would effectively be tuned on the other's selection set.
+
+\textbf{SO-CFAR did not take part in this selection.} SO was added to the project after the window
+geometry had already been chosen, and the geometry sweep was never re-run to include it. SO
+therefore inherits a window selected on the evidence of the other three variants rather than one
+chosen with SO in mind. This is stated rather than repaired: re-running the sweep would change a
+selection made before the frozen results were produced, and the honest course is to record that SO
+is the one variant whose window was not selected on its own behalf. If SO is disadvantaged by the
+choice, that disadvantage is a property of this evaluation and not of the algorithm.
 
 \subsection{Variants}
 
@@ -74,61 +107,97 @@ the one reported here.
 \subsection{Threshold calibration}
 \label{sec:alphacal}
 
-The multiplier $\alpha$ that achieves a chosen false-alarm rate is available in closed form for
-CA-CFAR, as equation~\eqref{eq:alpha_ca}. It is not used here, and the reason is worth stating
-because it is one of the asymmetries Section~\ref{sec:problem} identified.
+Two distinct calibrations occur in this report, at different stages and for different purposes.
+They are easy to confuse, so they are separated here before either is described.
+
+\begin{description}
+\itemsep3pt
+\item[(A) Threshold-multiplier calibration.] Described in this section. It fixes a baseline
+multiplier $\alpha$ for each CFAR variant, using \emph{noise-only} data. It concerns the CFAR
+statistic alone, before any comparison with the network, and it is what Table~\ref{tab:alphas}
+reports.
+\item[(B) Operating-point matching.] Described in Section~\ref{sec:opoint}. This is the headline
+comparison. Each detector's \emph{score threshold} is swept and the two arms are compared at the
+same \emph{measured} false-alarm rate. It happens after the shared peak-extraction path, and it
+applies to both arms.
+\end{description}
+
+\textbf{Table~\ref{tab:alphas} is not the headline comparison.} It reports (A). The reported $\Pd$
+values in Chapter~\ref{chp:synthetic} come from (B), where thresholds are swept rather than taken
+from the table.
+
+Turning to (A): the multiplier that achieves a chosen false-alarm rate has a closed form for
+CA-CFAR, given as equation~\eqref{eq:alpha_ca}. It is not used, for reasons the measurements below
+make plain.
 
 All four multipliers are instead obtained by Monte-Carlo calibration. Pure-noise frames are passed
 through the identical processing chain, the CFAR ratio map is computed for each, the ratio values
-are pooled over all validly tested cells, and the threshold is taken as the $(1 - \Pfa)$ empirical
+are pooled over all validly tested cells, and the multiplier is taken as the $(1 - \Pfa)$ empirical
 quantile of that pooled distribution. The result is the level exceeded by exactly a fraction $\Pfa$
-of noise cells, by construction.
+of noise cells, by construction, and it requires no distributional assumption --- which matters,
+because only CA has a tractable one.
 
-Figure~\ref{fig:alphacal} shows both the calibration itself and why it was necessary.
+Figure~\ref{fig:alphacal} shows the calibration and what it corrects.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter4/ch4_fig2_alpha_calibration.png}
 \caption[Threshold calibration]{Left: measured false-alarm rate against threshold multiplier for
 each variant, on pure-noise frames through the identical chain; the marker is the calibrated value.
-Right: the rate each variant actually achieves at the closed-form multiplier against the calibrated
-one, measured on a verification seed not used for calibration.}
+Right: the rate each variant achieves at its \emph{analytic reference} multiplier against its
+calibrated one, measured on a verification seed not used for calibration. The analytic reference is
+defined below and is exact only for CA.}
 \label{fig:alphacal}
 \end{figure}
 
-The right-hand panel is the argument. At the closed-form multiplier the achieved rates are not the
-design rate: CA overshoots it by a factor of about two and SO by more than six, while OS
-undershoots by nearly an order of magnitude. After calibration all four sit at the design rate on
-data not used to set them.
+The comparison multiplier in the right-hand panel needs defining precisely, because it is not a
+set of variant-specific closed forms. It is the CA expression of equation~\eqref{eq:alpha_ca}
+applied with the cell count appropriate to each statistic: the full \CfarNRef{} reference cells for
+CA and OS, and the half-ring count for GO and SO, which average over half the window. That makes it
+\emph{exact for CA}, a reasonable approximation for GO and SO, and, for OS, only a first
+approximation --- an order statistic has a different distribution entirely. The figure and
+Table~\ref{tab:alphas} therefore label it an \emph{analytic reference}, not a closed-form solution
+for each variant.
 
-Table~\ref{tab:alphas} gives the values.
+With that definition, the right-hand panel is the argument. At the analytic reference the achieved
+rates are not the design rate: CA overshoots by roughly a factor of two and SO by more than six,
+while OS undershoots by nearly an order of magnitude --- the largest error, as expected, for the
+variant whose statistic the expression fits worst. After calibration all four sit at the design
+rate on data not used to set them.
 
 \begin{table}[H]
 \centering
-\caption{Calibrated threshold multipliers at a design $\Pfa$ of $10^{-4}$, for the
-\CfarWinR{}\,$\times$\,\CfarWinD{} window. The closed form applies to CA only and is shown for
-comparison.}
+\caption{Calibrated threshold multipliers at a design $\Pfa$ of $10^{-4}$ for the
+\CfarWinR{}\,$\times$\,\CfarWinD{} window. The analytic reference is
+equation~\eqref{eq:alpha_ca} evaluated with each statistic's cell count; it is exact only for CA.}
 \label{tab:alphas}
-\begin{tabular}{@{}lcc@{}}
+\begin{tabular}{@{}lccl@{}}
 \toprule
-\textbf{Variant} & \textbf{Calibrated $\alpha$} & \textbf{Closed form} \\
+\textbf{Variant} & \textbf{Calibrated $\alpha$} & \textbf{Analytic reference} &
+\textbf{Status of the reference} \\
 \midrule
-CA & \CfarAlphaCA & \CfarAlphaCAAnalytic \\
-GO & \CfarAlphaGO & --- \\
-SO & \CfarAlphaSO & --- \\
-OS & \CfarAlphaOS & --- \\
+CA & \CfarAlphaCA & \CfarAlphaCAAnalytic & exact for this statistic \\
+GO & \CfarAlphaGO & \CfarAlphaGOAnalytic & half-ring approximation \\
+SO & \CfarAlphaSO & \CfarAlphaSOAnalytic & half-ring approximation \\
+OS & \CfarAlphaOS & \CfarAlphaOSAnalytic & first approximation only \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The CA row deserves a comment. The calibrated multiplier is about \SI{10}{\percent} higher than the
-closed form, which corresponds to roughly \SI{0.4}{\deci\bel} of extra threshold. The closed form
-assumes the \CfarNRef{} reference cells are statistically independent, whereas the window functions
-of Chapter~\ref{chp:simulator} correlate neighbouring cells of the range--Doppler map. The
-effective number of independent samples is therefore smaller than \CfarNRef{}, the estimate of $Z$
-is noisier than the formula assumes, and a higher threshold is needed to hold the rate. This is the
-CFAR loss of Section~\ref{sec:cfar_loss} appearing as a measurable quantity rather than a
-hypothesis, and Chapter~\ref{chp:attribution} returns to it.
+The CA row deserves a comment, since it is the one case where the reference is exact. The
+calibrated multiplier is about \SI{10}{\percent} higher, roughly \SI{0.4}{\deci\bel} of extra
+threshold. Equation~\eqref{eq:alpha_ca} assumes the \CfarNRef{} reference cells are statistically
+independent, whereas the window functions of Chapter~\ref{chp:simulator} correlate neighbouring
+cells. The effective number of independent samples is therefore smaller than \CfarNRef{}, and a
+higher multiplier is needed to hold the rate.
+
+\textbf{This is not itself a measurement of CFAR loss.} It is a threshold difference on noise-only
+data. CFAR loss, as defined in Section~\ref{sec:cfar_loss}, is a \emph{detection} penalty relative
+to a detector that knows the true background power. The two are related --- both arise from
+estimating the background from finitely many correlated cells --- but they are different
+quantities, measured differently, and a value for one is not a value for the other. The
+detection penalty is measured separately, against a clairvoyant reference, in
+Chapter~\ref{chp:attribution}.
 
 \section{The learned arm}
 
@@ -157,9 +226,11 @@ parameters and without downsampling. The value was verified empirically, by back
 single output cell and recording which input cells receive non-zero gradient, rather than trusting
 the arithmetic.
 
-\textbf{There is no downsampling.} Pooling and upsampling would risk displacing the peak cell, and
-a one-bin displacement degrades the localisation metric. Padding equals dilation at every layer, so
-the spatial size is preserved exactly.
+\textbf{There is no downsampling.} Padding equals dilation at every layer, so the spatial size is
+preserved exactly through the stack. Avoiding a pooling and upsampling stage removes one additional
+source of localisation error while keeping the output at full range--Doppler resolution; it does
+not by itself guarantee that peaks are placed correctly, which is an empirical question addressed
+in Chapter~\ref{chp:synthetic}.
 
 \textbf{The network is deliberately small.} At \TinyParams{} parameters and \TinyWidth{} channels
 it is tiny by modern standards. That is intentional: the question is what a small learned local
@@ -177,30 +248,47 @@ test as its statistic, excludes the guard ring entirely, and estimates the backg
 \CfarNRef{} reference cells. The network has no such partition: all \CfarWinCells{} cells in its
 footprint are available to it, and it may combine them in any way its weights encode.
 
-\textbf{That asymmetry is a finding, not an oversight.} CFAR excludes the guard cells out of
-necessity, because a simple mean cannot distinguish a bright neighbour caused by a target's own
-mainlobe from a bright neighbour caused by high noise. A learned function can in principle make
-that distinction, and so can exploit information the classical rule is forced to discard. The
-correct statement is therefore: \emph{the same window, but CFAR is constrained to a hand-derived
-statistic that requires discarding the inner cells}. Chapter~\ref{chp:attribution} treats this as
-one of the candidate mechanisms.
+\textbf{This is a structural difference between the two decision rules, not a difference in spatial
+footprint.} CFAR excludes the guard cells out of necessity: a simple mean cannot distinguish a
+bright neighbour caused by a target's own mainlobe from a bright neighbour caused by high noise. A
+learned function is not subject to that constraint. The accurate statement is therefore \emph{the
+same footprint, but CFAR is constrained to a hand-derived statistic that requires discarding the
+inner cells}. Whether that difference actually contributes to any measured margin is a separate
+question, tested in Chapter~\ref{chp:attribution} rather than assumed here.
 
-\textbf{The nominal receptive field is not the effective one.} A convolutional network's influence
-decays from the centre outward, because central cells contribute through many more paths than edge
-cells. CFAR weights all its reference cells uniformly. The network's usable context is therefore
-somewhat tighter than the nominal match suggests.
+\textbf{Nominal and effective receptive fields are not the same thing.} It is a general property of
+stacked convolutions that influence decays from the centre outward, because central cells
+contribute through more paths than edge cells, whereas CFAR weights its reference cells uniformly.
+The effective receptive field of this particular network was \emph{not} measured, so this is noted
+as an architectural consideration rather than as a measured property of TinyCNN, and no part of the
+fairness argument rests on it. The $\TinyRFR \times \TinyRFD$ figure quoted above is the nominal
+receptive field, which \emph{was} measured, by back-propagation.
 
 \subsection{Input representation}
+\label{sec:inputrep}
 
-The input transform is the highest-leverage preprocessing choice, and it is applied identically at
-training and inference. Each map is converted to decibels relative to \emph{its own} noise floor,
+The input transform is the highest-leverage preprocessing choice for the learned arm. It is a fixed
+part of the detector, applied identically during training and inference: each map is expressed in
+decibels relative to \emph{its own frame median power},
 \begin{equation}
 X = \frac{1}{20}\,\mathrm{clip}\!\left(10 \log_{10}
 \frac{P}{\operatorname{median}(P)},\; -10,\; +60\right),
+\label{eq:norm}
 \end{equation}
-where $P$ is the range--Doppler power map. Normalising by the frame's own median rather than by its
-maximum is deliberate: peak normalisation would rescale every frame by its brightest target and
-destroy the absolute signal-to-noise information the detector needs.
+where $P$ is the range--Doppler power map.
+
+The frame median is used as the reference level rather than the frame maximum. Peak normalisation
+would rescale every frame by its brightest target and destroy the absolute signal-to-noise
+information the detector needs. The median is a robust measure of the frame's background scale: in
+the homogeneous synthetic frames of Chapter~\ref{chp:simulator} it tracks the noise level closely,
+but it is a statistic of the frame, not a measurement of physical noise power, and the two need not
+coincide in cluttered scenes or in real data. Chapter~\ref{chp:realdata} returns to this point,
+since the same fixed transform must then be applied to frames whose background statistics differ
+from those it was fitted on.
+
+As noted in Section~\ref{sec:whatiscommon}, this transform has no counterpart in the classical arm,
+which works from power directly. That is a real difference between the two paths, and it is part of
+what each detector is rather than an adjustable knob.
 
 \subsection{Labels}
 \label{sec:labels}
@@ -208,13 +296,15 @@ destroy the absolute signal-to-noise information the detector needs.
 Section~\ref{sec:sota} noted that a learned detector must be given a training target and that the
 choice is not neutral. The label used here is a $3\times3$ block centred on each target's cell.
 
-This is a known limitation and is recorded as such. A block label asks the network to respond over
-a small region rather than at one exact cell, which relaxes the localisation demand relative to a
-single-cell label. It is the leading suspect for the localisation behaviour reported in
-Chapter~\ref{chp:synthetic}, where the network's exact-cell performance is weaker than its
-tolerant-gate performance. It was retained because changing it after the experimental record was
-established would invalidate every result in that record; the alternative representations remain an
-open axis, noted in the General Conclusion.
+A block label asks the network to respond over a small region rather than at one exact cell, which
+relaxes the localisation demand relative to a single-cell label. It is retained here because it
+belongs to the frozen benchmark: changing it would mean the reported results no longer describe the
+system that produced them.
+
+Its effect is not left as an open question. Chapter~\ref{chp:attribution} tests the label
+representation explicitly, training under alternative supervision while leaving the frozen
+benchmark intact, so that the influence of this choice on localisation is measured rather than
+assumed.
 
 \subsection{Training}
 
@@ -244,23 +334,30 @@ Selection split & \texttt{bench2\_val} & \BenchValFrames{} frames \\
 
 Three of those entries need explanation.
 
-\textbf{Epoch selection.} The reported epoch was not chosen by early stopping. Validation loss
-plateaus later than detection probability does, so stopping on loss selects the wrong epoch. Every
-epoch from 1 to 25 was instead swept, and the reported epoch is the earliest whose pooled
-seed-mean $\Pd$ lies within one standard error of the plateau --- a rule fixed before the sweep was
-run.
+\textbf{Epoch selection.} The reported epoch was not chosen by early stopping, because validation
+loss plateaus later than detection probability does and would select the wrong epoch. The procedure
+was instead:
+\begin{enumerate}
+\itemsep1pt
+\item every epoch from 1 to 25 was evaluated on the validation split;
+\item detection probability was pooled over the \TinySeeds{} seeds at each epoch;
+\item the selected epoch is the \emph{earliest} whose pooled value lies within one standard error
+of the plateau.
+\end{enumerate}
+The rule was fixed before the sweep was examined. It is described here as pre-specified rather than
+pre-registered: it was written down in advance, but not lodged as a formal pre-registration in the
+way the real-data protocol of Chapter~\ref{chp:realdata} was.
 
 \textbf{Positive weighting.} The positive class is vastly outnumbered, and exact class balancing
 would imply a weight near 974. That value was tried and produced a result that later had to be
 retracted; the weight of \TinyPosWeight{} won a three-way ablation on the validation split. The
 retraction is recorded in Appendix~\ref{app:corrections}.
 
-\textbf{Thread count is load-bearing.} This is unusual enough to state explicitly. CPU tensor
-kernels reduce in a different order at a different thread count, so the same seed produces
-different weights: the maximum weight difference across the \TinyParams{} parameters is
-$0.38$, which is about one standard error on localisation and negligible on $\Pd$. Runs trained at
-different thread counts are therefore not pooled or compared. Fixing the thread count is part of
-the reproducibility contract, not a performance setting.
+\textbf{Thread count is load-bearing.} CPU tensor kernels accumulate in a different order at
+different thread counts, so the same seed trained with a different thread count produces different
+weights. The count is fixed at \TinyThreads{} as part of the reproducibility contract, not as a
+performance setting, and runs trained at different thread counts are not pooled or compared. The
+measured size of the effect is recorded in Appendix~\ref{app:tables}.
 
 \textbf{Eight seeds are reported, always.} A single training run is one sample from a distribution,
 and the spread between seeds is not negligible. Every network result in this report is a mean over
@@ -282,9 +379,39 @@ single code path. The only thing that differs between the two routes is the scor
 \label{fig:protocol}
 \end{figure}
 
-Peak extraction is the same function call for both arms, with a non-maximum suppression radius of
-\ProtocolNms{} cells. Scoring is restricted to the interior region where a full window fits, so no
-detector is penalised for map edges it cannot legitimately test.
+The order is fixed and identical for both arms:
+\begin{center}
+score map $\rightarrow$ local-peak extraction $\rightarrow$ operating threshold\\[2pt]
+$\rightarrow$ one-to-one matching $\rightarrow$ metrics
+\end{center}
+
+\textbf{Peak extraction} is the same function call for both arms. A cell is a candidate if it is
+the maximum of its neighbourhood, where the neighbourhood is a square of side
+$2 \times \ProtocolNms + 1 = 11$ cells --- that is, suppression within a Chebyshev distance of
+\ProtocolNms{} bins, an $11 \times 11$ window. Candidates are extracted \emph{before} any
+threshold is applied, so that a score sweep can be performed afterwards on the same candidate set.
+
+\textbf{The valid region} is the interior where a full CFAR window fits: a margin of
+$\CfarGuardR + \CfarTrainR = 10$ bins is excluded on the range axis and
+$\CfarGuardD + \CfarTrainD = 4$ on the Doppler axis. The same mask is applied to the network, so
+that the false-alarm denominator counts the same cells for both arms. Using a square mask here
+would have scored the network on Doppler bins that CFAR never tests.
+
+\subsubsection*{A protocol asymmetry: the candidate score floor}
+
+One detail of the shared extractor is not symmetric between the arms, and is recorded here rather
+than left implicit.
+
+Candidate extraction keeps only cells whose score is strictly positive. For CFAR the score is a
+ratio of powers and is positive by construction, so the condition never removes anything. For the
+network the score is a \emph{logit}, which is negative wherever the predicted probability is below
+one half, so those cells can never become candidates however low the threshold is subsequently set.
+
+The consequence is limited but real. It does not affect the reported operating points, which lie
+well above zero, and it therefore does not affect any $\Pd$ reported in this work. What it does
+truncate is the extreme high-false-alarm tail of the network's ROC curve: that curve cannot be
+extended below a logit of zero, whereas the CFAR curve has no equivalent floor. Any ROC comparison
+in the far high-$\Pfa$ region should be read with that asymmetry in mind.
 
 \subsection{Matching}
 
@@ -292,57 +419,106 @@ A detection matches a truth point if it falls within the tolerance gate,
 \begin{equation}
 |\Delta r| \le G_r \quad\text{and}\quad |\Delta v| \le G_v ,
 \end{equation}
-and matching is \textbf{one-to-one and optimal}, computed by Hungarian assignment so that a single
-detection cannot claim two targets. A matched detection is a true positive; an unmatched truth is a
-false negative; an unmatched detection is a false positive.
+and matching is \textbf{one-to-one and optimal}, computed by Hungarian assignment on the distance
+between candidate and truth, with pairs outside the gate made unaffordable. A matched detection is
+a true positive; an unmatched truth is a false negative.
 
-One rule prevents double counting: a detection lying inside the gate of a real target but not
-selected by the assignment is \emph{ignored} rather than counted as a false alarm. It is a near
-miss of a genuine target, not a spurious response.
+The treatment of surplus detections near a real target is the one convention here that is not
+self-evident, so it is stated in full.
+
+\begin{itemize}
+\itemsep2pt
+\item \textbf{One truth yields at most one true positive.} Because the assignment is one-to-one,
+several detections falling inside a target's gate cannot all be credited; exactly one is matched.
+Producing duplicates near a target therefore cannot raise $\Pd$.
+\item \textbf{A surplus detection still inside a truth gate is ignored,} rather than being counted
+as a false alarm. It is a near miss of a real target, not a spurious response somewhere the
+detector should have stayed silent, and counting it as a false alarm would penalise a detector for
+responding twice to something genuinely there.
+\item \textbf{The corresponding cells leave the false-alarm denominator.} Cells inside the gate of
+any truth are excluded when counting the cells tested, so a detector is not credited with
+correctly rejecting them either.
+\end{itemize}
+
+Under this convention a duplicate is neutral: it neither helps $\Pd$ nor harms $\Pfa$. The rule is
+applied identically to both arms through the same code, and it is part of the frozen protocol.
 
 \subsection{Operating point}
+\label{sec:opoint}
 
-The headline comparison is $\Pd$ at matched \emph{measured} $\Pfa$, swept per condition. This is
-stricter than the field's usual practice of matching at design $\Pfa$, and
-Section~\ref{sec:alphacal} showed why it is necessary: the achieved rate and the design rate are
-not the same number, and the discrepancy differs between variants. Matching at the achieved rate
-removes that as a confound.
+The headline synthetic comparison is $\Pd$ at matched \emph{measured} $\Pfa$. Each detector's score
+threshold is swept, the achieved false-alarm rate is measured at each setting, and the two arms are
+compared at the same achieved rate. This is calibration (B) of Section~\ref{sec:alphacal}, and it
+is stricter than the common practice of matching at design $\Pfa$: Figure~\ref{fig:alphacal} showed
+that the achieved and design rates are not the same number and that the gap differs between
+variants, so matching at the achieved rate removes that as a confound.
+
+\textbf{The sweep is performed per condition, and that needs interpreting carefully.} Each
+stratum is evaluated through its own score sweep, and the detectors are compared at the same
+measured false-alarm level within that stratum. This isolates the ranking of the detectors from an
+arbitrary threshold choice, which is what the comparison is for. It is \emph{not} a claim that one
+global deployment threshold would simultaneously achieve that false-alarm rate in every condition;
+it is an evaluation operating point, not a deployable setting.
+
+The distinction matters later. In Chapter~\ref{chp:realdata} the network must run on real data at a
+\emph{single frozen threshold} derived without access to that data, which is a materially harder
+requirement than the per-condition matching used here.
 
 \subsection{Tolerance}
 
-The pre-registered gate is $\pm\ProtocolGate$ bin. A gate of $\pm\ProtocolGateRobust$ bins is
-reported \emph{beside} it, never instead of it. Reporting both separates detection from
-localisation: a detector that finds a target but places it two bins away scores differently under
-the two gates, and collapsing to a single tolerance hides that distinction.
+The primary gate is $\pm\ProtocolGate$ bin, specified in advance. A gate of
+$\pm\ProtocolGateRobust$ bins is reported \emph{beside} it, never instead of it.
 
-This choice has a consequence that must not be quietly dropped. The wider gate is where the network
-loses on one condition. Reporting only the tolerant gate would hide the single condition where the
-classical arm wins, so both are always shown.
+Reporting both separates detection from localisation. A detector that finds a target but places it
+two bins away is credited under the wider gate and not under the narrower one, so the pair of
+numbers shows how far a conclusion depends on localisation tolerance rather than on detection
+ability. A single tolerance cannot distinguish the two, and choosing which one to report after
+seeing the outcome would be exactly the bias this chapter is arranged to avoid. Both are therefore
+reported for every condition in Chapter~\ref{chp:synthetic}, whichever direction they point.
 
 \subsection{Statistics}
 
-Differences are assessed by a paired bootstrap over frames, with \ProtocolBootstrap{} resamples;
-both arms are evaluated on the same frames, so the pairing is exact by construction. Because seven
-conditions are scored, significance is assessed with a Bonferroni correction, giving a per-condition
-threshold of $\alpha = \ProtocolBonf$ against a family-wise $0.05$.
+Differences are assessed by a paired bootstrap with \ProtocolBootstrap{} resamples. \textbf{The
+resampling unit is the frame}: frames are drawn with replacement, and within each resample both
+arms are re-scored on exactly the same frames, so frame difficulty cancels rather than adding
+noise. Resampling frames rather than individual cells or detections preserves the dependence among
+the several targets and detections belonging to one frame, which resampling smaller units would
+destroy by treating correlated observations as independent.
+
+Because seven conditions are scored, significance uses a Bonferroni correction, giving a
+per-condition threshold of $\alpha = \ProtocolBonf$ against a family-wise $0.05$.
+
+One limitation of this procedure is stated rather than hidden. The operating threshold is computed
+once per condition on the full data and held fixed across resamples, so the intervals quantify
+sampling error in $\Pd$ \emph{at a fixed operating point}. They do not propagate the variability of
+choosing that threshold, which would require redoing the sweep inside every resample. The reported
+intervals are therefore mildly optimistic.
 
 \section{Conclusion}
 
 Both detectors are now fully specified, and so is the instrument that will measure them.
 
 The classical arm uses a \CfarWinR{}\,$\times$\,\CfarWinD{} window whose guard count follows the
-measured point spread function and whose shape was selected on a split reserved for that purpose.
-Its four variants have multipliers calibrated by Monte-Carlo rather than taken from a closed form
-that, as measured here, does not deliver the design false-alarm rate on this data.
+measured point spread function and whose shape was selected on a split reserved for that purpose,
+with SO the one variant that did not take part in that selection. Its four multipliers are
+calibrated on noise-only data rather than taken from an analytic expression which, as measured
+here, does not deliver the design false-alarm rate for any of them.
 
 The learned arm is a \TinyParams{}-parameter fully convolutional network whose receptive field
-composes to exactly the CFAR window. The limits of that match are stated in
-Section~\ref{sec:matched}: the two arms share a footprint, not a decision rule, and the network is
-not forced to discard the guard cells that CFAR must.
+composes to the CFAR window. The limits of that match are set out in Section~\ref{sec:matched}: the
+arms share a spatial footprint, not a decision rule, and the network is not obliged to discard the
+guard cells that CFAR must exclude. Whether that difference matters is left to
+Chapter~\ref{chp:attribution} to test.
 
-The protocol reduces both arms to point lists and scores them through one code path, at matched
-measured false-alarm rate, across two tolerances, with paired bootstrap intervals and correction
-for multiple comparisons. It was fixed, and the network configuration frozen, before the test split
-was read.
+What the two arms hold in common, and where they differ, is stated in
+Section~\ref{sec:whatiscommon}: the same frames, a comparable footprint and one shared evaluation
+path, but each with its own fixed input transform. The protocol reduces both to point lists and
+scores them through a single code path at matched measured false-alarm rate, at two tolerances,
+with paired frame bootstrap intervals and a correction for multiple comparisons. Its two known
+asymmetries --- the positive-score candidate floor, and the fact that the operating point is an
+evaluation construct rather than a deployable threshold --- are recorded above rather than left for
+a reader to find.
+
+The protocol was fixed, and the network configuration frozen, before the test split was read.
 
 Chapter~\ref{chp:synthetic} now reports what that measurement returned.

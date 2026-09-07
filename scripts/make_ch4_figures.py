@@ -123,22 +123,24 @@ def fig_alpha_calibration():
     cal = [float(audit[audit.method == m].pfa_cells_verifyseed_at_calibrated.iloc[0])
            for m in m_ord]
     x = np.arange(len(m_ord))
-    ax[1].bar(x - 0.2, got, 0.38, color=GREY, label="at closed-form $\\alpha$")
+    ax[1].bar(x - 0.2, got, 0.38, color=GREY, label="at analytic reference $\\alpha$")
     ax[1].bar(x + 0.2, cal, 0.38, color=BLUE, label="at calibrated $\\alpha$")
     ax[1].axhline(target, color=INK, lw=1.0, ls="--")
     ax[1].set_yscale("log")
     ax[1].set_xticks(x); ax[1].set_xticklabels(m_ord)
     ax[1].set_ylabel("Achieved $P_{fa}$, held-out seed")
-    ax[1].set_title("The closed form misses the target rate", fontsize=9.5)
+    ax[1].set_title("The analytic reference misses the target rate", fontsize=9.5)
     ax[1].legend(frameon=False, fontsize=7.4)
     ax[1].spines[["top", "right"]].set_visible(False)
 
     fig.tight_layout()
     fig.text(0.5, -0.06,
              "Left: measured false-alarm rate against threshold multiplier, on pure-noise frames "
-             "through the identical processing chain.\nRight: what each variant actually achieves "
-             "at the closed-form multiplier versus the calibrated one, measured on a seed not "
-             "used\nfor calibration. Dashed line is the design rate in both panels.",
+             "through the identical processing chain.\nRight: what each variant achieves at its "
+             "analytic reference multiplier versus its calibrated one, on a seed not used for\n"
+             "calibration. The analytic reference is the CA expression evaluated with each "
+             "statistic's cell count: exact for CA,\na half-ring approximation for GO and SO, and "
+             "a first approximation only for OS. Dashed line is the design rate.",
              ha="center", fontsize=7.4, color=GREY)
     save(fig, "ch4_fig2_alpha_calibration.png")
 
@@ -161,7 +163,8 @@ def fig_geometry_sweep():
     ax.set_ylabel("Mean $P_d$ over conditions")
     ax.set_xlabel("Window (range $\\times$ Doppler)")
     ax.set_ylim(0.30, 0.50)
-    ax.set_title("Window geometry chosen on the tuning split, before any test read",
+    ax.set_title("Window geometry chosen on the tuning split, before any test read\n"
+                 "(SO is absent: it was added to the project after this selection)",
                  fontsize=9.5)
     ax.legend(frameon=False, fontsize=8, ncol=3)
     ax.spines[["top", "right"]].set_visible(False)

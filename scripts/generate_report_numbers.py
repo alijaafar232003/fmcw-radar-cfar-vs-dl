@@ -219,9 +219,15 @@ def main():
     macro("CfarOsRank", "{:.2f}".format(fz["cfar"]["os_rank_frac"]))
     for k, v in at["entries"].items():
         macro("CfarAlpha" + k.split("|")[0], "{:.4f}".format(v))
-    # The closed form applies to CA only; quoted beside the calibrated value as a check.
-    macro("CfarAlphaCAAnalytic",
-          "{:.4f}".format(n_ref * ((1e-4) ** (-1.0 / n_ref) - 1.0)))
+    # The "analytic reference": equation (2.x) evaluated with each statistic's cell count.
+    # Exact for CA; half-ring approximation for GO/SO; first approximation only for OS.
+    # Read from the audit artefact, which is what the figure plots.
+    aud = pd.read_csv(os.path.join(ROOT, "results", "cfar_alpha_audit.csv"))
+    for _, r in aud.iterrows():
+        macro("CfarAlpha" + str(r["method"]) + "Analytic",
+              "{:.4f}".format(float(r["alpha_closed_form"])))
+        macro("CfarPfaAtAnalytic" + str(r["method"]),
+              "{:.2e}".format(float(r["pfa_cells_verifyseed_at_current"])))
 
     lines.append("")
     lines.append("% ---------- Chapter 4: frozen network ----------")
