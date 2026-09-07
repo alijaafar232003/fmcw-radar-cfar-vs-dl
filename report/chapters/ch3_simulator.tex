@@ -15,15 +15,16 @@ all, because it supplies exact ground truth and independent control over each di
 also the reason Chapter~\ref{chp:realdata} exists, since a result obtained entirely inside a
 simulator says nothing on its own about real measurements.
 
-The second is the sensor specification. The radar is matched to the range--Doppler bin geometry of
-the real dataset used later, so a target occupies a comparable number of cells in both domains.
-Without that, any transfer failure in Chapter~\ref{chp:realdata} could be dismissed as a resolution
-mismatch rather than a finding. Section~\ref{sec:carrada_spec} records how those parameters were
-derived, including why the bandwidth published by the dataset's own authors was not used.
+The second is the sensor specification. The simulator reproduces the range--Doppler grid geometry
+and bin spacing of the real dataset used later, which removes a basic resolution and scale
+mismatch between the two domains. Without that, any transfer failure in
+Chapter~\ref{chp:realdata} could be dismissed as a scaling artefact rather than a finding.
+Section~\ref{sec:carrada_spec} records how those parameters were derived, including why the
+bandwidth published alongside that dataset was not used directly.
 
-The third is the dataset design. The benchmark is stratified rather than randomly sampled, so that
-the conditions in which CFAR is documented to fail are present in measurable quantity rather than
-appearing by chance.
+The third is the dataset design. The benchmark is divided into predefined conditions rather than
+generated entirely at random. This ensures that important cases such as clutter edges and target
+masking occur often enough to evaluate the detectors reliably.
 
 \section{Why simulate}
 
@@ -51,12 +52,20 @@ generalisation is a separate question, tested in Chapter~\ref{chp:realdata} and 
 
 \subsection{Matching the real dataset's bin geometry}
 
-The sensor parameters were chosen so that a target occupies the same number of range and Doppler
-cells in simulation as in CARRADA~\cite{ouaknine2021carrada}, the real dataset used in
-Chapter~\ref{chp:realdata}. Detectors operate in bins: a CFAR window is a fixed number of cells
-wide, and a network's receptive field is a fixed number of cells across. If a target spread over
-three cells in one domain and eight in the other, a transfer failure would be a trivial scaling
-artefact rather than evidence about the detector.
+The sensor parameters were chosen so that the simulator reproduces the range--Doppler grid geometry
+and bin spacing of CARRADA~\cite{ouaknine2021carrada}, the real dataset used in
+Chapter~\ref{chp:realdata}. The reason is that detectors operate in bins: a CFAR window is a fixed
+number of cells wide, and a network's receptive field is a fixed number of cells across. If one
+metre of range corresponded to five cells in one domain and two in the other, any difference
+measured later would be partly a unit mismatch.
+
+What this matching does and does not achieve should be stated clearly. It removes the geometric
+confound, so that a given physical separation means the same number of cells in both domains. It
+does \emph{not} make target responses identical. CARRADA contains extended road users whose energy
+spreads over a region set by the object's physical size and aspect, whereas the simulator produces
+point-target responses whose extent is set by the transform and its windows. Those two supports
+differ, and Chapter~\ref{chp:realdata} treats that difference as one of its central issues rather
+than assuming it away.
 
 Table~\ref{tab:bingeom} shows the match achieved.
 
@@ -80,48 +89,45 @@ Frame time & \SI{4.635}{\milli\second} & \SI{\RadarFrameTime}{\milli\second} \\
 \end{tabular}
 \end{table}
 
-\subsection{The published parameter table is internally inconsistent}
+\subsection{Deriving a consistent effective bandwidth}
+\label{sec:beff}
 
-Matching those bins was not a matter of copying the dataset's published parameters, because those
-parameters do not agree with each other. CARRADA's parameter table quotes a sweep bandwidth of
-\SI{\CarradaQuotedB}{\giga\hertz} alongside a range resolution of \SI{0.20}{\metre}, a maximum
-range of \SI{50}{\metre} and 256 range bins. These cannot all hold simultaneously, and the
-discrepancy matters here because bandwidth is what sets range resolution.
+The bandwidth could not simply be copied from the dataset's published parameters, because the
+published range figures do not agree with one another.
 
-Four checks establish which of the published values are reliable.
+The published table gives 256 range bins over a maximum range of about \SI{50}{\metre}, which
+corresponds to \SI{\CarradaBinSpacing}{\metre} per bin. The same table also lists a sweep bandwidth
+of \SI{\CarradaQuotedB}{\giga\hertz}. Using the standard relation $\Delta R = c/2B$, that bandwidth
+would imply a nominal range resolution of about \SI{0.0375}{\metre}, which is more than five times
+finer than the published grid spacing. The two cannot both describe the same range axis.
 
-\textbf{The stated formula contradicts the stated number.} The paper gives the standard relation
-$\Delta R = c/2B$. Substituting \SI{4}{\giga\hertz} yields \SI{0.0375}{\metre}, against the
-\SI{0.20}{\metre} printed in the same table --- a factor of more than five.
-
-\textbf{The angle entry reveals what the table means by ``resolution''.} The same table quotes an
-angular resolution of \ang{0.70}. The physical resolution of the array described is on the order of
-\ang{14}. But \ang{180} divided by 256 angle bins is \ang{0.703}. The entries labelled
-``FFT resolution'' are therefore \emph{bin spacings}, not physical resolutions.
-
-\textbf{Applying that reading to the range axis is self-consistent.} \SI{50}{\metre} over 256 range
-bins gives \SI{\CarradaBinSpacing}{\metre} per bin, which is the \SI{0.20}{\metre} printed.
-
-\textbf{A genuine \SI{4}{\giga\hertz} sampled sweep would make the dataset impossible.} With 256
-samples per chirp at that bandwidth, the maximum unambiguous range would be about
-\SI{9.6}{\metre}. The dataset's own figures describe objects at \SI{8}{\metre} and
-\SI{33}{\metre}, so the \SI{50}{\metre} span is real and the \SI{4}{\giga\hertz} is not the
-bandwidth that produced these bins.
-
-The most likely reading is that \SI{4}{\giga\hertz} is the configured radio-frequency sweep of the
-front end, of which only the portion falling inside the sampled beat band contributes to the range
-transform. Reproducing the observed bin spacing over the observed span requires an effective
-bandwidth of
+Since the objective here is to reproduce the grid the dataset actually uses, the published grid
+geometry was taken as the reference. Matching \SI{\CarradaBinSpacing}{\metre} per bin over
+\SI{50}{\metre} requires an effective bandwidth of
 \begin{equation}
 B_{\text{eff}} = \frac{c \, N_{\text{bins}}}{2 R_{\max}} \approx \SI{\CarradaBeff}{\mega\hertz},
+\label{eq:beff}
 \end{equation}
-which is the value adopted here, rounded to \SI{\RadarB}{\mega\hertz}.
+which is the value adopted, rounded to \SI{\RadarB}{\mega\hertz}.
 
-The velocity axis, by contrast, is fully self-consistent: the quoted velocity resolution implies a
-frame time of \SI{4.635}{\milli\second}, which divided by 64 chirps gives a chirp duration of
-\SI{\RadarTc}{\micro\second}, and that in turn reproduces the quoted maximum velocity to within
-\SI{0.01}{\metre\per\second}. That agreement is a useful cross-check that the rest of the table is
-trustworthy and only the bandwidth entry is anomalous.
+Two cross-checks support reading the published table this way.
+
+First, the same table quotes an angular resolution of \ang{0.70}, while \ang{180} divided by 256
+angle bins is \ang{0.703}. The entries labelled ``FFT resolution'' therefore appear to be bin
+spacings rather than physical resolutions, and reading the range entry the same way makes it
+self-consistent.
+
+Second, the velocity axis is consistent throughout. The quoted velocity resolution implies a frame
+time of \SI{4.635}{\milli\second}; divided by 64 chirps this gives a chirp interval of
+\SI{\RadarTc}{\micro\second}, which reproduces the quoted maximum velocity to within
+\SI{0.01}{\metre\per\second}. Only the range side requires interpretation.
+
+One possible explanation for the \SI{\CarradaQuotedB}{\giga\hertz} figure is that it refers to the
+configured radio-frequency sweep of the front end, of which only the portion falling inside the
+sampled beat band contributes to the range transform. \textbf{This is an inference from the
+published numbers, not something stated in the dataset documentation}, and nothing in this report
+depends on it. What matters here is only that the simulator reproduces the grid geometry the
+dataset actually exhibits.
 
 \subsection{Resulting parameters}
 
@@ -151,29 +157,65 @@ Velocity resolution & $\lambda/2MT_r$ & \SI{\RadarVelRes}{\metre\per\second} \\
 Maximum velocity & $\pm\lambda/4T_r$ & \SI{\RadarVelMax}{\metre\per\second} \\
 Frame time & $M T_r$ & \SI{\RadarFrameTime}{\milli\second} \\
 \midrule
-Coherent processing gain & $10\log_{10}(NM)$ & \SI{\RadarCoherentGain}{\deci\bel} \\
-Processing gain after windowing & measured & \SI{\RadarProcGain}{\deci\bel} \\
+Ideal coherent FFT gain & $10\log_{10}(NM)$ & \SI{\RadarCoherentGain}{\deci\bel} \\
+Effective gain after windowing & from window coefficients &
+\SI{\RadarProcGain}{\deci\bel} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Two consequences are worth recording. The maximum range is set by the Nyquist limit of the sampled
-beat band: a target at \SI{\RadarRangeMax}{\metre} produces a beat frequency of exactly $f_s/2$.
-And the processing gain falls from the coherent \SI{\RadarCoherentGain}{\deci\bel} to
-\SI{\RadarProcGain}{\deci\bel} once window functions are applied. That second figure is the one
-that matters for difficulty calibration, and it is derived analytically from the window functions
-rather than assumed, so it tracks any change to the configuration.
+Three points about this table are worth drawing out.
+
+\textbf{Maximum range.} This is set by the Nyquist limit of the sampled beat band: a target at
+\SI{\RadarRangeMax}{\metre} produces a beat frequency of exactly $f_s/2$.
+
+\textbf{Maximum velocity.} A target moving faster than \SI{\RadarVelMax}{\metre\per\second}
+radially does not disappear. Its Doppler shift falls outside the unambiguous interval and wraps
+around into it, so the target still appears on the map but at an incorrect velocity. This is
+Doppler ambiguity, and it is why the benchmark of Section~\ref{sec:datasets} draws velocities well
+inside the unambiguous interval.
+
+\textbf{Processing gain.} Combining \RadarN{} fast-time samples and \RadarM{} chirps concentrates a
+target's coherent energy into a small region of the RD map while noise remains spread across it. In
+the ideal, unwindowed case this concentration is worth \SI{\RadarCoherentGain}{\deci\bel}. The
+range and Doppler window functions applied before each transform suppress spectral leakage but cost
+some of that gain, leaving an effective \SI{\RadarProcGain}{\deci\bel}. The second figure is
+computed directly from the window coefficients rather than measured from data, so it tracks any
+change to the configuration automatically. It is the one used when setting dataset difficulty,
+because it is the gain the simulated detector input actually receives.
 
 \section{The simulator}
 
 \subsection{Signal generation and processing}
 
-The simulator reproduces the processing chain described in Chapter~\ref{chp:background} rather than
-approximating its output. For each frame it synthesises the transmitted chirp, forms each target's echo as a
-delayed and attenuated copy, sums the echoes, mixes the result with the transmitted signal to
-obtain the beat signal, and applies the two Fourier transforms. The range--Doppler map is therefore
-produced by the same operations as in a real receiver, and effects such as spectral leakage,
-scalloping loss and the finite mainlobe width arise naturally instead of being modelled.
+The most important thing to understand about the simulator is what it does \emph{not} do: it never
+draws a bright spot onto a range--Doppler map. Targets are specified in physical units, and the map
+is produced by the same operations a real receiver performs.
+
+\begin{enumerate}
+\itemsep2pt
+\item Each target is assigned a range $R$, a radial velocity $v$ and an amplitude representing its
+reflectivity.
+\item The transmitted chirp is synthesised as a linear frequency ramp.
+\item The target's range evolves as $r(t) = R + v\,t$, with $t$ running continuously across the
+whole frame, giving a time-varying round-trip delay $\tau(t) = 2 r(t) / c$.
+\item The echo is formed as a copy of the transmitted signal evaluated at $t - \tau(t)$, scaled by
+the target's amplitude. \textbf{No Doppler term is inserted by hand.} Because the delay changes as
+the target moves, the carrier phase $2\pi f_c\,(t - \tau(t))$ advances slightly from one chirp to
+the next, and that advance \emph{is} the Doppler shift.
+\item The echoes of all targets are summed, with a delayed and attenuated echo added per target
+where multipath is enabled.
+\item Thermal noise of a calibrated variance is added, together with the clutter field if the
+stratum requires one.
+\item The sum is mixed with the transmitted signal, giving the beat signal.
+\item The range transform is applied along fast time and the Doppler transform along slow time,
+each with its window function.
+\end{enumerate}
+
+Only at that last step does the $\RadarRangeBins \times \RadarM$ range--Doppler map exist. The
+consequence is that the shape of a target's response --- its mainlobe width, its sidelobes, the
+scalloping loss it suffers when it falls between bin centres, and the leakage it produces along
+each axis --- emerges from the signal processing rather than being modelled or drawn.
 
 Figure~\ref{fig:simchain} shows the additions that turn this chain into a benchmark generator.
 
@@ -189,10 +231,14 @@ time.}
 
 \subsection{Propagation, clutter and multipath}
 
-\textbf{Propagation.} Received power follows the radar equation, falling as $1/R^4$. This is
-enabled in every stratum so that the physics is consistent across the benchmark, referenced to
-\SI{25}{\metre}. The consequence is that range and difficulty are coupled: a distant target is
-genuinely harder, as it is in practice.
+\textbf{Propagation.} Received power follows the monostatic radar equation, falling as $1/R^4$.
+Since the simulator synthesises signal amplitudes rather than powers, this is applied as an
+amplitude scaling of $1/R^2$, which is the same law expressed in amplitude. In decibels both
+readings coincide at a loss of $40\log_{10}(R/R_{\text{ref}})$, and this is how it is implemented,
+referenced to $R_{\text{ref}} = \SI{25}{\metre}$ so that a target at that range keeps its nominal
+amplitude. Propagation is enabled in every stratum, so the physics stays consistent across the
+benchmark. The consequence is that range and difficulty are coupled: a distant target is genuinely
+harder, as it is in practice.
 
 \textbf{Clutter.} The zero-Doppler ridge is modelled as a band of elevated return around zero
 velocity, with a Weibull texture rather than a Gaussian one. The shape parameter is swept, lower
@@ -207,20 +253,36 @@ offset in range from the true target.
 
 \subsection{What signal-to-noise ratio means here}
 
-Difficulty must be specified in a way that means the same thing to every detector, and that is less
-straightforward than it appears. An SNR defined on the raw received samples is not the quantity a
-detector experiences, because the two Fourier transforms concentrate a target's energy into one
-cell while spreading noise across all of them. That coherent gain is
-\SI{\RadarProcGain}{\deci\bel} for this configuration, so a target specified at
-\SI{-10}{\deci\bel} on the raw samples arrives at the detector some \SI{30}{\deci\bel} above the
-noise floor and is trivially detectable.
+Difficulty must be specified in a way that means the same thing to every detector, and the obvious
+choice turns out to be the wrong one.
 
-Difficulty is therefore specified as \emph{cell SNR at the detector}: the ratio of a target's peak
-cell power to the noise power in a cell of the finished range--Doppler map. The noise variance
-required to realise a requested cell SNR is computed analytically from the configuration, and the
-achieved value is then \emph{measured per target} and stored alongside the label. The stored value,
-not the requested one, is used in every analysis, so scalloping loss and propagation are accounted
-for rather than ignored.
+\textbf{The detector never sees the raw samples.} An SNR defined on the received time-domain
+samples describes a signal that no detector in this report operates on. Between those samples and
+the detector lie the two Fourier transforms, which concentrate a target's coherent energy into a
+small region of the map while leaving noise spread across all of it. For this configuration that
+concentration is worth \SI{\RadarProcGain}{\deci\bel}. A target specified at
+\SI{-10}{\deci\bel} on the raw samples therefore does \emph{not} arrive \SI{10}{\deci\bel} below
+the noise floor of the map; it arrives roughly \SI{30}{\deci\bel} \emph{above} it, and every
+detector finds it trivially.
+
+\textbf{Difficulty is therefore specified at the detector's input.} The quantity used throughout
+this report is the \emph{cell SNR}: the ratio of a target's peak cell power to the background noise
+power in one cell of the finished range--Doppler map,
+\begin{equation}
+\mathrm{SNR}_{\text{cell}} =
+\frac{P_{\text{peak cell}}}{P_{\text{noise per cell}}} .
+\label{eq:cellsnr}
+\end{equation}
+Given a requested cell SNR, the input noise variance needed to realise it is computed from the
+window functions and the transform lengths.
+
+\textbf{The achieved value is then measured, not assumed.} The realised cell SNR of a given target
+generally differs a little from the requested one, for several reasons at once: propagation
+attenuates it according to its range; it rarely falls exactly on a bin centre, so it loses some
+peak power to scalloping; and the window functions redistribute energy between the peak cell and
+its neighbours. Each target's achieved cell SNR is therefore measured on the generated frame and
+stored beside its label, and it is that stored value --- never the requested one --- that every
+analysis in this report uses.
 
 \subsection{Where the difficulty sits}
 
@@ -228,32 +290,52 @@ Figure~\ref{fig:snrdist} shows the resulting distribution across the test split.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.92\textwidth]{figures/Chapter3/ch3_fig4_snr_distribution.png}
+\includegraphics[width=0.92\textwidth]{figures/Chapter3/ch3_fig5_snr_distribution.png}
 \caption[Cell SNR distribution]{Measured cell SNR for every target in the test split. The spread
 reflects range and target amplitude as well as the configured scene SNR, because propagation is
 applied before the measurement.}
 \label{fig:snrdist}
 \end{figure}
 
-The spread is deliberate. A benchmark concentrated well above the detection threshold would be
-solved by every method and would discriminate between none of them; one concentrated below it would
-be solved by none. An earlier configuration sat about \SI{2}{\deci\bel} lower, which placed a
-fifth of all targets below \SI{5}{\deci\bel} cell SNR --- undetectable by any method --- and
-bunched the clutter strata near $\Pd \approx 0.15$, where detectors cannot be told apart. The scene
-level was raised accordingly.
+The spread is deliberate, and the reasoning is simple. A useful benchmark needs many targets near
+the region where detection changes from difficult to reliable. If almost every target were strong,
+every detector would succeed and there would be little to compare. If almost every target were very
+weak, every detector would fail and again there would be little to compare. The distribution was
+therefore placed across the detection transition rather than above or below it.
+
+An earlier configuration sat about \SI{2}{\deci\bel} lower. At that level roughly a fifth of all
+targets fell below \SI{5}{\deci\bel} cell SNR, a region in which all the detectors evaluated here
+had very low detection probability, and the clutter strata bunched near $\Pd \approx 0.15$, where
+methods cannot be told apart. The scene level was raised by \SI{2}{\deci\bel} in response.
+
+That adjustment belongs to dataset development and not to the reported comparison. It was made
+while the benchmark was being designed, before the final splits were generated and well before the
+test split was scored. It should be noted, though, that the observation prompting it came partly
+from preliminary detector behaviour on earlier development data, so the calibration was not blind
+to how detectors behave in general --- only to the results reported in
+Chapters~\ref{chp:synthetic} and~\ref{chp:attribution}, which did not exist at the time.
 
 \section{Dataset design}
+\label{sec:datasets}
 
 \subsection{Why stratified rather than randomly sampled}
 
-The conditions that separate detectors are rare under random sampling. An earlier randomly sampled
-dataset produced target masking in \SI{1.1}{\percent} of frames and unresolvable pairs in
-\SI{0.4}{\percent}, and measured performance tracked that coverage almost monotonically --- which
-means the headline number was largely a statement about the sampling, not about the detectors.
+When scenes were generated entirely at random, the difficult conditions occurred very rarely.
+Target masking appeared in only \SI{1.1}{\percent} of frames and unresolved pairs in
+\SI{0.4}{\percent}. An overall score computed on such a dataset is dominated by the much more
+common easy cases, and changing the random composition would change the headline number even if the
+detector had not changed at all.
 
-The benchmark is therefore stratified: each condition is generated in equal quantity, and results
-are reported per stratum rather than pooled. This gives a reliable estimate within each condition,
-and it makes the composition of the benchmark an explicit design choice rather than an accident.
+The final benchmark instead generates each condition in equal quantity and reports results
+condition by condition. This gives a reliable estimate within every scenario of interest, and it
+makes the composition of the benchmark an explicit design choice rather than an accident of
+sampling.
+
+One point should be stated plainly to avoid a misreading. Equal strata are \emph{not} a claim about
+how often these conditions occur in real driving; a road scene does not contain unresolved target
+pairs a seventh of the time. This is a controlled benchmark, built so that each condition can be
+measured reliably, and the per-condition results should be read that way rather than as a
+prediction of average field performance.
 
 \subsection{The eight strata}
 
@@ -297,26 +379,54 @@ so it acts as a sanity check \\
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig2_strata_montage.png}
-\caption[The eight strata]{One frame from each stratum, selected deterministically as the median
-frame index of that stratum rather than by appearance. Red circles mark the annotated targets.
-Several are not obvious by eye, which is by design: the benchmark places targets near the detection
-transition.}
+\caption[The eight strata]{One frame from each stratum, at full map scale. Red circles mark the
+annotated targets. Several are not obvious by eye, which is by design: the benchmark places targets
+near the detection transition. Frames are selected deterministically as described in the text.}
 \label{fig:strata}
+\end{figure}
+
+The frame shown for each stratum is chosen by a fixed rule: the frame whose target count is closest
+to that stratum's median target count, with ties broken by frame index. The rule depends only on
+the scene composition, never on appearance and never on how any detector performed on the frame.
+
+At full map scale the differences between strata are hard to see, because most targets sit close to
+the detection transition. Figure~\ref{fig:stratazoom} shows the same frames zoomed onto the target
+regions, which is where the distinctions become visible.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig3_strata_zoom.png}
+\caption[The strata, zoomed]{Zoomed companion to Figure~\ref{fig:strata}, using the same frames and
+the same selection rule. Each panel is centred on the strongest target in its frame, and white
+circles mark the annotated targets. Window sizes differ per stratum so that the relevant structure
+is visible: the weak partner beside a strong one in \texttt{masking}; two targets sharing a single
+mainlobe in \texttt{unresolved}; well-separated returns in \texttt{multi}; a target inside the ridge
+in \texttt{clutter} against one beside it in \texttt{clutter\_edge}; and clutter with multipath in
+\texttt{mixed}. The \texttt{noise} stratum is omitted because it contains no target to centre on.}
+\label{fig:stratazoom}
 \end{figure}
 
 Two design points in that table are worth drawing out.
 
 The \texttt{clutter\_edge} stratum exists specifically because the literature review of
 Section~\ref{sec:sota} identified it as the condition where a published learned detector loses. A
-benchmark that omitted it would be systematically flattering. Its velocity band was set by
-measurement rather than by the nominal ridge width: the Doppler window smears the ridge well past
-its nominal edge, still \SI{13.6}{\deci\bel} above the floor at \SI{1.68}{\metre\per\second}, so a
-lower bound at the nominal edge would have placed a third of these targets inside the clutter
-skirt and merely duplicated the \texttt{clutter} stratum.
+benchmark that omitted it would be systematically flattering.
 
-The \texttt{unresolved} stratum cannot be won by any detector, and is retained deliberately. A
-method reporting high $\Pd$ there would indicate a fault in the evaluation rather than a capable
-detector, and this stratum is what exposed one such fault during development.
+Its velocity band needed care. The two clutter strata are meant to be different: in
+\texttt{clutter} the target sits \emph{inside} the strong zero-Doppler ridge, whereas in
+\texttt{clutter\_edge} the target should sit just \emph{outside} the ridge while the CFAR reference
+window still overlaps it. The difficulty is that the ridge does not end where its nominal width
+says it does --- the Doppler window spreads its energy outwards, so the region beside it is still
+elevated (still \SI{13.6}{\deci\bel} above the noise floor at \SI{1.68}{\metre\per\second}). The
+usable edge was therefore measured on generated frames rather than assumed. Had the nominal edge
+been used, a substantial fraction of \texttt{clutter\_edge} targets would have landed inside the
+residual clutter skirt and the stratum would simply have duplicated \texttt{clutter}.
+
+The \texttt{unresolved} stratum places target pairs closer together than the measured resolution of
+the range--Doppler representation used here, so the detectors evaluated in this report are not
+expected to separate them reliably. It is retained as a sanity check: a method reporting high $\Pd$
+on this stratum would point to a fault in the evaluation rather than to a capable detector, and
+this is what exposed one such fault during development.
 
 \subsection{Splits}
 
@@ -357,7 +467,7 @@ inflate its own threshold.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig3_psf.png}
+\includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig4_psf.png}
 \caption[Measured point spread function]{Response of an isolated target along each axis, measured
 rather than assumed. The off-bin case shows the loss incurred when a target does not fall at a bin
 centre.}
@@ -378,18 +488,31 @@ and it disappears at high SNR as a genuine bug would not.
 
 \section{Conclusion}
 
-This chapter specified the instrument. The radar reproduces the range--Doppler bin geometry of the
-real dataset used in Chapter~\ref{chp:realdata}, using an effective bandwidth of
-\SI{\RadarB}{\mega\hertz} derived from that dataset's own bin spacing rather than from its
-published and internally inconsistent bandwidth figure. The simulator generates frames through the
-full signal chain, with propagation, clutter and multipath switchable per stratum. Difficulty is
-specified as measured cell SNR at the detector, not as a scene-level quantity, and the resulting
-distribution spans the detection transition.
+This chapter specified the instrument that produces every synthetic result in this report.
 
-The benchmark is stratified into eight equal conditions chosen to include both the regime where
-CA-CFAR is close to optimal and the regimes where it is documented to fail, including one condition
-selected specifically because a published learned detector loses there. Five splits separate
-training, threshold selection, window selection, the SNR sweep and the single scored test set.
+Simulation was chosen because it supplies exact ground truth, independent control over each
+difficulty, and enough examples of the rare conditions that actually separate detectors. Its cost
+is external validity, which is why Chapter~\ref{chp:realdata} exists.
 
-Chapter~\ref{chp:detectors} now specifies the two detectors that operate on these frames, and
-fixes the evaluation protocol before any comparative result is produced.
+The sensor reproduces the range--Doppler grid geometry and bin spacing of the real dataset used
+later, so that a physical separation corresponds to the same number of cells in both domains. The
+effective bandwidth of \SI{\RadarB}{\mega\hertz} was derived from that dataset's own published grid
+rather than from its quoted bandwidth figure, which is inconsistent with it. Matching the grid
+removes a scaling confound; it does not make target responses identical, and
+Chapter~\ref{chp:realdata} treats that remaining difference explicitly.
+
+Targets are not drawn onto the map. They are specified physically and passed through the full
+signal chain, so the shape of a response, its sidelobes and its scalloping loss emerge from the
+processing rather than from a model of it. Difficulty is measured at the detector as cell SNR and
+recorded per target, so the value used in analysis is the one realised rather than the one
+requested.
+
+The benchmark is divided into eight equal conditions spanning both the regime where CA-CFAR is
+close to optimal and the regimes where it is documented to fail --- including one chosen
+specifically because a published learned detector loses there. Five independent splits keep network
+training, threshold selection, CFAR window selection, the SNR sweep and the single scored test set
+apart, so no detector is tuned on the data used to score it. The simulator's point spread function,
+resolution limits and label alignment were all verified before any detector was run.
+
+Chapter~\ref{chp:detectors} now specifies the two detectors that operate on these frames, and fixes
+the evaluation protocol before any comparative result is produced.
