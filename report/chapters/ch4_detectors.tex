@@ -391,6 +391,23 @@ $2 \times \ProtocolNms + 1 = 11$ cells --- that is, suppression within a Chebysh
 \ProtocolNms{} bins, an $11 \times 11$ window. Candidates are extracted \emph{before} any
 threshold is applied, so that a score sweep can be performed afterwards on the same candidate set.
 
+The radius was selected during development from a sweep over several values, as a compromise
+between two competing effects. A smaller radius preserves nearby target peaks better, but admits
+many more noise and duplicate candidates; holding the measured $\Pfa$ fixed then requires a higher
+score threshold, which can reject weak targets and reduce $\Pd$. A larger radius suppresses those
+candidates more effectively, but merges genuinely separate neighbouring targets. The two controls
+are not interchangeable: \textbf{suppression governs the spatial density of candidates, whereas the
+threshold governs their score}, so a smaller radius cannot be compensated by thresholding without
+cost. The development sweep showed exactly this trade-off --- smaller radii improved the masking
+condition, while a radius of \ProtocolNms{} performed substantially better on isolated targets ---
+and \ProtocolNms{} was fixed on that basis before the benchmark was scored. Those sweep values were
+development observations taken at an earlier stage of the work and are not the frozen benchmark
+results of Chapter~\ref{chp:synthetic}. The limitation should be stated plainly: an
+$11 \times 11$ window spans considerably more than the measured point-target mainlobe of
+Chapter~\ref{chp:simulator}, so it restricts how close two targets can be and still be reported
+separately. That is an acknowledged constraint of the frozen protocol, not a claim that this radius
+is a physical optimum.
+
 \textbf{The valid region} is the interior where a full CFAR window fits: a margin of
 $\CfarGuardR + \CfarTrainR = 10$ bins is excluded on the range axis and
 $\CfarGuardD + \CfarTrainD = 4$ on the Doppler axis. The same mask is applied to the network, so
