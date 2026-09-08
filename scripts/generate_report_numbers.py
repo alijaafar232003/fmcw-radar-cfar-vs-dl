@@ -285,6 +285,58 @@ def main():
     macro("SynSnrGainDL", "{:.2f}".format(ca1 - dl1))
     macro("SynCfarLossCA", "{:.2f}".format(ca0 - theory))
 
+    # ---------------------------------------------------------------- Chapter 5: tolerance ladder
+    syn3 = pd.read_csv(os.path.join(ROOT, "results", "dl",
+                                    "bootstrap_frozen_ep021_test_tol3.csv"))
+    lines.append("")
+    lines.append("% ---------- Chapter 5: same benchmark at the +/-3 bin gate ----------")
+    macro("SynWinsTolThree", int(((syn3["diff"] > 0) & syn3["sig (Bonf)"]).sum()))
+    words3 = {"clutter_edge": "ClutterEdge", "clutter": "Clutter", "isolated": "Isolated",
+              "masking": "Masking", "mixed": "Mixed", "multi": "Multi",
+              "unresolved": "Unresolved"}
+    for _, r in syn3.iterrows():
+        nm = words3[r["condition"]]
+        macro("SynTolThree" + nm + "DL", f(r["dl_pd"], 4))
+        macro("SynTolThree" + nm + "CFAR", f(r["cfar_pd"], 4))
+        macro("SynTolThree" + nm + "Diff", "{:+.4f}".format(r["diff"]))
+    # Confidence interval on the one condition where the classical arm leads.
+    cl = syn3[syn3.condition == "clutter"].iloc[0]
+    macro("SynTolThreeClutterCIlo", f(cl["ci_lo"], 4))
+    macro("SynTolThreeClutterCIhi", f(cl["ci_hi"], 4))
+    macro("SynTolThreeClutterP", "{:.3f}".format(float(cl["p_boot"])))
+    cl1 = syn[syn.condition == "clutter"].iloc[0]
+    macro("SynClutterP", "{:.3f}".format(float(cl1["p_boot"])))
+
+    # ---------------------------------------------------------------- Chapter 5: localization
+    loc = pd.read_csv(os.path.join(ROOT, "results", "dl",
+                                   "localization_frozen_ep021_test.csv"))
+    a = loc[(loc.gate == 1) & (loc.group == "ALL")].set_index("method")
+    lines.append("")
+    lines.append("% ---------- Chapter 5: localization, all conditions pooled ----------")
+    for m in ("CA", "DL"):
+        tag = "CA" if m == "CA" else "DL"
+        macro("LocRmse" + tag, f(a.loc[m, "rmse_bins"], 3))
+        macro("LocDr" + tag, f(a.loc[m, "dr_bins"], 3))
+        macro("LocDv" + tag, f(a.loc[m, "dv_bins"], 3))
+        macro("LocRangeM" + tag, f(a.loc[m, "range_m"], 3))
+        macro("LocVelMps" + tag, f(a.loc[m, "vel_mps"], 3))
+    macro("LocRmseRatio", "{:.2f}".format(a.loc["DL", "rmse_bins"] / a.loc["CA", "rmse_bins"]))
+    macro("LocDvRatio", "{:.1f}".format(a.loc["DL", "dv_bins"] / a.loc["CA", "dv_bins"]))
+
+    # ---------------------------------------------------------------- Chapter 5: runtime and Pfa
+    rt = pd.read_csv(os.path.join(ROOT, "results", "dl",
+                                  "runtime_cost_frozen_ep021_test.csv")).set_index("method")
+    lines.append("")
+    lines.append("% ---------- Chapter 5: cost and achieved operating point ----------")
+    macro("RuntimeDL", f(rt.loc["DL (TinyCNN)", "ms_per_frame"], 2))
+    macro("RuntimeCA", f(rt.loc["CA-CFAR", "ms_per_frame"], 2))
+    macro("RuntimeOS", f(rt.loc["OS-CFAR", "ms_per_frame"], 2))
+    macro("RuntimeMMac", f(rt.loc["DL (TinyCNN)", "mmac_per_frame"], 1))
+    pf = pd.read_csv(os.path.join(ROOT, "results", "dl",
+                                  "measured_pfa_frozen_ep021_test_tol1.csv"))
+    macro("PfaRatioMin", f(pf["ratio_to_target"].min(), 3))
+    macro("PfaRatioMax", f(pf["ratio_to_target"].max(), 3))
+
     # ---------------------------------------------------------------- range blocks
     lines.append("")
     lines.append("% ---------- R1: range-stratified (R0 blocks) ----------")
