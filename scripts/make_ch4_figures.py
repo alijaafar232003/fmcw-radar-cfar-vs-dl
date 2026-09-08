@@ -225,43 +225,54 @@ def fig_network():
 # ----------------------------------------------------------------------- Fig 4.5
 def fig_protocol():
     """One rulebook: both detectors reduced to points, then scored identically."""
-    fig, ax = plt.subplots(figsize=(7.2, 3.6))
-    ax.axis("off"); ax.set_xlim(0, 100); ax.set_ylim(0, 56)
+    fig, ax = plt.subplots(figsize=(7.2, 3.2))
+    ax.axis("off"); ax.set_xlim(0, 100); ax.set_ylim(4, 60)
 
-    ax.add_patch(Rectangle((2, 38), 26, 13, facecolor="#eaf1fa", edgecolor=BLUE, lw=1.4))
-    ax.text(15, 46.5, "CFAR", ha="center", fontsize=9, color=BLUE)
-    ax.text(15, 41.5, "ratio map  CUT$/Z$", ha="center", fontsize=7.4, color=GREY)
+    # Each arm carries its own fixed input transform: that is where the paths genuinely differ.
+    ax.add_patch(Rectangle((1, 40), 27, 15, facecolor="#eaf1fa", edgecolor=BLUE, lw=1.4))
+    ax.text(14.5, 50.5, "CFAR", ha="center", fontsize=9, color=BLUE)
+    ax.text(14.5, 46.0, "power $\\rightarrow$ ratio CUT$/Z$", ha="center",
+            fontsize=7.2, color=GREY)
+    ax.text(14.5, 42.2, "own fixed transform", ha="center", fontsize=6.6, color=BLUE)
 
-    ax.add_patch(Rectangle((2, 18), 26, 13, facecolor="#fdecea", edgecolor=RED, lw=1.4))
-    ax.text(15, 26.5, "TinyCNN", ha="center", fontsize=9, color=RED)
-    ax.text(15, 21.5, "per-cell logit map", ha="center", fontsize=7.4, color=GREY)
+    ax.add_patch(Rectangle((1, 16), 27, 15, facecolor="#fdecea", edgecolor=RED, lw=1.4))
+    ax.text(14.5, 26.5, "TinyCNN", ha="center", fontsize=9, color=RED)
+    ax.text(14.5, 22.0, "log/median $\\rightarrow$ logits", ha="center",
+            fontsize=7.2, color=GREY)
+    ax.text(14.5, 18.2, "own fixed transform", ha="center", fontsize=6.6, color=RED)
 
     stages = [
-        (36, "Peak\nextraction", "local maxima,\nNMS radius %d" % FZ["evaluation"]["nms_size"]),
-        (58, "Threshold", "swept to matched\nMEASURED $P_{fa}$"),
-        (80, "Matching", "one-to-one,\nHungarian, $\\pm$%d bin"
-         % FZ["evaluation"]["gate"]),
+        (34, "Peak\nextraction", "local maxima,\n$11\\times11$ NMS"),
+        (54, "Threshold", "swept to matched\nMEASURED $P_{fa}$"),
+        (74, "Matching", "one-to-one,\nHungarian, $\\pm$%d bin" % FZ["evaluation"]["gate"]),
     ]
     for x, t, s in stages:
-        ax.add_patch(Rectangle((x, 26), 18, 15, facecolor="white", edgecolor=INK, lw=1.4))
-        ax.text(x + 9, 36, t, ha="center", fontsize=8.4)
-        ax.text(x + 9, 30, s, ha="center", fontsize=7.0, color=GREY)
+        ax.add_patch(Rectangle((x, 28), 17, 15, facecolor="white", edgecolor=INK, lw=1.4))
+        ax.text(x + 8.5, 38, t, ha="center", fontsize=8.2)
+        ax.text(x + 8.5, 32, s, ha="center", fontsize=6.9, color=GREY)
 
-    for y in (44.5, 24.5):
-        ax.annotate("", xy=(35.4, 33.5), xytext=(28.4, y),
+    for y in (47, 24):
+        ax.annotate("", xy=(33.4, 35.5), xytext=(28.4, y),
                     arrowprops=dict(arrowstyle="->", color=INK, lw=1.2))
-    for x in (36, 58):
-        ax.annotate("", xy=(x + 21.4, 33.5), xytext=(x + 18.6, 33.5),
+    for x in (34, 54):
+        ax.annotate("", xy=(x + 19.6, 35.5), xytext=(x + 17.4, 35.5),
                     arrowprops=dict(arrowstyle="->", color=INK, lw=1.2))
 
-    ax.text(50, 52, "One rulebook, one code path, applied identically to both arms",
+    # Metrics box, connected rather than floating.
+    ax.add_patch(Rectangle((74, 8), 17, 12, facecolor="white", edgecolor=INK, lw=1.4))
+    ax.text(82.5, 15.5, "Metrics", ha="center", fontsize=8.2)
+    ax.text(82.5, 11.5, "TP / FP / FN", ha="center", fontsize=6.9, color=GREY)
+    ax.annotate("", xy=(82.5, 20.6), xytext=(82.5, 27.4),
+                arrowprops=dict(arrowstyle="->", color=INK, lw=1.2))
+
+    ax.text(50, 58, "One shared evaluation path, applied identically to both arms",
             ha="center", fontsize=9, color=INK)
-    ax.text(50, 15, "TP / FP / FN  $\\rightarrow$  $P_d$ at matched measured $P_{fa}$,"
-                    " localization error, false alarms per frame",
-            ha="center", fontsize=8.2, color=INK)
-    ax.text(50, 8.5, "Neither detector has its own scoring logic. The only thing that differs "
-                     "between the two paths is the score map itself.",
-            ha="center", fontsize=7.8, color=RED)
+    ax.text(71, 14, "$P_d$ at matched measured $P_{fa}$,\nlocalization error,\n"
+                    "false alarms per frame",
+            ha="right", va="center", fontsize=7.4, color=INK)
+    ax.text(50, 5.5, "The three shared stages are one code path. What differs is the score map "
+                     "and the fixed transform that produced it.",
+            ha="center", fontsize=7.5, color=RED)
     save(fig, "ch4_fig5_protocol.png")
 
 

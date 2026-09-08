@@ -397,6 +397,25 @@ $\CfarGuardD + \CfarTrainD = 4$ on the Doppler axis. The same mask is applied to
 that the false-alarm denominator counts the same cells for both arms. Using a square mask here
 would have scored the network on Doppler bins that CFAR never tests.
 
+Figure~\ref{fig:stages} shows the same sequence executed on one frame, which makes the ordering
+concrete: the candidate set is fixed by non-maximum suppression \emph{before} any threshold is
+consulted, and the threshold then selects from that fixed set. The candidate set is therefore
+computed once and reused at every threshold a score sweep visits.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter4/ch4_fig6_pipeline_stages.png}
+\caption[The four evaluation stages on one frame]{The shared pipeline executed on a single
+\texttt{masking} frame from the validation split, for CA-CFAR (top) and the network (bottom).
+Stage~2 fixes the candidate set; stage~3 then applies the score cut to those candidates.
+\textbf{This is an illustrative frame, not a benchmark result.} The two arms reach the same
+detection count from very differently shaped score maps: CFAR's above-threshold cells are already
+nearly isolated, whereas the network responds with a broader region that suppression must collapse.
+The numerical cuts shown are the matched values for \emph{this} condition and frame, and are not
+universal deployment thresholds.}
+\label{fig:stages}
+\end{figure}
+
 \subsubsection*{A protocol asymmetry: the candidate score floor}
 
 One detail of the shared extractor is not symmetric between the arms, and is recorded here rather
@@ -443,6 +462,43 @@ correctly rejecting them either.
 Under this convention a duplicate is neutral: it neither helps $\Pd$ nor harms $\Pfa$. The rule is
 applied identically to both arms through the same code, and it is part of the frozen protocol.
 
+Figure~\ref{fig:matching} works a small example through both tolerances, scored by the project's own
+evaluator rather than by hand.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter4/ch4_fig7_matching.png}
+\caption[Matching and tolerance on a worked example]{A toy frame with four truths and five
+detections, scored by the same function used throughout this report. \textbf{The detections are
+invented to exercise every outcome; they are not measurements.} Left, the primary
+$\pm\ProtocolGate$-bin gate: A and B are matched, the second detection near B is ignored because B
+is already taken, the detection two bins from C falls outside the gate and so is both a miss and a
+false alarm, and D is a plain miss. Right, the same frame at $\pm\ProtocolGateRobust$ bins: the
+detection near C now falls inside its gate and becomes a match, which is precisely what the wider
+tolerance is reported to reveal.
+
+The shaded area is the near-target exclusion region, drawn from the matching gate. \textbf{It is
+not the CFAR guard region of Figure~\ref{fig:window}}, which is a different construct serving a
+different purpose, as explained below.}
+\label{fig:matching}
+\end{figure}
+
+The two shaded constructs in this chapter must not be confused, because both are conventionally
+called ``guard'' regions and they do entirely different jobs.
+
+\begin{itemize}
+\itemsep2pt
+\item The \textbf{CFAR guard cells} of Figure~\ref{fig:window} sit inside the detector. They
+determine which cells CFAR excludes when \emph{estimating the background}, and they exist because a
+target's own mainlobe would otherwise inflate its threshold.
+\item The \textbf{near-target exclusion region} of Figure~\ref{fig:matching} sits inside the
+evaluator, and is used only \emph{after} detection. It determines which unmatched detections are
+treated as near misses rather than false alarms, and which cells leave the false-alarm denominator.
+\end{itemize}
+
+They are built from different quantities --- the first from the CFAR window geometry, the second
+from the matching tolerance --- and in general they do not have the same extent.
+
 \subsection{Operating point}
 \label{sec:opoint}
 
@@ -470,9 +526,9 @@ The primary gate is $\pm\ProtocolGate$ bin, specified in advance. A gate of
 $\pm\ProtocolGateRobust$ bins is reported \emph{beside} it, never instead of it.
 
 Reporting both separates detection from localisation. A detector that finds a target but places it
-two bins away is credited under the wider gate and not under the narrower one, so the pair of
-numbers shows how far a conclusion depends on localisation tolerance rather than on detection
-ability. A single tolerance cannot distinguish the two, and choosing which one to report after
+two bins away is credited under the wider gate and not under the narrower one --- exactly the
+detection near truth C in Figure~\ref{fig:matching} --- so the pair of numbers shows how far a
+conclusion depends on localisation tolerance rather than on detection ability. A single tolerance cannot distinguish the two, and choosing which one to report after
 seeing the outcome would be exactly the bias this chapter is arranged to avoid. Both are therefore
 reported for every condition in Chapter~\ref{chp:synthetic}, whichever direction they point.
 

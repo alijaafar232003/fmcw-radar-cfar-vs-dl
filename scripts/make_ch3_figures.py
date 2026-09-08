@@ -92,32 +92,35 @@ def fig_simulator_chain():
     ax.set_xlim(0, 100)
     ax.set_ylim(0, 62)
 
+    # Stage order follows the implementation (see report section 3.4.1): propagation scales the
+    # scene amplitudes, multipath is added at echo synthesis, noise and clutter are added to the
+    # signal BEFORE dechirping, and the map exists only after both transforms.
     main = [
-        (3,  "Scene\ndraw", "targets, ranges,\nvelocities"),
-        (26, "Chirp\nsynthesis", "TX ramp, echo\nat delay $\\tau$"),
-        (49, "Dechirp\n+ 2 FFTs", "range then\nDoppler"),
-        (72, "RD map", "labels and\ncell SNR"),
+        (1,  "Scene\ndraw", "targets, ranges,\nvelocities"),
+        (21, "Chirp\nsynthesis", "TX ramp, echo\nat delay $\\tau(t)$"),
+        (41, "Add noise\n+ clutter", "before mixing"),
+        (61, "Dechirp\n+ 2 FFTs", "range then\nDoppler"),
+        (81, "RD map", "labels and\ncell SNR"),
     ]
-    w, h = 21, 16
+    w, h = 18, 16
     for x, t, s in main:
         ax.add_patch(Rectangle((x, 30), w, h, facecolor="white", edgecolor=BLUE, lw=1.5))
-        ax.text(x + w / 2, 41, t, ha="center", va="center", fontsize=9, color=INK)
-        ax.text(x + w / 2, 34.5, s, ha="center", va="center", fontsize=7.3, color=GREY)
+        ax.text(x + w / 2, 41, t, ha="center", va="center", fontsize=8.6, color=INK)
+        ax.text(x + w / 2, 34.5, s, ha="center", va="center", fontsize=7.0, color=GREY)
     for x, _, _ in main[:-1]:
-        ax.annotate("", xy=(x + w + 1.4, 38), xytext=(x + w + 0.4, 38),
+        ax.annotate("", xy=(x + w + 1.6, 38), xytext=(x + w + 0.4, 38),
                     arrowprops=dict(arrowstyle="->", color=INK, lw=1.3))
 
     inject = [
-        (14, "Radar equation\n$1/R^4$"),
-        (37, "Thermal noise\n(calibrated)"),
-        (60, "Clutter ridge\n(Weibull)"),
-        (83, "Multipath\nechoes"),
+        (1,  "Radar equation\n$1/R^4$"),
+        (21, "Multipath\nechoes"),
+        (41, "Thermal noise +\nWeibull clutter"),
     ]
     for x, t in inject:
-        ax.add_patch(Rectangle((x - 9, 6), 18, 13, facecolor="#fdf3e3",
+        ax.add_patch(Rectangle((x, 6), w, 13, facecolor="#fdf3e3",
                                edgecolor=GOLD, lw=1.2))
-        ax.text(x, 12.5, t, ha="center", va="center", fontsize=7.4, color=INK)
-        ax.annotate("", xy=(x, 29), xytext=(x, 19.5),
+        ax.text(x + w / 2, 12.5, t, ha="center", va="center", fontsize=7.2, color=INK)
+        ax.annotate("", xy=(x + w / 2, 29), xytext=(x + w / 2, 19.5),
                     arrowprops=dict(arrowstyle="->", color=GOLD, lw=1.2))
 
     ax.text(50, 55, "Chapter 2 described the upper row. The lower row is what makes the "
@@ -256,29 +259,40 @@ def fig_psf():
         return
     psf = pd.read_csv(p)
 
-    fig, ax = plt.subplots(1, 2, figsize=(7.2, 2.8), sharey=True)
+    # The artefact labels the second case "off-bin (worst case)", not "off-bin"; matching on the
+    # exact string silently plotted nothing.
+    cases = sorted(psf.case.unique())
+    on = [c for c in cases if c.startswith("on-bin")][0]
+    off = [c for c in cases if c.startswith("off-bin")][0]
+
+    fig, ax = plt.subplots(1, 2, figsize=(7.2, 2.9), sharey=True)
     for a, axis in zip(ax, ["range", "doppler"]):
-        for case, ls in (("on-bin", "-"), ("off-bin", "--")):
-            s = psf[(psf.axis == axis) & (psf.case == case)]
-            if len(s) == 0:
-                continue
-            a.plot(s.offset_bins, s.rel_db, ls, lw=1.4,
-                   color=BLUE if case == "on-bin" else RED, label=case)
+        for case, ls, col, lbl in ((on, "-", BLUE, "on-bin"),
+                                   (off, "--", RED, "off-bin (worst case)")):
+            s = psf[(psf.axis == axis) & (psf.case == case)].sort_values("offset_bins")
+            a.plot(s.offset_bins, s.rel_db, ls, lw=1.5, color=col, label=lbl)
         a.axhline(-3, color=GREY, lw=0.9, ls=":")
-        a.text(0.02, 0.06, "$-3$ dB", transform=a.transAxes, fontsize=7.4, color=GREY)
-        a.set_xlim(-8, 8)
-        a.set_ylim(-45, 3)
+        a.annotate("$-3$ dB", xy=(3.6, -3), fontsize=7.4, color=GREY,
+                   va="bottom", ha="right")
+        a.set_xlim(-4, 4)
+        a.set_ylim(-32, 4)
+        a.set_xticks(range(-4, 5))
         a.set_xlabel("Offset from the peak [bins]")
         a.set_title(axis.capitalize() + " axis")
-        a.legend(frameon=False, fontsize=7.5)
+        a.legend(frameon=False, fontsize=7.4, loc="lower center")
         a.spines[["top", "right"]].set_visible(False)
     ax[0].set_ylabel("Relative power [dB]")
 
     fig.tight_layout()
-    fig.text(0.5, -0.05,
-             "Measured by placing an isolated target and reading the response. "
-             "The mainlobe spans about two bins, which is what sets the guard-cell count.",
-             ha="center", fontsize=7.4, color=GREY)
+    fig.text(0.5, -0.06,
+             "Measured by placing an isolated target and reading its response. The mainlobe spans "
+             "about two bins, which is what sets the guard-cell count.\nThe off-bin case places "
+             "the target midway between two bin centres, so its energy is shared between "
+             "neighbours and the response is broader.\nEach curve is normalised to its own peak, "
+             "so the absolute scalloping loss is not shown here, only the shape. Beyond "
+             "$\\pm$3 bins\nthe response falls below $-100$ dB, so the axis is limited to the "
+             "region that carries information.",
+             ha="center", fontsize=7.3, color=GREY)
     save(fig, "ch3_fig4_psf.png")
 
 
