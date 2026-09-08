@@ -99,10 +99,15 @@ def main() -> None:
     rows = []
     for cond in args.conditions:
         ids = frames_meta.loc[frames_meta.condition == cond, "frame"].to_numpy()
+        # `sep` only holds two-target frames, so single-target strata such as `isolated` have
+        # none. Diagnostic print only -- scoring is unaffected.
         s = [sep[i] for i in ids if i in sep]
-        print(f"\n{cond}: {len(ids)} frames, separation "
-              f"{np.min(s):.2f}-{np.max(s):.2f} m ({np.min(s)/0.19518:.1f}-"
-              f"{np.max(s)/0.19518:.1f} range bins)")
+        if s:
+            print(f"\n{cond}: {len(ids)} frames, separation "
+                  f"{np.min(s):.2f}-{np.max(s):.2f} m ({np.min(s)/0.19518:.1f}-"
+                  f"{np.max(s)/0.19518:.1f} range bins)")
+        else:
+            print(f"\n{cond}: {len(ids)} frames (no target pairs, so no separation range)")
 
         # Score maps computed ONCE per frame; NMS is applied afterwards at each width.
         ratio_maps = {m: {} for m in CFAR_METHODS}
