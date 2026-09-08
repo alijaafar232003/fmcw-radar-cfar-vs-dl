@@ -1,0 +1,8 @@
+{
+  "frozen_utc": "2026-09-08T13:27:26.489586Z",
+  "selection_rule_sha256": "465aac8720b0277362359c80b031ff679b6612a1d420ddfad2c999c99c419a9f",
+  "selection_rule_bytes": 5785,
+  "git_commit_at_freeze": "c274006ac7004ff1920ae97ac9b04065be366486",
+  "status": "PLANNED_NOT_EXECUTED",
+  "note": "Selection rule frozen before any NMS measurement. No phase has been run."
+}
