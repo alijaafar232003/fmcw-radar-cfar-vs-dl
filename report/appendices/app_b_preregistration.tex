@@ -3,3 +3,68 @@
 \label{app:prereg}
 
 % R1 pre-registration summary, SHA-256 \Prereghash, and the phase commit chain.
+
+\section{Revision of the post-processing protocol}
+\label{app:nmsrevision}
+
+The results reported in Chapters~\ref{chp:synthetic} and~\ref{chp:realdata} were produced at a
+non-maximum-suppression radius of \ProtocolNms{}. An earlier version of this work used radius
+\ProtocolNmsOriginal{}. That change is recorded here in full, because the real-data comparison of
+Chapter~\ref{chp:realdata} is sensitive to it and the reader is entitled to know when the choice was
+made.
+
+\subsection*{What happened}
+
+The frozen configuration fixed the suppression radius at \ProtocolNmsOriginal{}
+($\ProtocolNmsOriginalWin \times \ProtocolNmsOriginalWin$ cells) before the synthetic benchmark was
+scored, on the basis of a development observation that Appendix~\ref{app:corrections} now records as
+Correction~C9. When that justification was checked against a controlled sweep it did not hold. The
+sweep was therefore run properly, on development data only, under a selection rule written and
+hash-frozen \emph{before} any measurement was taken, and it selected radius \ProtocolNms{}: the
+smallest radius tested that produced no duplicate in-gate detections.
+
+\subsection*{What was re-measured, and on what data}
+
+\begin{itemize}
+\itemsep2pt
+\item \textbf{The radius was selected on synthetic development data alone} --- the tuning split for
+selection, the validation split for confirmation. The final synthetic holdout was not used, and
+\textbf{no real data of any kind entered the choice}.
+\item \textbf{The synthetic benchmark was re-scored on a freshly generated holdout} of
+\SynHoldoutFrames{} frames, produced from a new seed after the radius was fixed, and verified to
+share no frame content with any previously generated split. The superseded test split was not
+re-used, so the revised benchmark is a genuine one-shot read rather than a second look at data whose
+answer was already known.
+\item \textbf{The real-data evaluation was re-run} under the revised protocol, on the same official
+CARRADA test sequences, with thresholds re-derived from synthetic validation data alone.
+\end{itemize}
+
+\subsection*{What did not change}
+
+The detector itself is untouched. The same eight checkpoints at epoch \TinyEpochs{} were loaded,
+with the same weights; nothing was retrained, fine-tuned, re-initialised or re-selected. The CFAR
+window geometry, the threshold multipliers, the input transform, the label definition, the matching
+rule, the operating-point definition, the tolerance ladder and the statistical treatment are all as
+specified in Chapter~\ref{chp:detectors}. \textbf{One post-processing constant changed, and nothing
+else.}
+
+\subsection*{What the reader should not conclude}
+
+The real-data evaluation reported in Chapter~\ref{chp:realdata} remains zero-shot in the sense that
+matters: no real measurement was used for training, fine-tuning, threshold calibration or radius
+selection. It is \textbf{not}, however, the original untouched pre-registered run. It is a re-run of
+the pre-registered protocol with one post-processing field revised, and it was performed after the
+original result was known. The original radius-\ProtocolNmsOriginal{} outputs have not been deleted,
+overwritten or edited; they remain on disk beside the revised ones, along with the frozen selection
+rule and its hash.
+
+\subsection*{Why the change matters more on real data than on synthetic data}
+
+The synthetic conclusions are almost unaffected by the radius, and the reason is geometric. A
+simulated target is a point scatterer whose response spans about two bins, so any reasonable
+suppression window contains exactly one maximum per target and shrinking it changes little. A
+CARRADA road user is an extended region whose annotated support has a median extent of roughly
+$18 \times 13$ bins --- \emph{larger than the suppression window itself}. There the window operates
+inside a single object, and which local maximum survives is close to arbitrary. That is why the
+real-data comparison moved and the synthetic one did not, and it is reported in
+Chapter~\ref{chp:realdata} as a finding in its own right rather than as an inconvenience.

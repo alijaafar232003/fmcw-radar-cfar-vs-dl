@@ -4,3 +4,29 @@
 
 % The eight retractions C1--C8, each with the reasoning error named.
 % This is deliberately included: it is stronger evidence of method than a clean-looking result.
+
+\section{C9 --- The stated justification for the suppression radius}
+
+\textbf{What was claimed.} An earlier draft of Section~\ref{sec:nmschoice} stated that a
+suppression radius of \ProtocolNmsOriginal{} had been selected because it ``performed substantially
+better on isolated targets'' than smaller radii, and that a smaller radius costs detection
+probability across every condition by admitting more candidates and forcing a higher threshold at
+fixed measured $\Pfa$.
+
+\textbf{Why it was wrong.} The claim was never measured in the form in which it was stated. A
+controlled sweep over radii $1$, $2$, $3$ and $5$, run on the tuning split and confirmed on the
+validation split, finds isolated-target $\Pd$ flat to within $0.005$ across the entire range, for
+the network and for every CFAR variant. The mechanism the claim rested on --- candidate density
+rising sharply as the radius falls --- is real and large, and is reported in
+Figure~\ref{fig:nmssel}; the detection consequence attributed to it is not there once the operating
+point is rematched. The original observation appears to have come from a development sweep that
+watched a single arm, at a stage of the work before the benchmark data existed.
+
+\textbf{What replaced it.} Section~\ref{sec:nmschoice} now reports the full sweep and states the
+criterion that the measurements actually support: radius \ProtocolNms{} is the smallest tested
+radius that avoids measurable duplicate inflation while retaining close-target separation. The
+protocol consequence of that correction is recorded in Appendix~\ref{app:prereg}, since it changed
+the reported benchmark rather than only the text describing it.
+
+\textbf{What did not change.} No model was retrained or fine-tuned, no checkpoint was altered, and
+no threshold was re-derived from anything other than synthetic development data.

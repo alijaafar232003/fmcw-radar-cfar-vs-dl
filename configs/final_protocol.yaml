@@ -1,0 +1,66 @@
+# FINAL POST-PROCESSING PROTOCOL — the candidate-extraction setting the report's results use
+#
+# This file supplements `configs/frozen_dl.yaml`; it does not replace it. Everything in the frozen
+# contract — architecture, training, checkpoints, seeds, thresholds, CFAR geometry, matching,
+# operating point, statistics — is unchanged and still governed by that file. ONE field is revised
+# here: the non-maximum-suppression radius used to turn a score map into a candidate list.
+#
+# `frozen_dl.yaml` still records `nms_size: 5`, and is deliberately left that way. It is the
+# historical contract, and the radius-5 results it produced remain on disk. This file records what
+# superseded it and why, so the two can never be confused.
+
+meta:
+  revised_on: 2026-09-09
+  supersedes:
+    field: evaluation.nms_size
+    file: configs/frozen_dl.yaml
+    old_value: 5
+  experiment: experiments/e6_nms_audit          # the isolated audit that produced the revision
+  selection_rule: experiments/e6_nms_audit/SELECTION_RULE.md
+  selection_rule_sha256: 465aac8720b0277362359c80b031ff679b6612a1d420ddfad2c999c99c419a9f
+
+evaluation:
+  nms_size: 2                                   # Chebyshev radius; window side 2r+1 = 5
+  nms_window: 5
+
+# ------------------------------------------------------------------ how the value was chosen
+selection:
+  split_selection: bench2_tune                  # 50 frames per condition
+  split_confirmation: bench2_val                # 200 frames per condition
+  radii_tested: [1, 2, 3, 5]
+  criterion: >
+    The smallest tested radius with no measurable duplicate in-gate inflation. Radii 2, 3 and 5
+    each produced exactly zero truths with two or more in-gate detections; radius 1 produced
+    7-9 % and drove the `unresolved` stratum to Pd 0.5225, above its ~0.5 structural ceiling.
+    Isolated-target Pd varies by less than 0.005 across all four radii, for every arm.
+  used_final_synthetic_holdout: false
+  used_carrada: false
+  retrained: false
+  fine_tuned: false
+
+# ------------------------------------------------------------------ what the revision does NOT change
+unchanged:
+  checkpoints: results/dl/tinycnn_frozen_s{0..7}_ep021.pt
+  epoch: 21
+  seeds: 8
+  training: "none re-run; weights bit-identical to the frozen arm"
+  cfar_geometry: "21 x 9, guard 2/2, train 8/2"
+  cfar_alphas: "as calibrated in configs/cfar_alpha_table.json"
+  matching: "one-to-one Hungarian within the gate"
+  gates: [1, 3]
+  operating_point: "matched MEASURED Pfa, swept per condition"
+  target_pfa: 1.0e-4
+  n_bootstrap: 2000
+  multiplicity: "Bonferroni across the 7 scored conditions"
+
+# ------------------------------------------------------------------ what was re-measured under it
+final_artefacts:
+  synthetic_holdout: experiments/e6_nms_audit/data/holdout_nms       # fresh, 3200 frames, seed 96001
+  synthetic_stats:   experiments/e6_nms_audit/results/final
+  snr_sweep:         bench2_snr_sweep                                # existing split, re-scored only
+  carrada:           experiments/e6_nms_audit/results/p4_carrada/r1_test
+  note: >
+    The CARRADA evaluation was re-run under the revised post-processing protocol. The network is
+    still zero-shot -- no real data was used for training, fine-tuning, threshold derivation or
+    radius selection -- but this is NOT the original untouched pre-registered run, and the report
+    says so in Appendix B.

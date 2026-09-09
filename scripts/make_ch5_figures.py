@@ -18,7 +18,11 @@ import numpy as np
 import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DLR = os.path.join(ROOT, "results", "dl")
+# The FINAL benchmark artefacts, produced under the revised post-processing protocol of
+# configs/final_protocol.yaml. The superseded radius-5 tables remain in results/dl/ and are
+# deliberately not read here, so no old value can survive into a figure.
+DLR = os.path.join(ROOT, "experiments", "e6_nms_audit", "results", "final")
+RUNTIME = os.path.join(ROOT, "results", "dl")   # runtime excludes NMS; radius-independent
 OUT = os.path.join(ROOT, "report", "figures", "Chapter5")
 os.makedirs(OUT, exist_ok=True)
 
@@ -45,7 +49,7 @@ def _order(df):
 # ----------------------------------------------------------------------- Fig 5.1
 def fig_headline():
     """Per-condition levels and the paired difference, at the primary gate."""
-    d = _order(pd.read_csv(os.path.join(DLR, "bootstrap_frozen_ep021_test_tol1.csv")))
+    d = _order(pd.read_csv(os.path.join(DLR, "bootstrap_final_r2_tol1.csv")))
     y = np.arange(len(d))
 
     fig, ax = plt.subplots(1, 2, figsize=(7.4, 3.4),
@@ -73,14 +77,17 @@ def fig_headline():
     ax[1].set_xlabel("TinyCNN $-$ CFAR   [$P_d$]")
     ax[1].set_title("Paired difference, 95% CI", fontsize=9.5, loc="left")
     ax[1].spines[["top", "right"]].set_visible(False)
-    for i, (v, s) in enumerate(zip(d["diff"], d["sig (Bonf)"])):
-        ax[1].text(v + (0.012 if v > 0 else -0.012), i, "*" if s else "n.s.",
-                   va="center", ha="left" if v > 0 else "right",
-                   fontsize=8 if s else 6.8, color=INK)
+    # Place the marker clear of the whisker, not of the bar: with the revised protocol two
+    # conditions are non-significant and their intervals straddle zero, so a bar-anchored label
+    # would sit on top of the error bar.
+    for i, (v, s, hi, lo) in enumerate(zip(d["diff"], d["sig (Bonf)"], d.ci_hi, d.ci_lo)):
+        x = (hi if v > 0 else lo) + (0.012 if v > 0 else -0.012)
+        ax[1].text(x, i, "*" if s else "n.s.", va="center",
+                   ha="left" if v > 0 else "right", fontsize=8 if s else 6.8, color=INK)
 
     fig.tight_layout()
     fig.text(0.5, -0.05,
-             "Frozen test split, 400 frames per condition. The classical arm is the best CFAR "
+             "Held-out split, 400 frames per condition, read once. The classical arm is the best CFAR "
              "variant for that condition, named in the label.\n"
              "* marks significance after Bonferroni correction across the seven conditions; "
              "n.s. marks conditions that do not reach it.",
@@ -91,7 +98,7 @@ def fig_headline():
 # ----------------------------------------------------------------------- Fig 5.2
 def fig_pd_vs_snr():
     """The result in the currency the comparable literature uses."""
-    sweep = pd.read_csv(os.path.join(DLR, "pd_vs_snr_frozen_ep021.csv"))
+    sweep = pd.read_csv(os.path.join(DLR, "pd_vs_snr_final_r2.csv"))
     PFA = 1e-4
     theory = 10.0 * math.log10(math.log(PFA) / math.log(0.5) - 1.0)
 
@@ -142,9 +149,9 @@ def fig_pd_vs_snr():
 # ----------------------------------------------------------------------- Fig 5.3
 def fig_tolerance():
     """The same benchmark judged at two tolerances."""
-    t1 = pd.read_csv(os.path.join(DLR, "bootstrap_frozen_ep021_test_tol1.csv")
+    t1 = pd.read_csv(os.path.join(DLR, "bootstrap_final_r2_tol1.csv")
                      ).set_index("condition")
-    t3 = pd.read_csv(os.path.join(DLR, "bootstrap_frozen_ep021_test_tol3.csv")
+    t3 = pd.read_csv(os.path.join(DLR, "bootstrap_final_r2_tol3.csv")
                      ).set_index("condition")
     order = t1["diff"].sort_values().index
     y = np.arange(len(order))
@@ -162,9 +169,11 @@ def fig_tolerance():
     ax.legend(frameon=False, fontsize=7.6, loc="lower right")
     ax.spines[["top", "right"]].set_visible(False)
 
-    # Mark the one condition whose sign is negative at both tolerances.
+    # Mark the one condition where widening the gate moves the comparison against the network.
+    # At the primary gate this condition is an exact tie, so "the classical arm leads" would be a
+    # statement about the robustness gate only, and is not written as though it held at both.
     i = list(order).index("clutter")
-    ax.annotate("the one condition where\nthe classical arm leads",
+    ax.annotate("the only condition where widening\nthe gate moves against the network",
                 xy=(float(t3.loc["clutter", "diff"]), i - h / 2),
                 xytext=(0.06, i + 1.0), fontsize=7.4, color=RED,
                 arrowprops=dict(arrowstyle="->", color=RED, lw=1.0))
@@ -181,7 +190,7 @@ def fig_tolerance():
 # ----------------------------------------------------------------------- Fig 5.4
 def fig_localization():
     """Where the network is worse: placing the detection it has found."""
-    loc = pd.read_csv(os.path.join(DLR, "localization_frozen_ep021_test.csv"))
+    loc = pd.read_csv(os.path.join(DLR, "localization_final_r2.csv"))
     a = loc[(loc.gate == 1) & (loc.group == "ALL")].set_index("method")
     order = ["CA", "GO", "OS", "SO", "DL"]
     names = ["CA-CFAR", "GO-CFAR", "OS-CFAR", "SO-CFAR", "TinyCNN"]
@@ -223,7 +232,7 @@ def fig_localization():
 # ----------------------------------------------------------------------- Fig 5.5
 def fig_operating_point():
     """The protocol delivered what it promised: every arm sits at the design rate."""
-    pf = pd.read_csv(os.path.join(DLR, "measured_pfa_frozen_ep021_test_tol1.csv"))
+    pf = pd.read_csv(os.path.join(DLR, "measured_pfa_final_r2_tol1.csv"))
     order = ["CA", "GO", "OS", "SO", "DL"]
     names = {"CA": "CA-CFAR", "GO": "GO-CFAR", "OS": "OS-CFAR",
              "SO": "SO-CFAR", "DL": "TinyCNN"}
@@ -249,7 +258,7 @@ def fig_operating_point():
     fig.tight_layout()
     fig.text(0.5, -0.13,
              "Ratio of the achieved per-cell false-alarm rate to the design rate of $10^{-4}$, "
-             "for every arm and condition of the frozen test.\nAll values lie within "
+             "for every arm and condition of the held-out split.\nAll values lie within "
              "2% of unity, so the comparison is at a genuinely matched operating point "
              "rather than an assumed one.",
              ha="center", fontsize=7.4, color=GREY)

@@ -4,13 +4,107 @@
 \markboth{General Conclusion}{General Conclusion}
 
 \section*{Summary of Findings}
-% TODO
+
+This project asked what a small learned local decision rule adds to radar target detection when it
+is compared against CFAR on genuinely equal terms. Four results answer that.
+
+\textbf{On matched synthetic data the learned detector is ahead everywhere, and clearly ahead where
+CFAR is known to fail.} Across all \SynConditions{} scored conditions of a held-out split read once,
+the frozen network's detection probability exceeded that of the best CFAR variant for each
+condition, with the difference significant after Bonferroni correction in \SynWins{} of them. The
+margin is not uniform. It is largest at clutter edges (\SynClutterEdgeDiff{}), which is precisely
+the regime where a classical threshold is estimated from the wrong background, and it is not
+established on the two strata where physics rather than the detector sets the limit. Expressed in
+the currency the comparable literature uses, the network reaches half detection at a cell SNR
+\SI{\SynSnrGainDL}{\deci\bel} below CA-CFAR --- a margin of ordinary size for this literature, not
+an outlier.
+
+\textbf{That advantage is bought at a measurable cost in localisation.} Pooled over all conditions
+the network's combined placement error is \LocRmseRatio{} times CA-CFAR's, and \LocDvRatio{} times
+worse on the Doppler axis. Scored on the exact cell rather than within one bin it does not reach
+half detection at all. \textbf{The network detects more and places worse}, and both halves of that
+sentence are properties of the same frozen system.
+
+\textbf{The advantage is not explained by simple energy integration.} Chapter~\ref{chp:attribution}
+tested the explanations rather than arguing for one, which narrows the range of plausible mechanisms
+without claiming to have isolated a single cause.
+
+\textbf{The synthetic advantage does not carry across a change of domain.} Evaluated zero-shot on
+real automotive radar --- no retraining, no fine-tuning, no recalibration --- the two detectors
+become statistically indistinguishable at exact annotated support. The sequence-balanced paired
+difference is \RoneDelta{}, and its \SI{95}{\percent} interval $[\RoneCIlo, \RoneCIhi]$ includes
+zero. The network is ahead at wider tolerance gates and behind in the nearest range block. It
+reaches that comparable recall while emitting \RoneBurdenRatio{} times as many unmatched detections
+per frame as CA-CFAR.
 
 \section*{Answering the Research Question}
-% TODO
+
+The three questions of Section~\ref{sec:problem} can now be answered separately, which was the point
+of asking them separately.
+
+\textbf{Is there a genuine advantage?} Yes, within the domain the detector was developed on, and it
+survives a demanding protocol: comparable local context, matched \emph{measured} false-alarm rates,
+a single evaluator, a per-condition best-CFAR comparator, eight seeds, and a tolerance ladder rather
+than one gate. It is a real advantage and a modest one.
+
+\textbf{Where does it come from?} Not from mainlobe energy integration, which was tested and
+rejected as a sufficient explanation. The evidence points to the learned decision rule itself rather
+than to a simple property of the network's input --- but the attribution narrows the field rather
+than closing it, and this report does not claim a single identified cause.
+
+\textbf{Does it survive outside the training domain?} No. The margin does not transfer. What is
+worth stating carefully is that it is not \emph{replaced} by a symmetrical advantage for the
+classical detector either: on real data the two are hard to separate on recall. The learned
+detector did not fail; its advantage simply did not follow it out of the simulator.
+
+That leads to the project's most useful conclusion, and it is not the one the synthetic result alone
+would have suggested. \textbf{Detection probability is not sufficient to rank these detectors.} On
+real extended-object data the two arms are separable on output density even where they are not
+separable on recall, and the comparison proved sensitive to a post-processing constant --- the
+suppression radius --- that the synthetic benchmark is almost entirely insensitive to. A learned
+detector's practical value therefore depends on candidate density, localisation and post-processing
+as much as on the score map it produces. Reporting $\Pd$ alone would have concealed all three.
 
 \section*{Limitations}
-% TODO
+
+The chapters state their own limitations in full; the ones that bound the project as a whole are
+these.
+
+\begin{itemize}
+\itemsep2pt
+\item \textbf{One simulator and one real dataset.} The synthetic results describe one signal model,
+and the external validation rests on a single sensor on a single test track. A second real dataset
+could reinforce or overturn the transfer result.
+\item \textbf{One architecture, one label representation, one training configuration.} Nothing here
+supports a claim about learned detectors in general. The $3\times3$ block label in particular is a
+known limitation, retained because changing it would have invalidated every measurement made with
+it.
+\item \textbf{The real-data comparison is one-sided.} CARRADA supports no false-alarm measurement,
+so the network's larger output cannot be priced against its recall. The central trade-off of
+Chapter~\ref{chp:realdata} is therefore bounded rather than resolved.
+\item \textbf{No causal intervention across domains.} The domain audit locates differences; it does
+not establish that any of them caused the loss of the margin.
+\item \textbf{The post-processing protocol was revised during the work}, on synthetic development
+data and after an earlier version of the real-data experiment had been run.
+Appendix~\ref{app:prereg} records exactly what changed and what did not.
+\end{itemize}
 
 \section*{Future Work}
-% TODO
+
+Four directions follow from the evidence rather than from ambition.
+
+\textbf{Vary the label representation.} The localisation deficit and the tolerance behaviour on
+real data both point at a response broader than a single cell. The label and the receptive field are
+independent design axes and neither was varied here.
+
+\textbf{Test the transfer result on a second real dataset.} A single measurement is not a norm, and
+no published zero-shot synthetic-to-real result exists in this family to compare it against.
+
+\textbf{Establish a mechanism by intervention.} Training on data whose background statistics are
+deliberately modified, and observing the consequence, would convert the domain audit's correlations
+into a causal statement. That is a different experiment, not an extension of this one.
+
+\textbf{Treat candidate extraction as part of the detector.} The suppression radius was found to
+matter on extended real objects and not on synthetic point targets. A detector intended for real
+extended objects should be evaluated with its post-processing varied, not held fixed at a value
+chosen on point targets.

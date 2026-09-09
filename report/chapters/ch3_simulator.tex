@@ -291,7 +291,8 @@ Figure~\ref{fig:snrdist} shows the resulting distribution across the test split.
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.92\textwidth]{figures/Chapter3/ch3_fig5_snr_distribution.png}
-\caption[Cell SNR distribution]{Measured cell SNR for every target in the test split. The spread
+\caption[Cell SNR distribution]{Measured cell SNR for every target in the reported holdout of
+Table~ef{tab:splits}. The spread
 reflects range and target amplitude as well as the configured scene SNR, because propagation is
 applied before the measurement.}
 \label{fig:snrdist}
@@ -430,7 +431,7 @@ this is what exposed one such fault during development.
 
 \subsection{Splits}
 
-Five datasets are generated from the same configuration with different random seeds.
+Six datasets are generated from the same configuration with different random seeds.
 
 \begin{table}[H]
 \centering
@@ -442,17 +443,27 @@ Five datasets are generated from the same configuration with different random se
 \midrule
 \texttt{bench2\_train} & Network training & \BenchTrainFrames \\
 \texttt{bench2\_val} & Threshold selection, epoch selection & \BenchValFrames \\
-\texttt{bench2\_tune} & CFAR window geometry selection & \BenchTuneFrames \\
-\texttt{bench2\_test} & The reported numbers. Read once & \BenchTestFrames \\
+\texttt{bench2\_tune} & CFAR window geometry and suppression radius & \BenchTuneFrames \\
 \texttt{bench2\_snr\_sweep} & Detection probability against cell SNR & \BenchSnrSweepFrames \\
+\texttt{holdout} & \textbf{The reported numbers. Read once} & \SynHoldoutFrames \\
+\midrule
+\texttt{bench2\_test} & Superseded benchmark read; retained, not reported & \BenchTestFrames \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The separation of \texttt{tune} from \texttt{val} is deliberate. The CFAR window geometry and the
-network's operating point are both selected quantities, and selecting them on the same data that
-sets the other arm's threshold would introduce exactly the asymmetry
-Section~\ref{sec:problem} identified. Chapter~\ref{chp:detectors} describes both selections.
+The separation of \texttt{tune} from \texttt{val} is deliberate. The CFAR window geometry, the
+suppression radius and the network's operating point are all selected quantities, and selecting
+them on the same data that sets the other arm's threshold would introduce exactly the asymmetry
+Section~\ref{sec:problem} identified. Chapter~\ref{chp:detectors} describes those selections.
+
+The final row needs explaining. The benchmark of Chapter~\ref{chp:synthetic} is scored on
+\texttt{holdout}, which was generated after the evaluation protocol was finalised and verified to
+share no frame content with any earlier split. \texttt{bench2\_test} was the corresponding
+read under the superseded post-processing protocol; it is kept on disk as part of the record but no
+number in this report is taken from it. Appendix~\ref{app:prereg} states why a new split was
+generated rather than the old one re-scored: a split whose answer is already known is no longer a
+one-shot read.
 
 \section{Verification}
 

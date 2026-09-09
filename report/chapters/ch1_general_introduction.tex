@@ -110,9 +110,12 @@ Four objectives follow from the three questions above.
 
 \begin{description}
 \itemsep4pt
-\item[O1 --- Build a controlled comparison.] Construct a classical arm and a learned arm that
-receive the same input representation, observe comparable local context, and are scored by a single
-evaluator at a matched \emph{measured} false-alarm rate. The learned detector's receptive field is
+\item[O1 --- Build a controlled comparison.] Construct a classical arm and a learned arm that work
+from the same underlying range--Doppler data, observe comparable local context, and are scored by a
+single evaluator at a matched \emph{measured} false-alarm rate. The two arms do not share an input
+\emph{transform}: the classical detector works from power directly, while the learned detector
+applies a fixed decibel normalisation that is part of what it is. Chapter~\ref{chp:detectors} states
+that asymmetry explicitly rather than leaving it implicit. The learned detector's receptive field is
 deliberately matched to the spatial footprint of the CFAR window, providing comparable local context
 while allowing each detector to process that context according to its own decision rule. The two
 rules are not identical: CFAR uses the CUT as its test statistic, excludes the surrounding guard
@@ -170,9 +173,19 @@ paired with an experiment that could disprove it.
 the CARRADA automotive radar dataset~\cite{ouaknine2021carrada} with no real-data training,
 fine-tuning or recalibration, under a protocol fixed by cryptographic hash before any test frame was
 scored. None of the directly comparable studies identified in the reviewed literature performs the
-same zero-shot synthetic-to-real evaluation. \textbf{The ordering established on synthetic data
-reverses on real data}, and this report treats that reversal as a principal result rather than as an
-anomaly to be explained away.
+same zero-shot synthetic-to-real evaluation. \textbf{The synthetic advantage does not carry across
+the domain shift}: at exact annotated support the two detectors become statistically
+indistinguishable (\RoneDelta{}, \SI{95}{\percent} interval $[\RoneCIlo, \RoneCIhi]$), the network
+leads at wider tolerance gates, and it reaches that comparable recall while emitting
+\RoneBurdenRatio{} times as many unmatched detections per frame. This report treats that outcome ---
+including the fact that the learned detector's value is not captured by recall alone --- as a
+principal result rather than as an anomaly to be explained away.
+
+\item \textbf{A protocol-sensitivity finding about extended objects.} The real-data comparison
+proved to depend not only on the two score maps but on the fixed rule that converts a dense score
+map into object candidates. On point targets that rule is inconsequential; on annotated objects
+larger than the suppression window it is not. Appendix~\ref{app:prereg} records how the dependence
+was found and what was changed in response.
 
 \item \textbf{A reproducibility framework supporting these claims:} frozen model and detector
 artefacts, isolation manifests that prevent completed experiments from being modified later, raw
@@ -193,9 +206,12 @@ Those metrics cannot be compared directly, and the rest of the report keeps them
 
 \textbf{Chapter~\ref{chp:simulator}, \emph{Simulator, Radar Specification and Dataset Design}},
 describes the simulator, the radar parameters and the labelled datasets. The radar parameters were
-chosen to reproduce the RD bin geometry of the real dataset used later, so that a target occupies a
-comparable number of cells in both domains. Without this, a transfer failure could be dismissed as a
-scaling artefact.
+chosen to reproduce the RD bin geometry and scale of the real dataset used later, so that range and
+Doppler bins mean the same physical quantity in both domains. This is a statement about the axes,
+not about the targets: the simulator's targets are point scatterers, whereas the real dataset
+annotates extended object regions, and Chapter~\ref{chp:realdata} treats that difference as a
+first-class limitation. Without the matched bin geometry, a transfer failure could have been
+dismissed as a scaling artefact.
 
 \textbf{Chapter~\ref{chp:detectors}, \emph{Detectors and Evaluation Protocol}}, specifies both
 detectors and fixes the evaluation protocol: peak extraction, matching, the operating-point
@@ -211,8 +227,8 @@ from and reports the experiments that separate the competing explanations.
 
 \textbf{Chapter~\ref{chp:realdata}, \emph{Real-Data External Validation}}, evaluates the frozen
 detectors zero-shot on real automotive radar data under the pre-registered protocol. It audits the
-difference between the two domains before any scoring, reports the reversal, and places both halves
-of the project against the published literature.
+difference between the two domains before any scoring, reports what survives the transfer and what
+does not, and places both halves of the project against the published literature.
 
 The \textbf{General Conclusion} states what the evidence supports, what it does not, and which
 directions follow naturally from it. Three appendices record the corrections log, the frozen

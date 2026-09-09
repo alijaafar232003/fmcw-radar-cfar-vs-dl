@@ -22,8 +22,14 @@ Section~\ref{sec:sota} reports, and which makes the margin externally interpreta
 computational cost, each of which qualifies the result in a different direction.
 \end{enumerate}
 
-The frozen test split was read once, after the configuration and protocol were fixed. Every number
-below comes from that single read.
+Every number below comes from a single read of one held-out split. That split
+(\SynHoldoutFrames{} frames, \SynFramesPerCondition{} in each of its \SynHoldoutStrata{} strata,
+of which \SynScoredFrames{} contain targets and are scored for detection) was generated after the
+configuration and the evaluation protocol were both fixed, from a seed never previously used, and
+was verified to share no frame content with the training, validation, tuning or SNR-sweep data. It
+had not been scored by anything before the results in this chapter were produced.
+Appendix~\ref{app:prereg} records why a new split was generated rather than an earlier one
+re-scored.
 
 \section{The operating point was matched}
 
@@ -38,7 +44,8 @@ condition, as a ratio to the design rate of $10^{-4}$.
 \centering
 \includegraphics[width=0.92\textwidth]{figures/Chapter5/ch5_fig5_operating_point.png}
 \caption[Achieved operating point]{Achieved per-cell false-alarm rate divided by the design rate,
-for all five arms across all scored conditions of the frozen test split.}
+for all five arms across every condition of the held-out split, including the target-free
+noise stratum.}
 \label{fig:oppoint}
 \end{figure}
 
@@ -77,47 +84,60 @@ Table~\ref{tab:synresults} gives the values.
 
 \begin{table}[H]
 \centering
-\caption{Detection probability at matched measured $\Pfa$ on the frozen test split, primary gate.
-The CFAR column is the best variant for that condition, named in brackets.}
+\caption{Detection probability at matched measured $\Pfa$ on the held-out split, primary gate.
+The CFAR column is the best variant for that condition, named in brackets; it was re-selected on
+this data rather than inherited.}
 \label{tab:synresults}
-\begin{tabular}{@{}lccc@{}}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
-\textbf{Condition} & \textbf{TinyCNN} & \textbf{Best CFAR} & \textbf{Difference} \\
+\textbf{Condition} & \textbf{TinyCNN} & \textbf{Best CFAR} & \textbf{Difference} &
+\textbf{\SI{95}{\percent} CI} \\
 \midrule
 Clutter edge & \SynClutterEdgeDL & \SynClutterEdgeCFAR{} (\SynClutterEdgeMethod) &
-\textbf{\SynClutterEdgeDiff} \\
-Mixed        & \SynMixedDL & \SynMixedCFAR{} (\SynMixedMethod) & \SynMixedDiff \\
-Isolated     & \SynIsolatedDL & \SynIsolatedCFAR{} (\SynIsolatedMethod) & \SynIsolatedDiff \\
-Masking      & \SynMaskingDL & \SynMaskingCFAR{} (\SynMaskingMethod) & \SynMaskingDiff \\
-Multi-target & \SynMultiDL & \SynMultiCFAR{} (\SynMultiMethod) & \SynMultiDiff \\
-Unresolved   & \SynUnresolvedDL & \SynUnresolvedCFAR{} (\SynUnresolvedMethod) &
-\SynUnresolvedDiff \\
+\textbf{\SynClutterEdgeDiff} & $[\SynClutterEdgeCIlo,\ \SynClutterEdgeCIhi]$ \\
+Mixed        & \SynMixedDL & \SynMixedCFAR{} (\SynMixedMethod) & \SynMixedDiff &
+$[\SynMixedCIlo,\ \SynMixedCIhi]$ \\
+Masking      & \SynMaskingDL & \SynMaskingCFAR{} (\SynMaskingMethod) & \SynMaskingDiff &
+$[\SynMaskingCIlo,\ \SynMaskingCIhi]$ \\
+Isolated     & \SynIsolatedDL & \SynIsolatedCFAR{} (\SynIsolatedMethod) & \SynIsolatedDiff &
+$[\SynIsolatedCIlo,\ \SynIsolatedCIhi]$ \\
+Multi-target & \SynMultiDL & \SynMultiCFAR{} (\SynMultiMethod) & \SynMultiDiff &
+$[\SynMultiCIlo,\ \SynMultiCIhi]$ \\
 \midrule
-Clutter      & \SynClutterDL & \SynClutterCFAR{} (\SynClutterMethod) & \SynClutterDiff{} (n.s.) \\
+\multicolumn{5}{@{}l}{\emph{Not significant after Bonferroni correction
+($\alpha = \ProtocolBonf$)}} \\
+Unresolved   & \SynUnresolvedDL & \SynUnresolvedCFAR{} (\SynUnresolvedMethod) &
+\SynUnresolvedDiff & $[\SynUnresolvedCIlo,\ \SynUnresolvedCIhi]$ \\
+Clutter      & \SynClutterDL & \SynClutterCFAR{} (\SynClutterMethod) & \SynClutterDiff &
+$[\SynClutterCIlo,\ \SynClutterCIhi]$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The network leads in \SynWins{} of the \SynConditions{} conditions, each significant after
-Bonferroni correction. The margin is far from uniform: it ranges from \SynUnresolvedDiff{} on the
-unresolved stratum to \SynClutterEdgeDiff{} at clutter edges, a factor of more than twenty between
-the smallest and largest.
+The difference is positive in all \SynConditions{} conditions, and reaches significance after
+Bonferroni correction in \SynWins{} of them. The margin is far from uniform: among the established
+differences it ranges from \SynMultiDiff{} on multi-target scenes to \SynClutterEdgeDiff{} at
+clutter edges, a factor of more than eight between the smallest and the largest.
 
 That pattern is itself informative, and it is consistent with the failure modes of
 Section~\ref{sec:cfar_failures}.
 
 \textbf{The largest margin is where CFAR is documented to fail.} The clutter-edge condition ---
 target in clean noise with the reference window reaching into the ridge --- is where the classical
-threshold is set from the wrong background. The network gains \SynClutterEdgeDiff{} there.
+threshold is set from the wrong background. The network gains \SynClutterEdgeDiff{} there, roughly
+three times its next largest margin.
 
-\textbf{The smallest margin is where physics, not the detector, is the limit.} On the unresolved
-stratum both arms are close to a cap neither can exceed, and the difference of
-\SynUnresolvedDiff{}, although statistically significant, is of little practical consequence.
+\textbf{Where physics rather than the detector sets the limit, the difference is not established.}
+On the unresolved stratum both targets lie inside one mainlobe, so neither arm can exceed a
+structural ceiling near $\Pd = 0.5$. The measured difference of \SynUnresolvedDiff{} has a
+bootstrap $p$-value of \SynUnresolvedP{}, which does not survive correction for seven comparisons.
+The honest reading is that the two arms cannot be separated where the physics leaves nothing to
+separate them with.
 
 \textbf{On homogeneous clutter the two are indistinguishable.} The difference is
-\SynClutterDiff{}, with a bootstrap $p$-value of \SynClutterP{} --- nowhere near the corrected
-threshold. This is the one condition in which the network does not lead, and
-Section~\ref{sec:tolerance} shows that it becomes more pronounced under a wider tolerance.
+\SynClutterDiff{}, with a bootstrap $p$-value of \SynClutterP{} --- an exact tie for practical
+purposes. This is the one condition in which the network gains nothing at all, and
+Section~\ref{sec:tolerance} shows that widening the tolerance moves it against the network.
 
 \section{The result in decibels}
 
@@ -170,20 +190,23 @@ condition.}
 \label{fig:tol}
 \end{figure}
 
-In six of the seven conditions the ordering is unchanged and the magnitude moves little. The
-conclusion that the network leads on those conditions does not depend on the tolerance chosen,
-which is what the robustness gate was included to establish.
+In six of the seven conditions the ordering is unchanged and the magnitude moves little; widening
+the gate slightly \emph{increases} the network's margin on most of them, and the unresolved
+stratum, marginal at the primary gate, becomes significant at the wider one. The conclusion that
+the network leads on those conditions does not depend on the tolerance chosen, which is what the
+robustness gate was included to establish.
 
 The exception is homogeneous clutter. The difference there moves from \SynClutterDiff{} at the
-primary gate to \SynTolThreeClutterDiff{} at the wider one. Its confidence interval is
-$[\SynTolThreeClutterCIlo,\ \SynTolThreeClutterCIhi]$, and the bootstrap $p$-value is
-\SynTolThreeClutterP{}. That does not reach the corrected significance threshold, so this report
-does not claim the classical arm wins there.
+primary gate --- effectively a tie --- to \SynTolThreeClutterDiff{} at the wider one, changing
+sign. Its confidence interval is $[\SynTolThreeClutterCIlo,\ \SynTolThreeClutterCIhi]$ and the
+bootstrap $p$-value is \SynTolThreeClutterP{}. That is nowhere near the corrected significance
+threshold, so this report does not claim the classical arm wins there.
 
-What can be said is narrower, and still worth stating. The one condition where the network fails to
-lead becomes \emph{more} pronounced when localisation precision is relaxed. That is the opposite of
-what a purely detection-driven difference would do, and it is the second independent sign pointing
-at localisation rather than detection.
+What can be said is narrower, and still worth stating. The one condition where the network gains
+nothing is also the one where relaxing the localisation demand moves the comparison \emph{against}
+it. A purely detection-driven difference would not behave that way: giving both arms more room to
+be right should help the arm that finds more targets. It is the second independent sign pointing at
+localisation rather than detection, and Section~\ref{sec:localization} measures that directly.
 
 \section{Localisation}
 \label{sec:localization}
@@ -191,6 +214,15 @@ at localisation rather than detection.
 Both previous sections pointed to the same place, so it is measured directly. Localisation error is
 computed over true positives only --- it asks, of the targets a detector did find, how precisely it
 placed them.
+
+That definition carries a caveat which should be read before the numbers. \textbf{Each detector's
+error is averaged over its own true positives, so the two averages are not taken over the same set
+of targets.} The network detects more targets, and the extra ones it finds are on average the
+harder, weaker targets that CFAR missed; those are exactly the targets whose peaks are least well
+localised. Part of the difference reported below is therefore a difference in which targets are
+being averaged, not only in how well each arm places them. The metric is also bounded by the gate:
+a detection displaced further than the gate is scored as a miss rather than as a large error, so
+severe displacement appears as lost $\Pd$ instead. Both gates are reported for that reason.
 
 \begin{figure}[H]
 \centering
@@ -207,13 +239,17 @@ axis, the range error is \LocDrDL{} bins against \LocDrCA{}, and the Doppler err
 detections to \SI{\LocRangeMDL}{\metre} and \SI{\LocVelMpsDL}{\metre\per\second} against CA-CFAR's
 \SI{\LocRangeMCA}{\metre} and \SI{\LocVelMpsCA}{\metre\per\second}.
 
-All four CFAR variants localise similarly well, between \LocRmseCA{} and $0.58$ bins, which
-indicates that this is a property of the learned arm rather than of the evaluation.
+All four CFAR variants localise similarly well, between \LocRmseCFARMin{} and \LocRmseCFARMax{}
+bins. That the four classical arms agree with one another and the learned arm sits far outside their
+range indicates that this is a property of the learned arm rather than of the evaluation.
 
 \textbf{This is a genuine cost, and it is the counterweight to the headline result.} The network
 finds more targets and places them less precisely. Which matters more depends on the application:
 a tracker fed slightly imprecise but more numerous detections may do better than one fed fewer
-precise ones, but that is an assertion this report has not tested.
+precise ones, but that is an assertion this report has not tested. Nor does this measurement on its
+own establish \emph{why} the network localises worse --- the caveat above means it is not even a
+clean like-for-like comparison. Chapter~\ref{chp:attribution} investigates the mechanism directly
+rather than inferring it here.
 
 Chapter~\ref{chp:detectors} identified the $3\times3$ block label as the leading candidate
 explanation, since a block label asks the network to respond over a region rather than at one cell.
@@ -226,25 +262,33 @@ Table~\ref{tab:runtime} gives the measured cost per frame.
 
 \begin{table}[H]
 \centering
-\caption{Measured processing cost per range--Doppler frame, on the frozen test split.}
+\caption{Measured detector cost per range--Doppler frame. All five arms were timed back to back in
+one process at the same thread count. \textbf{The figures cover score-map computation only}:
+candidate extraction, thresholding and matching are shared by every arm through the same code and
+would cancel, so they are excluded --- which also means these values do not depend on the
+suppression radius.}
 \label{tab:runtime}
 \begin{tabular}{@{}lcc@{}}
 \toprule
 \textbf{Detector} & \textbf{Time per frame} & \textbf{Note} \\
 \midrule
-CA-CFAR & \SI{\RuntimeCA}{\milli\second} & cheapest; a sum per cell \\
+CA-CFAR & \SI{\RuntimeCA}{\milli\second} & cheapest; a box sum per cell \\
 TinyCNN & \SI{\RuntimeDL}{\milli\second} & \TinyParams{} parameters, \RuntimeMMac{} MMAC/frame \\
-OS-CFAR & \SI{\RuntimeOS}{\milli\second} & a sort per cell \\
+GO-CFAR & \SI{\RuntimeGO}{\milli\second} & two half-window sums, then a maximum \\
+SO-CFAR & \SI{\RuntimeSO}{\milli\second} & the same, then a minimum \\
+OS-CFAR & \SI{\RuntimeOS}{\milli\second} & a rank selection per cell \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The ordering is worth noting because it cuts both ways. The network is roughly seven times more
-expensive than CA-CFAR, which is the cheapest detector here and also the one it beats by the
-smallest margins on the easy conditions. But it is more than ten times \emph{cheaper} than
-OS-CFAR, the variant that performs best in multi-target scenes. A learned detector is therefore not
-automatically the expensive option; it is expensive relative to the simplest classical rule and
-cheap relative to the most robust one.
+The ordering is worth noting because it cuts both ways, and because the intuition it violates is a
+common one. The network performs roughly three orders of magnitude more arithmetic per cell than
+CA-CFAR, and it is \RuntimeDLoverCA{} times slower --- but it is faster than three of the four
+classical variants, and \RuntimeOSoverDL{} times faster than OS-CFAR. The reason is not that the
+network is cheap; it is that CFAR here is vectorised, so a box mean costs the same regardless of
+window size, whereas a per-cell rank selection does not vectorise at all. \textbf{A learned
+detector is therefore not automatically the expensive option}: it is expensive relative to the
+simplest classical rule and cheap relative to the more robust ones.
 
 \section{Conclusion}
 
@@ -253,11 +297,12 @@ protocol fixed in advance:
 
 \begin{itemize}
 \itemsep3pt
-\item The frozen network leads in \SynWins{} of \SynConditions{} conditions, all significant after
-correction for multiple comparisons, against a per-condition best-CFAR comparator that is stronger
-than any deployable single variant.
+\item The frozen network is ahead in all \SynConditions{} conditions and significantly ahead in
+\SynWins{} of them after correction for multiple comparisons, against a per-condition best-CFAR
+comparator that is stronger than any deployable single variant.
 \item The margin is largest where CFAR is documented to fail --- \SynClutterEdgeDiff{} at clutter
-edges --- and smallest where physics rather than the detector sets the limit.
+edges --- and is not established where physics rather than the detector sets the limit, on the
+unresolved and homogeneous-clutter strata.
 \item Expressed in the currency the comparable literature uses, the network reaches half detection
 at a cell SNR \SI{\SynSnrGainDL}{\deci\bel} lower than CA-CFAR.
 \item On homogeneous clutter the two arms are statistically indistinguishable, and the difference

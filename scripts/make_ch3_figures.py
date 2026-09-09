@@ -298,9 +298,15 @@ def fig_psf():
 
 # ----------------------------------------------------------------------- Fig 3.4
 def fig_snr_distribution():
-    """Where the difficulty sits: cell SNR across the test split."""
+    """Where the difficulty sits: cell SNR across the REPORTED holdout.
+
+    Read from the holdout Chapter 5 actually scores, not from the superseded test split, so the
+    figure describes the data the benchmark numbers come from.
+    """
     lab = []
-    fdir = os.path.join(ROOT, "data", "bench2_test", "frames")
+    fdir = os.path.join(ROOT, "experiments", "e6_nms_audit", "data", "holdout_nms", "frames")
+    if not os.path.isdir(fdir):
+        fdir = os.path.join(ROOT, "data", "bench2_test", "frames")
     for nm in sorted(os.listdir(fdir)):
         p = os.path.join(fdir, nm, "labels.csv")
         if os.path.exists(p):
@@ -333,7 +339,7 @@ def fig_snr_distribution():
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     fig.text(0.5, -0.13,
-             "{:,} target instances across the test split. Cell SNR is measured per target after "
+             "{:,} target instances across the reported holdout. Cell SNR is measured per target after "
              "propagation, not requested at\nthe scene level, so the spread reflects range and "
              "amplitude as well as the configured scene SNR.".format(len(v)),
              ha="center", fontsize=7.4, color=GREY)

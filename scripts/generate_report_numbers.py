@@ -19,6 +19,24 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXP = os.path.join(ROOT, "experiments", "r_carrada_real_data_validation")
 OUT = os.path.join(ROOT, "report", "numbers.tex")
 
+# ---------------------------------------------------------------------------------- final protocol
+# The reported benchmark uses the revised suppression radius of configs/final_protocol.yaml, not the
+# radius-5 setting still recorded in configs/frozen_dl.yaml. Both are read: the report states the
+# revised value everywhere and names the superseded one once, in the provenance appendix.
+#
+# Everything else -- checkpoints, epoch, seeds, thresholds, CFAR geometry, matching, statistics --
+# comes from the frozen contract exactly as before. Only candidate extraction changed.
+E6 = os.path.join(ROOT, "experiments", "e6_nms_audit")
+FINAL = os.path.join(E6, "results", "final")               # revised synthetic benchmark
+CARFINAL = os.path.join(E6, "results", "p4_carrada", "r1_test")   # revised CARRADA evaluation
+
+
+def _final_radius() -> int:
+    import yaml
+    fp = yaml.safe_load(open(os.path.join(ROOT, "configs", "final_protocol.yaml"),
+                             encoding="utf-8"))
+    return int(fp["evaluation"]["nms_size"])
+
 lines: list[str] = []
 
 
@@ -45,8 +63,12 @@ def main():
     lines.append("% " + "=" * 74)
     lines.append("")
 
+    R = _final_radius()
+
     # ---------------------------------------------------------------- R1 real-data
-    R1 = json.load(open(os.path.join(EXP, "results", "r1_test", "r1_summary.json")))
+    # Read from the revised evaluation: same frozen checkpoints, same thresholds derived from
+    # synthetic validation alone, same official split -- re-run at the final suppression radius.
+    R1 = json.load(open(os.path.join(CARFINAL, "r1_summary.json")))
     P, BS, TOL, BUR = (R1["primary"], R1["paired_bootstrap"], R1["tolerance"],
                        R1["unmatched_burden"])
 
@@ -96,6 +118,28 @@ def main():
     lines.append("% ---------- R1: unmatched-detection burden (NOT Pfa) ----------")
     macro("RoneBurdenTinyCNN", f(BUR["TinyCNN"]["mean"], 2))
     macro("RoneBurdenCFARCA", f(BUR["CFAR-CA"]["mean"], 2))
+    for k, nm in (("CFAR-GO", "CFARGO"), ("CFAR-SO", "CFARSO"), ("CFAR-OS", "CFAROS")):
+        if k in BUR:
+            macro("RoneBurden" + nm, f(BUR[k]["mean"], 2))
+    macro("RoneBurdenRatio", "{:.1f}".format(BUR["TinyCNN"]["mean"] / BUR["CFAR-CA"]["mean"]))
+    # Annotated versus annotation-empty frames: if the output density were driven by the annotated
+    # objects it would differ between the two, and it does not.
+    macro("RoneBurdenTinyCNNAnn", f(BUR["TinyCNN"]["annotated_frames_mean"], 2))
+    macro("RoneBurdenTinyCNNEmpty", f(BUR["TinyCNN"]["unannotated_frames_mean"], 2))
+    macro("RoneBurdenCFARCAAnn", f(BUR["CFAR-CA"]["annotated_frames_mean"], 2))
+    macro("RoneBurdenCFARCAEmpty", f(BUR["CFAR-CA"]["unannotated_frames_mean"], 2))
+
+    lines.append("")
+    lines.append("% ---------- R1: tolerance differences, TinyCNN - CA ----------")
+    for t, nm in ((0, "Exact"), (1, "TolOne"), (3, "TolThree")):
+        d = TOL["tol{}".format(t)]["tinycnn"] - TOL["tol{}".format(t)]["cfar_CA"]
+        macro("RoneDiff" + nm, "{:+.4f}".format(d))
+    # Sequences in which each arm leads, and seeds that reach the classical comparator.
+    seq = R1["per_sequence"]
+    macro("RoneSeqCFARLead", sum(1 for s in seq if s["delta"] < 0))
+    macro("RoneSeqTinyCNNLead", sum(1 for s in seq if s["delta"] > 0))
+    macro("RoneSeedsAboveCFAR",
+          sum(1 for v in P["tinycnn_per_seed"].values() if v > P["cfar"]["CA"]))
 
     # ---------------------------------------------------------------- R0 domain audit
     R0 = json.load(open(os.path.join(EXP, "results", "r0_audit.json")))
@@ -135,12 +179,22 @@ def main():
         macro("Carrada" + nm + "Objects", "{:,}".format(s["object_frames"]))
 
     # ---------------------------------------------------------------- synthetic headline
-    syn = pd.read_csv(os.path.join(ROOT, "results", "dl",
-                                   "bootstrap_frozen_ep021_test_tol1.csv"))
+    # The FINAL synthetic benchmark: frozen epoch-21 checkpoints, 8 seeds, fresh 3,200-frame
+    # holdout, candidate extraction at the revised radius. The superseded radius-5 table remains at
+    # results/dl/bootstrap_frozen_ep021_test_tol1.csv and is not read here.
+    syn = pd.read_csv(os.path.join(FINAL, "bootstrap_final_r{}_tol1.csv".format(R)))
     lines.append("")
-    lines.append("% ---------- frozen synthetic benchmark (bench2_test, epoch 21) ----------")
+    lines.append("% ---------- final synthetic benchmark (fresh holdout, epoch 21) ----------")
     macro("SynConditions", len(syn))
     macro("SynWins", int(((syn["diff"] > 0) & syn["sig (Bonf)"]).sum()))
+    macro("SynLeads", int((syn["diff"] > 0).sum()))
+    # The holdout contains the target-free `noise` stratum too, which is scored for false alarms
+    # but has no Pd and so does not appear in the bootstrap table. Count it.
+    _idx = pd.read_csv(os.path.join(FINAL, "peaks", "holdout_nms_index.csv"))
+    macro("SynHoldoutFrames", "{:,}".format(len(_idx)))
+    macro("SynScoredFrames", "{:,}".format(int(syn["n_frames"].sum())))
+    macro("SynFramesPerCondition", int(syn["n_frames"].iloc[0]))
+    macro("SynHoldoutStrata", int(_idx.condition.nunique()))
     words = {"clutter_edge": "ClutterEdge", "clutter": "Clutter", "isolated": "Isolated",
              "masking": "Masking", "mixed": "Mixed", "multi": "Multi",
              "unresolved": "Unresolved"}
@@ -150,6 +204,10 @@ def main():
         macro("Syn" + nm + "CFAR", f(r["cfar_pd"], 4))
         macro("Syn" + nm + "Diff", "{:+.4f}".format(r["diff"]))
         macro("Syn" + nm + "Method", r["cfar_method"])
+        macro("Syn" + nm + "CIlo", "{:+.4f}".format(r["ci_lo"]))
+        macro("Syn" + nm + "CIhi", "{:+.4f}".format(r["ci_hi"]))
+        macro("Syn" + nm + "P", "{:.3f}".format(float(r["p_boot"])))
+        macro("Syn" + nm + "Sig", "yes" if r["sig (Bonf)"] else "no")
 
     # ---------------------------------------------------------------- Chapter 3: radar + datasets
     # Read from src/radar/config.py so the report cannot drift from the simulator.
@@ -243,18 +301,52 @@ def main():
     macro("TinyBatch", fz["training"]["batch_size"])
     macro("TinySeeds", len(fz["training"]["seeds"]))
     macro("TinyThreads", fz["training"]["threads"])
-    macro("ProtocolNms", fz["evaluation"]["nms_size"])
+    # The suppression radius is the ONE evaluation field that comes from the revised protocol
+    # rather than from the frozen contract. Both are emitted: the report uses \ProtocolNms
+    # throughout and names \ProtocolNmsOriginal only in the provenance appendix.
+    macro("ProtocolNms", R)
+    macro("ProtocolNmsWin", 2 * R + 1)
+    macro("ProtocolNmsOriginal", fz["evaluation"]["nms_size"])
+    macro("ProtocolNmsOriginalWin", 2 * int(fz["evaluation"]["nms_size"]) + 1)
     macro("ProtocolGate", fz["evaluation"]["gate"])
     macro("ProtocolGateRobust", fz["evaluation"]["gate_robustness"])
     macro("ProtocolBootstrap", "{:,}".format(fz["evaluation"]["n_bootstrap"]))
     macro("ProtocolPfa", "{:.0e}".format(fz["evaluation"]["target_pfa"]).replace("e-04", "^{-4}"))
     macro("ProtocolBonf", "{:.4f}".format(0.05 / 7))
 
+    # ---------------------------------------------------------------- NMS radius selection
+    # Development-set sweep behind Section "Selecting the suppression radius". Confirmation split
+    # only; the tuning split agrees on every gate and is not quoted separately.
+    nms = pd.read_csv(os.path.join(E6, "results", "p1_selection",
+                                   "nms_selection_sweep_val.csv"))
+    lines.append("")
+    lines.append("% ---------- NMS radius selection (development data only) ----------")
+    _nz = nms[nms.condition == "noise"].set_index("nms")
+    macro("NmsCandOne", "{:.0f}".format(_nz.loc[1, "cand_per_frame_CA"]))
+    macro("NmsCandFive", "{:.0f}".format(_nz.loc[5, "cand_per_frame_CA"]))
+    macro("NmsCandRatio", "{:.1f}".format(_nz.loc[1, "cand_per_frame_CA"]
+                                          / _nz.loc[5, "cand_per_frame_CA"]))
+    _iso = nms[(nms.condition == "isolated") & (nms.method == "DL")]["pd"]
+    macro("NmsIsolatedSpread", f(_iso.max() - _iso.min(), 3))
+    _mask = nms[(nms.condition == "masking") & (nms.method == "DL")].set_index("nms")["pd"]
+    macro("NmsMaskingOne", f(_mask.loc[1], 3))
+    macro("NmsMaskingFive", f(_mask.loc[5], 3))
+    _unr = nms[(nms.condition == "unresolved") & (nms.method == "DL")].set_index("nms")
+    macro("NmsUnresolvedOne", f(_unr.loc[1, "pd"], 4))
+    # Duplicate in-gate detections at radius 1, across the scored conditions, for the network;
+    # and the maximum over EVERY arm and condition at the larger radii, which is exactly zero.
+    _dup = nms[(nms.nms == 1) & (nms.method == "DL")]["frac_truths_two_plus"].dropna()
+    macro("NmsDupOneMin", pct(_dup.min(), 0))
+    macro("NmsDupOneMax", pct(_dup.max(), 0))
+    macro("NmsDupOneCFAR", pct(nms[(nms.nms == 1) & (nms.method != "DL")]
+                               ["frac_truths_two_plus"].dropna().max(), 0))
+    macro("NmsDupOther", pct(nms[nms.nms > 1]["frac_truths_two_plus"].dropna().max(), 1))
+    macro("NmsRadiiTested", ", ".join(str(int(v)) for v in sorted(nms.nms.unique())))
+
     # ---------------------------------------------------------------- Pd-vs-SNR (dB currency)
     # The literature reports learned-vs-CFAR margins in dB of SNR at Pd 0.5.
     # Recomputed here from the frozen sweep artefact so the report never quotes a log.
-    sweep = pd.read_csv(os.path.join(ROOT, "results", "dl",
-                                     "pd_vs_snr_frozen_ep021.csv"))
+    sweep = pd.read_csv(os.path.join(FINAL, "pd_vs_snr_final_r{}.csv".format(R)))
 
     def _snr50(sub):
         sub = sub.sort_values("snr")
@@ -286,8 +378,7 @@ def main():
     macro("SynCfarLossCA", "{:.2f}".format(ca0 - theory))
 
     # ---------------------------------------------------------------- Chapter 5: tolerance ladder
-    syn3 = pd.read_csv(os.path.join(ROOT, "results", "dl",
-                                    "bootstrap_frozen_ep021_test_tol3.csv"))
+    syn3 = pd.read_csv(os.path.join(FINAL, "bootstrap_final_r{}_tol3.csv".format(R)))
     lines.append("")
     lines.append("% ---------- Chapter 5: same benchmark at the +/-3 bin gate ----------")
     macro("SynWinsTolThree", int(((syn3["diff"] > 0) & syn3["sig (Bonf)"]).sum()))
@@ -304,12 +395,11 @@ def main():
     macro("SynTolThreeClutterCIlo", f(cl["ci_lo"], 4))
     macro("SynTolThreeClutterCIhi", f(cl["ci_hi"], 4))
     macro("SynTolThreeClutterP", "{:.3f}".format(float(cl["p_boot"])))
-    cl1 = syn[syn.condition == "clutter"].iloc[0]
-    macro("SynClutterP", "{:.3f}".format(float(cl1["p_boot"])))
+    # \SynClutterP is already emitted by the per-condition loop above, together with every other
+    # condition's p-value; emitting it again here would redefine it and stop the build.
 
     # ---------------------------------------------------------------- Chapter 5: localization
-    loc = pd.read_csv(os.path.join(ROOT, "results", "dl",
-                                   "localization_frozen_ep021_test.csv"))
+    loc = pd.read_csv(os.path.join(FINAL, "localization_final_r{}.csv".format(R)))
     a = loc[(loc.gate == 1) & (loc.group == "ALL")].set_index("method")
     lines.append("")
     lines.append("% ---------- Chapter 5: localization, all conditions pooled ----------")
@@ -322,6 +412,9 @@ def main():
         macro("LocVelMps" + tag, f(a.loc[m, "vel_mps"], 3))
     macro("LocRmseRatio", "{:.2f}".format(a.loc["DL", "rmse_bins"] / a.loc["CA", "rmse_bins"]))
     macro("LocDvRatio", "{:.1f}".format(a.loc["DL", "dv_bins"] / a.loc["CA", "dv_bins"]))
+    cf = a.drop("DL")["rmse_bins"]
+    macro("LocRmseCFARMin", f(cf.min(), 3))
+    macro("LocRmseCFARMax", f(cf.max(), 3))
 
     # ---------------------------------------------------------------- Chapter 5: runtime and Pfa
     rt = pd.read_csv(os.path.join(ROOT, "results", "dl",
@@ -330,10 +423,17 @@ def main():
     lines.append("% ---------- Chapter 5: cost and achieved operating point ----------")
     macro("RuntimeDL", f(rt.loc["DL (TinyCNN)", "ms_per_frame"], 2))
     macro("RuntimeCA", f(rt.loc["CA-CFAR", "ms_per_frame"], 2))
+    macro("RuntimeGO", f(rt.loc["GO-CFAR", "ms_per_frame"], 2))
+    macro("RuntimeSO", f(rt.loc["SO-CFAR", "ms_per_frame"], 2))
     macro("RuntimeOS", f(rt.loc["OS-CFAR", "ms_per_frame"], 2))
     macro("RuntimeMMac", f(rt.loc["DL (TinyCNN)", "mmac_per_frame"], 1))
-    pf = pd.read_csv(os.path.join(ROOT, "results", "dl",
-                                  "measured_pfa_frozen_ep021_test_tol1.csv"))
+    macro("RuntimeDLoverCA",
+          "{:.1f}".format(rt.loc["DL (TinyCNN)", "ms_per_frame"] / rt.loc["CA-CFAR",
+                                                                          "ms_per_frame"]))
+    macro("RuntimeOSoverDL",
+          "{:.1f}".format(rt.loc["OS-CFAR", "ms_per_frame"] / rt.loc["DL (TinyCNN)",
+                                                                     "ms_per_frame"]))
+    pf = pd.read_csv(os.path.join(FINAL, "measured_pfa_final_r{}_tol1.csv".format(R)))
     macro("PfaRatioMin", f(pf["ratio_to_target"].min(), 3))
     macro("PfaRatioMax", f(pf["ratio_to_target"].max(), 3))
 
@@ -349,6 +449,7 @@ def main():
         macro("RoneRange" + w + "N", "{:,}".format(v["eligible_objects"]))
         macro("RoneRange" + w + "TinyCNN", f(v["tinycnn"], 4))
         macro("RoneRange" + w + "CFAR", f(v["cfar_CA"], 4))
+        macro("RoneRange" + w + "Diff", "{:+.4f}".format(v["tinycnn"] - v["cfar_CA"]))
 
     # ---------------------------------------------------------------- multi-peak
     try:

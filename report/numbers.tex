@@ -6,56 +6,72 @@
 
 % ---------- R1: CARRADA zero-shot test result ----------
 \newcommand{\RoneEligibleObjects}{1,627}
-\newcommand{\RoneTinyCNN}{0.7124}  % exact dense-mask object recall
-\newcommand{\RoneCFARCA}{0.8439}  % primary classical comparator
-\newcommand{\RoneCFARGO}{0.8648}
-\newcommand{\RoneCFARSO}{0.8451}
-\newcommand{\RoneCFAROS}{0.8574}
-\newcommand{\RoneDelta}{-0.1085}
-\newcommand{\RoneCIlo}{-0.1663}
-\newcommand{\RoneCIhi}{-0.0618}
+\newcommand{\RoneTinyCNN}{0.8721}  % exact dense-mask object recall
+\newcommand{\RoneCFARCA}{0.8838}  % primary classical comparator
+\newcommand{\RoneCFARGO}{0.9219}
+\newcommand{\RoneCFARSO}{0.9687}
+\newcommand{\RoneCFAROS}{0.9662}
+\newcommand{\RoneDelta}{-0.0136}
+\newcommand{\RoneCIlo}{-0.0269}
+\newcommand{\RoneCIhi}{+0.0045}
 \newcommand{\RoneNseq}{6}
-\newcommand{\RoneSeedSD}{0.0930}
-\newcommand{\RoneSeedMin}{0.5476}
-\newcommand{\RoneSeedMax}{0.8211}
-\newcommand{\RoneSeedZero}{0.8211}
-\newcommand{\RoneSeedOne}{0.6288}
-\newcommand{\RoneSeedTwo}{0.8095}
-\newcommand{\RoneSeedThree}{0.6699}
-\newcommand{\RoneSeedFour}{0.5476}
-\newcommand{\RoneSeedFive}{0.7572}
-\newcommand{\RoneSeedSix}{0.7492}
-\newcommand{\RoneSeedSeven}{0.7154}
+\newcommand{\RoneSeedSD}{0.0166}
+\newcommand{\RoneSeedMin}{0.8457}
+\newcommand{\RoneSeedMax}{0.8980}
+\newcommand{\RoneSeedZero}{0.8537}
+\newcommand{\RoneSeedOne}{0.8783}
+\newcommand{\RoneSeedTwo}{0.8709}
+\newcommand{\RoneSeedThree}{0.8752}
+\newcommand{\RoneSeedFour}{0.8457}
+\newcommand{\RoneSeedFive}{0.8697}
+\newcommand{\RoneSeedSix}{0.8851}
+\newcommand{\RoneSeedSeven}{0.8980}
 
 % ---------- R1: tolerance ladder ----------
-\newcommand{\RoneTinyCNNExact}{0.7124}
-\newcommand{\RoneCFARCAExact}{0.8439}
-\newcommand{\RoneTinyCNNTolOne}{0.7805}
-\newcommand{\RoneCFARCATolOne}{0.8685}
-\newcommand{\RoneTinyCNNTolThree}{0.8742}
-\newcommand{\RoneCFARCATolThree}{0.9041}
+\newcommand{\RoneTinyCNNExact}{0.8721}
+\newcommand{\RoneCFARCAExact}{0.8838}
+\newcommand{\RoneTinyCNNTolOne}{0.9127}
+\newcommand{\RoneCFARCATolOne}{0.9047}
+\newcommand{\RoneTinyCNNTolThree}{0.9521}
+\newcommand{\RoneCFARCATolThree}{0.9213}
 
 % ---------- R1: strata ----------
 \newcommand{\RoneNearZeroN}{1,365}
-\newcommand{\RoneNearZeroTinyCNN}{0.6694}
-\newcommand{\RoneNearZeroCFAR}{0.8234}
+\newcommand{\RoneNearZeroTinyCNN}{0.8570}
+\newcommand{\RoneNearZeroCFAR}{0.8696}
 \newcommand{\RoneAwayZeroN}{262}
-\newcommand{\RoneAwayZeroTinyCNN}{0.9361}
-\newcommand{\RoneAwayZeroCFAR}{0.9504}
+\newcommand{\RoneAwayZeroTinyCNN}{0.9509}
+\newcommand{\RoneAwayZeroCFAR}{0.9580}
 \newcommand{\RoneNearZeroFrac}{84\%}
 \newcommand{\RoneCarN}{513}
-\newcommand{\RoneCarTinyCNN}{0.9384}
-\newcommand{\RoneCarCFAR}{0.9708}
+\newcommand{\RoneCarTinyCNN}{0.9627}
+\newcommand{\RoneCarCFAR}{0.9747}
 \newcommand{\RonePedN}{955}
-\newcommand{\RonePedTinyCNN}{0.5925}
-\newcommand{\RonePedCFAR}{0.7707}
+\newcommand{\RonePedTinyCNN}{0.8209}
+\newcommand{\RonePedCFAR}{0.8366}
 \newcommand{\RoneCycN}{159}
-\newcommand{\RoneCycTinyCNN}{0.7028}
+\newcommand{\RoneCycTinyCNN}{0.8868}
 \newcommand{\RoneCycCFAR}{0.8742}
 
 % ---------- R1: unmatched-detection burden (NOT Pfa) ----------
-\newcommand{\RoneBurdenTinyCNN}{13.14}
-\newcommand{\RoneBurdenCFARCA}{8.73}
+\newcommand{\RoneBurdenTinyCNN}{23.48}
+\newcommand{\RoneBurdenCFARCA}{12.28}
+\newcommand{\RoneBurdenCFARGO}{30.29}
+\newcommand{\RoneBurdenCFARSO}{30.36}
+\newcommand{\RoneBurdenCFAROS}{31.87}
+\newcommand{\RoneBurdenRatio}{1.9}
+\newcommand{\RoneBurdenTinyCNNAnn}{23.49}
+\newcommand{\RoneBurdenTinyCNNEmpty}{23.45}
+\newcommand{\RoneBurdenCFARCAAnn}{12.41}
+\newcommand{\RoneBurdenCFARCAEmpty}{12.04}
+
+% ---------- R1: tolerance differences, TinyCNN - CA ----------
+\newcommand{\RoneDiffExact}{-0.0118}
+\newcommand{\RoneDiffTolOne}{+0.0080}
+\newcommand{\RoneDiffTolThree}{+0.0307}
+\newcommand{\RoneSeqCFARLead}{5}
+\newcommand{\RoneSeqTinyCNNLead}{1}
+\newcommand{\RoneSeedsAboveCFAR}{2}
 
 % ---------- R0: domain audit ----------
 \newcommand{\RzeroCarradaCV}{0.473}
@@ -103,37 +119,70 @@
 \newcommand{\CarradaTestFrames}{2,130}
 \newcommand{\CarradaTestObjects}{1,628}
 
-% ---------- frozen synthetic benchmark (bench2_test, epoch 21) ----------
+% ---------- final synthetic benchmark (fresh holdout, epoch 21) ----------
 \newcommand{\SynConditions}{7}
-\newcommand{\SynWins}{6}
-\newcommand{\SynClutterDL}{0.1691}
-\newcommand{\SynClutterCFAR}{0.1714}
-\newcommand{\SynClutterDiff}{-0.0023}
+\newcommand{\SynWins}{5}
+\newcommand{\SynLeads}{7}
+\newcommand{\SynHoldoutFrames}{3,200}
+\newcommand{\SynScoredFrames}{2,800}
+\newcommand{\SynFramesPerCondition}{400}
+\newcommand{\SynHoldoutStrata}{8}
+\newcommand{\SynClutterDL}{0.1635}
+\newcommand{\SynClutterCFAR}{0.1631}
+\newcommand{\SynClutterDiff}{+0.0005}
 \newcommand{\SynClutterMethod}{GO}
-\newcommand{\SynClutterEdgeDL}{0.7508}
-\newcommand{\SynClutterEdgeCFAR}{0.4492}
-\newcommand{\SynClutterEdgeDiff}{+0.3017}
+\newcommand{\SynClutterCIlo}{-0.0176}
+\newcommand{\SynClutterCIhi}{+0.0202}
+\newcommand{\SynClutterP}{0.963}
+\newcommand{\SynClutterSig}{no}
+\newcommand{\SynClutterEdgeDL}{0.6904}
+\newcommand{\SynClutterEdgeCFAR}{0.4232}
+\newcommand{\SynClutterEdgeDiff}{+0.2672}
 \newcommand{\SynClutterEdgeMethod}{OS}
-\newcommand{\SynIsolatedDL}{0.7331}
-\newcommand{\SynIsolatedCFAR}{0.6750}
-\newcommand{\SynIsolatedDiff}{+0.0581}
+\newcommand{\SynClutterEdgeCIlo}{+0.2324}
+\newcommand{\SynClutterEdgeCIhi}{+0.3020}
+\newcommand{\SynClutterEdgeP}{0.000}
+\newcommand{\SynClutterEdgeSig}{yes}
+\newcommand{\SynIsolatedDL}{0.7041}
+\newcommand{\SynIsolatedCFAR}{0.6550}
+\newcommand{\SynIsolatedDiff}{+0.0491}
 \newcommand{\SynIsolatedMethod}{CA}
-\newcommand{\SynMaskingDL}{0.6736}
-\newcommand{\SynMaskingCFAR}{0.6225}
-\newcommand{\SynMaskingDiff}{+0.0511}
+\newcommand{\SynIsolatedCIlo}{+0.0269}
+\newcommand{\SynIsolatedCIhi}{+0.0741}
+\newcommand{\SynIsolatedP}{0.000}
+\newcommand{\SynIsolatedSig}{yes}
+\newcommand{\SynMaskingDL}{0.7758}
+\newcommand{\SynMaskingCFAR}{0.6987}
+\newcommand{\SynMaskingDiff}{+0.0770}
 \newcommand{\SynMaskingMethod}{OS}
-\newcommand{\SynMixedDL}{0.5291}
-\newcommand{\SynMixedCFAR}{0.4260}
-\newcommand{\SynMixedDiff}{+0.1031}
+\newcommand{\SynMaskingCIlo}{+0.0598}
+\newcommand{\SynMaskingCIhi}{+0.0956}
+\newcommand{\SynMaskingP}{0.000}
+\newcommand{\SynMaskingSig}{yes}
+\newcommand{\SynMixedDL}{0.5175}
+\newcommand{\SynMixedCFAR}{0.4178}
+\newcommand{\SynMixedDiff}{+0.0997}
 \newcommand{\SynMixedMethod}{GO}
-\newcommand{\SynMultiDL}{0.7316}
-\newcommand{\SynMultiCFAR}{0.6871}
-\newcommand{\SynMultiDiff}{+0.0446}
+\newcommand{\SynMixedCIlo}{+0.0807}
+\newcommand{\SynMixedCIhi}{+0.1192}
+\newcommand{\SynMixedP}{0.000}
+\newcommand{\SynMixedSig}{yes}
+\newcommand{\SynMultiDL}{0.7290}
+\newcommand{\SynMultiCFAR}{0.6979}
+\newcommand{\SynMultiDiff}{+0.0311}
 \newcommand{\SynMultiMethod}{CA}
-\newcommand{\SynUnresolvedDL}{0.4756}
-\newcommand{\SynUnresolvedCFAR}{0.4637}
-\newcommand{\SynUnresolvedDiff}{+0.0119}
+\newcommand{\SynMultiCIlo}{+0.0219}
+\newcommand{\SynMultiCIhi}{+0.0415}
+\newcommand{\SynMultiP}{0.000}
+\newcommand{\SynMultiSig}{yes}
+\newcommand{\SynUnresolvedDL}{0.4805}
+\newcommand{\SynUnresolvedCFAR}{0.4725}
+\newcommand{\SynUnresolvedDiff}{+0.0080}
 \newcommand{\SynUnresolvedMethod}{CA}
+\newcommand{\SynUnresolvedCIlo}{+0.0011}
+\newcommand{\SynUnresolvedCIhi}{+0.0158}
+\newcommand{\SynUnresolvedP}{0.017}
+\newcommand{\SynUnresolvedSig}{no}
 
 % ---------- Chapter 3: sensor specification ----------
 \newcommand{\RadarFc}{77}
@@ -200,12 +249,29 @@
 \newcommand{\TinyBatch}{32}
 \newcommand{\TinySeeds}{8}
 \newcommand{\TinyThreads}{2}
-\newcommand{\ProtocolNms}{5}
+\newcommand{\ProtocolNms}{2}
+\newcommand{\ProtocolNmsWin}{5}
+\newcommand{\ProtocolNmsOriginal}{5}
+\newcommand{\ProtocolNmsOriginalWin}{11}
 \newcommand{\ProtocolGate}{1}
 \newcommand{\ProtocolGateRobust}{3}
 \newcommand{\ProtocolBootstrap}{2,000}
 \newcommand{\ProtocolPfa}{1^{-4}}
 \newcommand{\ProtocolBonf}{0.0071}
+
+% ---------- NMS radius selection (development data only) ----------
+\newcommand{\NmsCandOne}{845}
+\newcommand{\NmsCandFive}{115}
+\newcommand{\NmsCandRatio}{7.4}
+\newcommand{\NmsIsolatedSpread}{0.002}
+\newcommand{\NmsMaskingOne}{0.802}
+\newcommand{\NmsMaskingFive}{0.696}
+\newcommand{\NmsUnresolvedOne}{0.5225}
+\newcommand{\NmsDupOneMin}{7\%}
+\newcommand{\NmsDupOneMax}{9\%}
+\newcommand{\NmsDupOneCFAR}{2\%}
+\newcommand{\NmsDupOther}{0.0\%}
+\newcommand{\NmsRadiiTested}{1, 2, 3, 5}
 
 % ---------- Pd vs cell SNR, frozen ep021, matched measured Pfa 1e-4 ----------
 \newcommand{\SynSnrTheory}{10.89}
@@ -213,7 +279,7 @@
 \newcommand{\SynSnrFiftyExactCA}{11.36}
 \newcommand{\SynPdMaxExactCA}{0.817}
 \newcommand{\SynSnrFiftyGO}{9.18}
-\newcommand{\SynSnrFiftyExactGO}{11.54}
+\newcommand{\SynSnrFiftyExactGO}{11.53}
 \newcommand{\SynPdMaxExactGO}{0.831}
 \newcommand{\SynSnrFiftyOS}{9.21}
 \newcommand{\SynSnrFiftyExactOS}{11.68}
@@ -221,83 +287,93 @@
 \newcommand{\SynSnrFiftySO}{9.26}
 \newcommand{\SynSnrFiftyExactSO}{11.52}
 \newcommand{\SynPdMaxExactSO}{0.859}
-\newcommand{\SynSnrFiftyDL}{8.05}
+\newcommand{\SynSnrFiftyDL}{8.06}
 \newcommand{\SynSnrFiftyExactDL}{n/a}
 \newcommand{\SynPdMaxExactDL}{0.415}
-\newcommand{\SynSnrGainDL}{1.07}
+\newcommand{\SynSnrGainDL}{1.06}
 \newcommand{\SynCfarLossCA}{0.47}
 
 % ---------- Chapter 5: same benchmark at the +/-3 bin gate ----------
 \newcommand{\SynWinsTolThree}{6}
-\newcommand{\SynTolThreeClutterDL}{0.1832}
-\newcommand{\SynTolThreeClutterCFAR}{0.2025}
-\newcommand{\SynTolThreeClutterDiff}{-0.0193}
-\newcommand{\SynTolThreeClutterEdgeDL}{0.7538}
-\newcommand{\SynTolThreeClutterEdgeCFAR}{0.4492}
-\newcommand{\SynTolThreeClutterEdgeDiff}{+0.3047}
-\newcommand{\SynTolThreeIsolatedDL}{0.7409}
-\newcommand{\SynTolThreeIsolatedCFAR}{0.6750}
-\newcommand{\SynTolThreeIsolatedDiff}{+0.0659}
-\newcommand{\SynTolThreeMaskingDL}{0.6809}
-\newcommand{\SynTolThreeMaskingCFAR}{0.6238}
-\newcommand{\SynTolThreeMaskingDiff}{+0.0572}
-\newcommand{\SynTolThreeMixedDL}{0.5328}
-\newcommand{\SynTolThreeMixedCFAR}{0.4323}
-\newcommand{\SynTolThreeMixedDiff}{+0.1005}
-\newcommand{\SynTolThreeMultiDL}{0.7368}
-\newcommand{\SynTolThreeMultiCFAR}{0.6882}
-\newcommand{\SynTolThreeMultiDiff}{+0.0487}
-\newcommand{\SynTolThreeUnresolvedDL}{0.4763}
-\newcommand{\SynTolThreeUnresolvedCFAR}{0.4637}
-\newcommand{\SynTolThreeUnresolvedDiff}{+0.0125}
-\newcommand{\SynTolThreeClutterCIlo}{-0.0399}
-\newcommand{\SynTolThreeClutterCIhi}{0.0011}
-\newcommand{\SynTolThreeClutterP}{0.068}
-\newcommand{\SynClutterP}{0.793}
+\newcommand{\SynTolThreeClutterDL}{0.1769}
+\newcommand{\SynTolThreeClutterCFAR}{0.1847}
+\newcommand{\SynTolThreeClutterDiff}{-0.0078}
+\newcommand{\SynTolThreeClutterEdgeDL}{0.6942}
+\newcommand{\SynTolThreeClutterEdgeCFAR}{0.4232}
+\newcommand{\SynTolThreeClutterEdgeDiff}{+0.2710}
+\newcommand{\SynTolThreeIsolatedDL}{0.7144}
+\newcommand{\SynTolThreeIsolatedCFAR}{0.6600}
+\newcommand{\SynTolThreeIsolatedDiff}{+0.0544}
+\newcommand{\SynTolThreeMaskingDL}{0.7903}
+\newcommand{\SynTolThreeMaskingCFAR}{0.7000}
+\newcommand{\SynTolThreeMaskingDiff}{+0.0903}
+\newcommand{\SynTolThreeMixedDL}{0.5211}
+\newcommand{\SynTolThreeMixedCFAR}{0.4208}
+\newcommand{\SynTolThreeMixedDiff}{+0.1002}
+\newcommand{\SynTolThreeMultiDL}{0.7331}
+\newcommand{\SynTolThreeMultiCFAR}{0.6973}
+\newcommand{\SynTolThreeMultiDiff}{+0.0358}
+\newcommand{\SynTolThreeUnresolvedDL}{0.4836}
+\newcommand{\SynTolThreeUnresolvedCFAR}{0.4725}
+\newcommand{\SynTolThreeUnresolvedDiff}{+0.0111}
+\newcommand{\SynTolThreeClutterCIlo}{-0.0283}
+\newcommand{\SynTolThreeClutterCIhi}{0.0136}
+\newcommand{\SynTolThreeClutterP}{0.476}
 
 % ---------- Chapter 5: localization, all conditions pooled ----------
-\newcommand{\LocRmseCA}{0.562}
-\newcommand{\LocDrCA}{0.211}
-\newcommand{\LocDvCA}{0.105}
-\newcommand{\LocRangeMCA}{0.041}
-\newcommand{\LocVelMpsCA}{0.044}
-\newcommand{\LocRmseDL}{0.925}
-\newcommand{\LocDrDL}{0.475}
-\newcommand{\LocDvDL}{0.382}
-\newcommand{\LocRangeMDL}{0.093}
-\newcommand{\LocVelMpsDL}{0.160}
-\newcommand{\LocRmseRatio}{1.64}
-\newcommand{\LocDvRatio}{3.6}
+\newcommand{\LocRmseCA}{0.544}
+\newcommand{\LocDrCA}{0.195}
+\newcommand{\LocDvCA}{0.101}
+\newcommand{\LocRangeMCA}{0.038}
+\newcommand{\LocVelMpsCA}{0.042}
+\newcommand{\LocRmseDL}{0.921}
+\newcommand{\LocDrDL}{0.474}
+\newcommand{\LocDvDL}{0.378}
+\newcommand{\LocRangeMDL}{0.092}
+\newcommand{\LocVelMpsDL}{0.159}
+\newcommand{\LocRmseRatio}{1.69}
+\newcommand{\LocDvRatio}{3.8}
+\newcommand{\LocRmseCFARMin}{0.517}
+\newcommand{\LocRmseCFARMax}{0.559}
 
 % ---------- Chapter 5: cost and achieved operating point ----------
 \newcommand{\RuntimeDL}{6.04}
 \newcommand{\RuntimeCA}{0.86}
+\newcommand{\RuntimeGO}{7.79}
+\newcommand{\RuntimeSO}{7.82}
 \newcommand{\RuntimeOS}{69.95}
 \newcommand{\RuntimeMMac}{80.2}
-\newcommand{\PfaRatioMin}{0.981}
-\newcommand{\PfaRatioMax}{1.017}
+\newcommand{\RuntimeDLoverCA}{7.0}
+\newcommand{\RuntimeOSoverDL}{11.6}
+\newcommand{\PfaRatioMin}{0.983}
+\newcommand{\PfaRatioMax}{1.013}
 
 % ---------- R1: range-stratified (R0 blocks) ----------
 \newcommand{\RoneRangeALabel}{10--60}
 \newcommand{\RoneRangeAN}{533}
-\newcommand{\RoneRangeATinyCNN}{0.6025}
-\newcommand{\RoneRangeACFAR}{0.9362}
+\newcommand{\RoneRangeATinyCNN}{0.8455}
+\newcommand{\RoneRangeACFAR}{0.9475}
+\newcommand{\RoneRangeADiff}{-0.1020}
 \newcommand{\RoneRangeBLabel}{60--110}
 \newcommand{\RoneRangeBN}{853}
-\newcommand{\RoneRangeBTinyCNN}{0.7144}
-\newcommand{\RoneRangeBCFAR}{0.7679}
+\newcommand{\RoneRangeBTinyCNN}{0.8589}
+\newcommand{\RoneRangeBCFAR}{0.8300}
+\newcommand{\RoneRangeBDiff}{+0.0289}
 \newcommand{\RoneRangeCLabel}{110--160}
 \newcommand{\RoneRangeCN}{111}
-\newcommand{\RoneRangeCTinyCNN}{0.9245}
-\newcommand{\RoneRangeCCFAR}{0.8739}
+\newcommand{\RoneRangeCTinyCNN}{0.9809}
+\newcommand{\RoneRangeCCFAR}{0.9279}
+\newcommand{\RoneRangeCDiff}{+0.0529}
 \newcommand{\RoneRangeDLabel}{160--210}
 \newcommand{\RoneRangeDN}{79}
-\newcommand{\RoneRangeDTinyCNN}{0.9810}
+\newcommand{\RoneRangeDTinyCNN}{0.9921}
 \newcommand{\RoneRangeDCFAR}{0.9114}
+\newcommand{\RoneRangeDDiff}{+0.0807}
 \newcommand{\RoneRangeELabel}{210--246}
 \newcommand{\RoneRangeEN}{51}
 \newcommand{\RoneRangeETinyCNN}{0.9485}
 \newcommand{\RoneRangeECFAR}{0.9804}
+\newcommand{\RoneRangeEDiff}{-0.0319}
 
 % ---------- R1: extended-object multi-peak diagnostic ----------
 \newcommand{\RoneMultiPeakTinyCNN}{14.1\%}

@@ -31,6 +31,13 @@ same weights, the same window geometry, the same calibrated thresholds and the s
 non-maximum-suppression radius used in Chapter~\ref{chp:synthetic}. What changes is only the data
 they are shown.
 
+One qualification belongs here rather than in a footnote. The evaluation reported below was run
+under a post-processing protocol that was revised, on synthetic development data, after an earlier
+version of this experiment had been carried out. Nothing about the detectors changed and no real
+measurement informed the revision, so the result remains zero-shot in the sense defined above ---
+but it is a re-run of the pre-registered protocol with one field revised, not the original untouched
+run. Appendix~\ref{app:prereg} states exactly what changed, what did not, and why.
+
 Two points of scope should be stated before any result appears. First, this is an
 \textbf{external validation}, not a replacement for the synthetic benchmark: the two answer
 different questions, and a poor real-data outcome would bound the external validity of the
@@ -498,25 +505,32 @@ Frozen CA-CFAR (primary classical arm) & \textbf{\RoneCFARCA} \\
 Frozen TinyCNN (mean over 8 seeds)     & \textbf{\RoneTinyCNN} \\
 \midrule
 Paired difference, TinyCNN $-$ CA-CFAR & \textbf{\RoneDelta} \\
-95\,\% confidence interval             & $[\RoneCIlo,\ \RoneCIhi]$ \\
+95\,\% confidence interval             & $[\RoneCIlo,\ \RoneCIhi]$ --- includes zero \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The synthetic ordering does not survive. On real data the classical detector is ahead by
-\RoneDelta{} in recall, with a confidence interval that excludes zero, and it is ahead in
-\textbf{all \RoneNseq{} test sequences} --- there is no sequence in which the network wins
-(Figure~\ref{fig:r1_primary}). The secondary CFAR variants confirm that this is not an artefact of
-the particular classical arm chosen: GO, SO and OS reach \RoneCFARGO{}, \RoneCFARSO{} and
-\RoneCFAROS{} respectively, all within a narrow band, and all ahead of the network. CA remains the
-primary comparator as pre-registered; no variant was promoted after the fact.
+\textbf{At exact annotated support the two arms are statistically indistinguishable.} The
+sequence-balanced paired difference is \RoneDelta{}, with a \SI{95}{\percent} confidence interval
+of $[\RoneCIlo,\ \RoneCIhi]$ that \emph{includes zero}. The point estimate favours the classical
+detector, and CA-CFAR is ahead in \RoneSeqCFARLead{} of the \RoneNseq{} test sequences; but the
+margins are small, the network is ahead in the remaining sequence, and the interval does not
+license a claim that either arm wins. The synthetic ordering of Chapter~\ref{chp:synthetic} is
+therefore not reproduced on real data --- but neither is it cleanly reversed. It is erased.
+
+The secondary CFAR variants are ahead of both: GO, SO and OS reach \RoneCFARGO{}, \RoneCFARSO{} and
+\RoneCFAROS{} respectively. That ordering must be read together with
+Section~\ref{sec:burden}, because those same variants also emit two and a half times CA-CFAR's
+output; recall on this dataset is not free, and the arms are not separable on recall alone. CA
+remains the primary comparator as pre-registered; no variant was promoted after the fact.
 
 \begin{figure}[h!]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter7/r1_fig1_primary_and_per_sequence.png}
 \caption[Primary real-data result and per-sequence breakdown]{Left: exact dense-mask object recall,
 with the eight individual network seeds overlaid. Right: the same comparison per test sequence.
-CA-CFAR is ahead in all \RoneNseq{}.}
+CA-CFAR is ahead in \RoneSeqCFARLead{} of \RoneNseq{} sequences, the network in the remaining one,
+and all six margins are small.}
 \label{fig:r1_primary}
 \end{figure}
 
@@ -527,8 +541,9 @@ that is the subject of Section~\ref{sec:crossdomain}.
 
 \subsection{Stratified analysis}
 
-The pre-registered strata locate where the difference lives, and the answer is unusually
-concentrated (Table~\ref{tab:r1_strata}, Figure~\ref{fig:r1_strata}).
+The pooled comparison is close, but that does not mean the two detectors behave alike everywhere.
+The pre-registered strata show where they differ (Table~\ref{tab:r1_strata},
+Figure~\ref{fig:r1_strata}).
 
 \begin{table}[h!]
 \centering
@@ -566,27 +581,32 @@ Counts are annotated on each group.}
 
 \paragraph{Zero Doppler.} \RoneNearZeroFrac{} of eligible test objects have support intersecting the
 $\pm 4$-bin band around zero Doppler --- CARRADA's road users are largely slow-moving, and they sit
-inside the very structure the audit measured at \RzeroCarradaRidge{}\,dB. Within that stratum the
-network reaches \RoneNearZeroTinyCNN{} against CA-CFAR's \RoneNearZeroCFAR{}. Away from it the two
-are close: \RoneAwayZeroTinyCNN{} against \RoneAwayZeroCFAR{}. \textbf{Essentially the entire
-difference lives in the near-zero stratum.}
+inside the very structure the audit measured at \RzeroCarradaRidge{}\,dB. It was reasonable to
+expect the network's loss to concentrate there, since the simulator's ridge is much weaker and
+broader. \textbf{It does not.} Within that stratum the network reaches \RoneNearZeroTinyCNN{}
+against CA-CFAR's \RoneNearZeroCFAR{}; clear of it, \RoneAwayZeroTinyCNN{} against
+\RoneAwayZeroCFAR{}. The two shortfalls are of the same small size, so the difference between the
+detectors is not concentrated on the clutter ridge.
 
-The permitted reading is that performance degradation was concentrated among objects whose support
-intersects the strong zero-Doppler region. The stronger claim --- that the ridge \emph{caused} the
-failures --- is not supported by this evidence. Stratification locates an effect; establishing a
-mechanism would require an intervention, and none was performed.
+The ridge itself remains a real and measured difference between the domains --- the audit of
+Section~\ref{sec:r0} established that before any detector was run --- but it is not the location of
+a detection deficit, because on this evaluation there is no substantial deficit to locate.
 
 \paragraph{Class.} Both detectors rank the classes in the same order, and it is the order of mask
 size. This is a confound, not an incidental caveat: a larger annotated support is a larger area in
 which a peak can land and be counted correct, so per-class recall cannot be read as class
-difficulty alone. The cyclist figure additionally rests on only \RoneCycN{} instances drawn from
-two sequences and is treated as exploratory.
+difficulty alone. The two arms are close on cars and pedestrians, and the network is marginally
+ahead on cyclists --- but that figure rests on only \RoneCycN{} instances drawn from two sequences
+and is treated as exploratory.
 
-\paragraph{Range.} The pattern is not monotone. The network is far behind in the nearest block
-(\RoneRangeATinyCNN{} against \RoneRangeACFAR{}) yet \emph{ahead} of CA-CFAR in the two middle
-blocks. Transfer failure is therefore structured rather than uniform --- a conclusion that a single
-pooled number would have hidden entirely, and one consistent with the range non-stationarity
-recorded in Section~\ref{sec:r0_background}.
+\paragraph{Range.} The pattern is not monotone, and it is the one stratification where the arms
+genuinely diverge. The network is behind in the nearest block (\RoneRangeATinyCNN{} against
+\RoneRangeACFAR{}) and \emph{ahead} of CA-CFAR in the three middle blocks, by as much as
+\RoneRangeDDiff{} at \RoneRangeDLabel{} bins. The near-range deficit is the largest single stratified
+difference in the chapter, and it is consistent with the range non-stationarity recorded in
+Section~\ref{sec:r0_background}: the simulator's background statistics are stationary in range,
+CARRADA's are not, and the near field is where they differ most. A single pooled number would have
+hidden both halves of this.
 
 \subsection{Tolerance around the annotated support}
 
@@ -609,52 +629,87 @@ CA-CFAR  & \RoneCFARCAExact  & \RoneCFARCATolOne  & \RoneCFARCATolThree \\
 \end{tabular}
 \end{table}
 
-The network gains substantially more from dilation than the classical detector does, so a larger
-share of its misses are near-misses lying just outside the annotated region. The gap narrows
-considerably by $\pm 3$ bins --- but it does not close. This is described as mask-support tolerance
-and not as localisation accuracy, because with extended truth there is no point against which
-localisation could be measured.
+The network gains substantially more from dilation than the classical detector does, and the
+ordering changes as the tolerance widens: from \RoneDiffExact{} at exact support, to
+\RoneDiffTolOne{} at $\pm 1$ bin, to \RoneDiffTolThree{} at $\pm 3$ bins. A larger share of the
+network's misses are therefore near misses lying just outside the annotated region.
+
+Two cautions apply to that observation, and both matter.
+
+First, \textbf{this is not a localisation measurement.} With extended truth there is no point
+against which localisation could be measured; dilating a mask asks whether a peak fell
+\emph{near} the annotated support, which is a different question from how precisely it was placed.
+The synthetic localisation result of Section~\ref{sec:localization} is the localisation
+measurement, and it runs the other way.
+
+Second, a detector that emits more candidates has more chances to land one inside a dilated region.
+Section~\ref{sec:burden} shows that the network does emit considerably more, so part of this gain
+is bought rather than earned. The tolerance ladder and the output density have to be read together.
 
 \subsection{Unmatched-detection burden}
+\label{sec:burden}
 
 \begin{table}[h!]
 \centering
 \caption{Unmatched detections per frame. This is an output-density measure and \textbf{not} a
 false-alarm rate.}
 \label{tab:r1_burden}
-\begin{tabular}{@{}lc@{}}
+\begin{tabular}{@{}lcc@{}}
 \toprule
-\textbf{Detector} & \textbf{Unmatched detections / frame} \\
+\textbf{Detector} & \textbf{Unmatched detections / frame} & \textbf{Exact recall} \\
 \midrule
-TinyCNN & \RoneBurdenTinyCNN \\
-CA-CFAR & \RoneBurdenCFARCA \\
+CA-CFAR & \RoneBurdenCFARCA & \RoneCFARCA \\
+TinyCNN & \RoneBurdenTinyCNN & \RoneTinyCNN \\
+GO-CFAR & \RoneBurdenCFARGO & \RoneCFARGO \\
+SO-CFAR & \RoneBurdenCFARSO & \RoneCFARSO \\
+OS-CFAR & \RoneBurdenCFAROS & \RoneCFAROS \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-At their frozen operating points the network produces more unmatched output than the classical
-detector while also recalling fewer objects; it is behind on both axes simultaneously.
+\textbf{This is the axis on which the two primary arms clearly differ, and it runs against the
+network.} At their frozen operating points the network emits \RoneBurdenRatio{} times CA-CFAR's
+unmatched output for statistically indistinguishable exact recall. Whatever the network gains at
+the dilated gates of Table~\ref{tab:r1_tolerance}, it gains while producing roughly twice as much
+output that no annotation accounts for.
 
-Three reasons why this must not be read as a false-alarm comparison have already been given: the
-annotation covers only tracked road users, the audit found bright unannotated returns, and the
-frozen suppression window was sized for point targets. That last point is measurable. An
-$11 \times 11$ suppression window is smaller than a median car's $18 \times 13$ support, so one real
-object can legitimately produce several surviving peaks --- which occurs for
-\RoneMultiPeakTinyCNN{} of objects for the network and \RoneMultiPeakCFARCA{} for CA-CFAR. Under
-one-to-one matching exactly one of those peaks is matched and the remainder are counted unmatched.
-A portion of the burden in Table~\ref{tab:r1_burden} is therefore an artefact of transferring a
-point-target suppression radius to extended truth, common to both arms. The suppression radius was
-not altered in response, since doing so would have changed a frozen detector after seeing real
-data.
+The wider table also shows that this is not peculiar to the learned arm. Within the classical
+family the same trade runs in the same direction: GO, SO and OS reach higher recall than CA and
+emit two and a half times as much. \textbf{On this dataset recall and output density move together
+for every detector tested}, which is precisely why recall alone cannot rank them.
+
+Three reasons why the burden column must not be read as a false-alarm rate have already been given:
+the annotation covers only tracked road users, the audit found bright unannotated returns, and the
+suppression window is sized for point targets. The last point is measurable. A
+$\ProtocolNmsWin \times \ProtocolNmsWin$ suppression window is far smaller than a median car's
+$18 \times 13$ support, so one real object can legitimately produce several surviving peaks ---
+which occurs for \RoneMultiPeakTinyCNN{} of objects for the network and \RoneMultiPeakCFARCA{} for
+CA-CFAR. Under one-to-one matching exactly one of those peaks is matched and the remainder are
+counted unmatched. A substantial part of the burden in Table~\ref{tab:r1_burden} is therefore an
+artefact of applying a point-target suppression radius to extended truth, and it is common to both
+arms.
+
+One further check argues against reading the burden as a false-alarm rate. If the extra output were
+generated by the annotated objects themselves, frames containing annotations would carry more of it
+than frames containing none. They do not: the network averages \RoneBurdenTinyCNNAnn{} unmatched
+detections on annotated frames against \RoneBurdenTinyCNNEmpty{} on annotation-empty ones, and
+CA-CFAR \RoneBurdenCFARCAAnn{} against \RoneBurdenCFARCAEmpty{}. The output density is a property of
+the scene, not of the annotation --- which is exactly why CARRADA cannot price it.
 
 \subsection{Seed variability}
 
 The eight frozen seeds span \RoneSeedMin{} to \RoneSeedMax{}, a standard deviation of
-\RoneSeedSD{} (Figure~\ref{fig:r1_tolerance}). That spread is large relative to the
-\RoneDelta{} difference the chapter is measuring, and it is itself a finding: eight networks with
-near-identical synthetic development performance generalise appreciably differently under domain
-shift. Notably, \textbf{no individual seed reaches CA-CFAR's \RoneCFARCA{}} --- the best of them,
-at \RoneSeedMax{}, still trails it. No seed was selected, dropped or ensembled at any point.
+\RoneSeedSD{} (Figure~\ref{fig:r1_tolerance}). \RoneSeedsAboveCFAR{} of the eight exceed CA-CFAR's
+\RoneCFARCA{} and the rest fall below it, which is what a genuinely close comparison looks like at
+the seed level. No seed was selected, dropped or ensembled at any point.
+
+Two things are worth reading from that spread. It is small in absolute terms --- comparable to the
+paired difference the chapter is measuring --- so the pooled result is not an average over wildly
+different networks. But it is not negligible either: eight networks with near-identical synthetic
+development performance still differ measurably from best to worst under domain shift, and a
+single-seed result would have been reported as a win or a loss depending only on which seed
+happened to be trained. That is an argument for reporting seed populations rather than seeds, and
+it is why every network value in this report is a mean over \TinySeeds{}.
 
 This is reported as a property of this detector and this training configuration. It is not evidence
 about neural networks in general, and one architecture on one dataset cannot support that claim.
@@ -682,17 +737,26 @@ because within a domain it is a like-for-like contrast between two detectors on 
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter7/r1_fig5_crossdomain_4panel.png}
 \caption[Cross-domain comparison of the learned and classical detectors]{The learned detector's
-advantage reverses under domain shift. Top row: matched synthetic domain, point-target $P_d$.
-Bottom row: unseen real domain, dense-mask object recall. Left column: levels. Right column: the
-paired difference. \textbf{The two rows measure different quantities and must not be pooled}; the
-comparable statement is the ranking, which reverses between them.}
+advantage does not carry across the domain shift. Top row: matched synthetic domain, point-target
+$P_d$. Bottom row: unseen real domain, dense-mask object recall. Left column: levels. Right column:
+the paired difference. \textbf{The two rows measure different quantities and must not be pooled};
+the comparable statement is the within-domain difference, which is consistently positive above and
+indistinguishable from zero below.}
 \label{fig:crossdomain}
 \end{figure}
 
 The right-hand column carries the result. In the matched synthetic domain the difference is
-positive in \SynWins{} of \SynConditions{} conditions, reaching \SynClutterEdgeDiff{} on the
-clutter-edge stratum. In the unseen real domain it is negative in all \RoneNseq{} sequences, pooling
-to \RoneDelta{} with a confidence interval excluding zero. \textbf{The sign flips.}
+positive in \SynLeads{} of \SynConditions{} conditions, reaching \SynClutterEdgeDiff{} on the
+clutter-edge stratum, and significant after correction in \SynWins{} of them. In the unseen real
+domain it pools to \RoneDelta{} with a confidence interval that includes zero.
+\textbf{The advantage does not survive the change of domain, and it is not replaced by a
+symmetrical advantage for the classical arm: it simply disappears.}
+
+That distinction matters, because a clean reversal and a vanished margin support different
+conclusions. A reversal would say the classical detector is better on real data. What the evidence
+supports is narrower: \emph{the learned detector's measured advantage was specific to its training
+domain}, and outside that domain the two arms are hard to separate on recall --- while remaining
+easy to separate on how much output they produce to achieve it.
 
 Figure~\ref{fig:rd_examples} shows what the two domains look like at the level of individual
 frames, with both detectors' outputs overlaid. Frames were chosen deterministically on annotation
@@ -710,24 +774,39 @@ Frames were selected deterministically and independently of detector outcome.}
 Taken with the domain audit, the picture is coherent. R0 established, before any detector ran, that
 the real domain differs substantially in background distribution, in Doppler correlation, in the
 strength and width of its zero-Doppler structure, and in range stationarity. R1 then found that the
-learned detector's advantage did not survive that shift, and that the loss concentrates precisely
-in the stratum associated with the largest structural difference.
+learned detector's advantage did not survive that shift. The one stratum in which the two arms
+still separate clearly --- the nearest range block --- is the one associated with the
+non-stationarity the audit measured, whereas the zero-Doppler stratum, which the audit had
+identified as the largest single structural difference, shows no meaningful separation at all.
+Structural difference between domains does not, on this evidence, translate mechanically into
+detector difference.
 
-What this supports is a statement about \emph{sensitivity}: the learned detector's advantage
-depended on properties of its training domain, and the classical detector, whose threshold adapts
-to local statistics by construction, degraded less. What it does not support is a causal attribution
-to any single measured difference. Establishing that would require training on modified data and
-observing the consequence --- a different experiment, described in Section~\ref{sec:limits} and in
-the future work of the General Conclusion.
+What the chapter supports is a statement about \emph{sensitivity}: the learned detector's advantage
+depended on properties of its training domain and did not transfer, while the classical detector,
+whose threshold adapts to local statistics by construction, arrived at a comparable recall from a
+much sparser output. What it does not support is a causal attribution to any single measured
+difference. Establishing that would require training on modified data and observing the consequence
+--- a different experiment, described in Section~\ref{sec:limits} and in the future work of the
+General Conclusion.
+
+There is a further lesson here that the chapter did not set out to find, and it is
+methodological. The comparison in this chapter is sensitive not only to the two score maps but to
+the fixed rule that converts a dense score map into object candidates. The synthetic benchmark
+never exercises that sensitivity, because its targets are points and any reasonable suppression
+window contains exactly one maximum per target. Real annotated objects are \emph{larger} than the
+suppression window, so the same rule operates inside a single object, and the ranking of two
+detectors on real extended-object data depends on that post-processing choice as well as on the
+detectors themselves. Appendix~\ref{app:prereg} records how this was discovered in this work.
 
 \section{Comparison with published results}
 \label{sec:litcompare}
 
 A result of this kind is only interpretable against what the field has already measured. This
 section places both halves of the project --- the synthetic margin of
-Chapter~\ref{chp:synthetic} and the transfer loss just reported --- beside the published
+Chapter~\ref{chp:synthetic} and the transfer result just reported --- beside the published
 literature. The purpose is calibration, not advocacy: the question is whether the numbers obtained
-here are of a normal size, and whether the transfer loss is larger than a reader should expect.
+here are of a normal size, and whether the loss of the synthetic margin under domain shift is
+larger than a reader should expect.
 
 \subsection{Which published results are comparable at all}
 
@@ -857,11 +936,14 @@ synthetic domain itself: CA-CFAR reaches $P_d = 0.5$ at \SynSnrFiftyExactCA{}\,d
 network never reaches it at all, peaking at $P_d = \SynPdMaxExactDL{}$. The network buys sensitivity
 and pays for it in localisation precision.
 
-This is worth stating here rather than in Chapter~\ref{chp:synthetic} alone, because it is the
-same asymmetry that the real-data tolerance ladder of Section~\ref{sec:crossdomain} exposes:
-exact dense-mask recall \RoneTinyCNNExact{} rising to \RoneTinyCNNTolThree{} once a three-bin
-tolerance is allowed. One mechanism --- a detector whose response is broader than a single cell ---
-accounts for a synthetic weakness and a real-data weakness that would otherwise look unrelated.
+This is worth stating here rather than in Chapter~\ref{chp:synthetic} alone, because the same
+asymmetry appears in the real-data tolerance ladder of Section~\ref{sec:r1}: exact dense-mask recall
+\RoneTinyCNNExact{} rises to \RoneTinyCNNTolThree{} once a three-bin tolerance is allowed, a far
+larger gain than CA-CFAR's over the same range. One mechanism --- a detector whose response is
+broader than a single cell --- accounts for a synthetic weakness and a real-data behaviour that
+would otherwise look unrelated. On synthetic point targets that breadth is unambiguously a cost,
+because the truth is a single cell; on extended real objects it is not obviously either, because
+the truth is a region.
 That is a more economical explanation than two separate ones, and it is testable: the label
 representation and the decision receptive field are independent design axes, and neither was varied
 in this work.
@@ -903,9 +985,9 @@ moving multi-object street scene. Gusland et al.\ come closest in spirit by trai
 different physical locations, but both sets are real measurements from the same sensor: the domain
 gap there is one of scene, not of data-generating process.
 
-This matters for interpreting the \RoneDelta{} loss reported in Section~\ref{sec:crossdomain}. It
-cannot be placed beside a published transfer number, because no such number exists in this family.
-What can be said is that the one adjacent observation in the wider corpus points the same way. Tosi
+This matters for interpreting the transfer result of Section~\ref{sec:crossdomain}. It cannot be
+placed beside a published transfer number, because no such number exists in this family. What can
+be said is that the one adjacent observation in the wider corpus points the same way. Tosi
 et al.~\cite{tosi2025benchmarking} train a CNN peak detector on a linearised signal model and
 evaluate it on data containing hardware nonlinearities. They find the network comparable to CFAR
 variants within its training regime and degrading outside it, and attribute the degradation to the
@@ -923,8 +1005,9 @@ by a wide margin the more permissive of the two, and no ranking between the two 
 or implied. The comparison is admissible for one purpose only: it establishes that CARRADA is a
 demanding benchmark, on which a purpose-built supervised detector trained on the dataset itself
 still misses roughly half of the annotated objects under its own criterion. Read against that, the
-transfer loss reported in this chapter reads as a cost of domain shift rather than as evidence of a
-defective network.
+result reported in this chapter --- a simulator-trained network reaching recall comparable to a
+classical detector on a domain it has never seen --- reads as a reasonable zero-shot outcome rather
+than as evidence of a defective network.
 
 \subsection{What this comparison licenses}
 
@@ -935,9 +1018,9 @@ Three statements are supported.
 \item \textbf{The synthetic margin is of a normal size.} At \SynSnrGainDL{}\,dB it sits alongside
 RadCNN's $+0.5$\,dB, and the clutter-edge margin reproduces the band Gusland et al.\ measured
 independently on real data. Nothing in the synthetic result requires special explanation.
-\item \textbf{The transfer loss is of the expected shape.} A detector that gains roughly a decibel
-within its own domain and loses recall under a change of data-generating process is behaving as the
-one adjacent published observation predicts.
+\item \textbf{The transfer result is of the expected shape.} A detector that gains roughly a decibel
+within its own domain and loses that margin under a change of data-generating process is behaving
+as the one adjacent published observation predicts.
 \item \textbf{The evaluation is stricter than the family standard} in three specific respects:
 matching at measured rather than design $P_{fa}$; reporting a tolerance ladder rather than a single
 gate; and evaluating on a domain never seen in training.
@@ -948,9 +1031,9 @@ Conclusion cannot be read more broadly than the evidence allows. First, none of 
 establishes that the detector built here outperforms any published detector. The systems differ in
 architecture, data, waveform, metric and operating point, and no controlled comparison between them
 was run; the tables above compare \emph{margins over a classical baseline}, not detectors. Second,
-because no published zero-shot result exists in this family, the transfer loss reported here has no
-external benchmark. It is the first measurement of its kind within the scope of this corpus, and a
-single measurement is not a norm.
+because no published zero-shot result exists in this family, the transfer result reported here has
+no external benchmark. It is the first measurement of its kind within the scope of this corpus, and
+a single measurement is not a norm.
 
 \section{Limitations}
 \label{sec:limits}
@@ -966,11 +1049,15 @@ in general, and a second dataset could reverse or reinforce this.
 \item \textbf{Extended truth.} The primary metric scores whether a peak lands inside an annotated
 region. It is not the synthetic $P_d$ and the two are never pooled.
 \item \textbf{No false-alarm measurement exists}, so the comparison is one-sided: it measures what
-each detector finds, not what it invents.
+each detector finds, not what it invents. This bounds the chapter's central trade-off rather than
+resolving it --- the network's larger output cannot be priced against its recall on this dataset.
 \item \textbf{Point-target suppression on extended objects} inflates the unmatched burden for both
-arms by a measurable amount.
-\item \textbf{Six test sequences.} That is the effective sample size, and it is small. The
-consistency of the sign across all six carries more weight than the interval width.
+arms by a measurable amount, and --- as Appendix~\ref{app:prereg} records --- the ranking measured
+here is sensitive to the suppression radius in a way the synthetic benchmark is not. A single
+radius is reported; the dependence is documented rather than swept away.
+\item \textbf{Six test sequences.} That is the effective sample size, and it is small. With the
+pooled difference now indistinguishable from zero, the interval width is the honest summary, and it
+is wide because six sequences is not many.
 \item \textbf{\RoneNearZeroFrac{} of test objects lie in the zero-Doppler band}, so the headline is
 dominated by that regime rather than describing the map uniformly.
 \item \textbf{Class sizes and mask extents are unbalanced}, and the most numerous class has the
@@ -990,23 +1077,41 @@ This chapter asked whether the frozen detectors transfer zero-shot from the simu
 automotive radar data, and answered it under a protocol fixed in advance of the answer.
 
 Both detectors transfer in the sense that both work: neither collapses on real measurements, and
-both recall the majority of annotated objects from a purely synthetic development process. But the
-ordering established in Chapter~\ref{chp:synthetic} reverses. Frozen CA-CFAR reaches
-\RoneCFARCA{} exact dense-mask object recall against the frozen network's \RoneTinyCNN{}, a paired
-difference of \RoneDelta{} with a confidence interval of $[\RoneCIlo, \RoneCIhi]$, ahead in all
-\RoneNseq{} test sequences, while also producing less unmatched output. No individual network seed
-closes the gap.
+both recall the large majority of annotated objects from a purely synthetic development process.
+But the ordering established in Chapter~\ref{chp:synthetic} does not carry over. Frozen CA-CFAR
+reaches \RoneCFARCA{} exact dense-mask object recall against the frozen network's \RoneTinyCNN{}, a
+sequence-balanced paired difference of \RoneDelta{} whose confidence interval
+$[\RoneCIlo, \RoneCIhi]$ includes zero. At exact annotated support the two arms are
+\textbf{statistically indistinguishable}. The synthetic advantage is neither retained nor reversed;
+it is absent.
 
-The difference is concentrated: among objects clear of the zero-Doppler ridge the two are close, and
-the loss lies almost entirely among objects whose support intersects it. The domain audit,
-performed before any detector ran, had independently identified that ridge --- narrow and
-\RzeroCarradaRidge{}\,dB strong against the simulator's broad \RzeroSimRidge{}\,dB --- as one of the
-largest structural differences between the domains.
+Three qualifications complete that statement, and the third is the important one.
+
+\textbf{The tolerance ladder favours the network.} Dilating the annotated support moves the
+difference from \RoneDiffExact{} at exact support to \RoneDiffTolOne{} at $\pm 1$ bin and
+\RoneDiffTolThree{} at $\pm 3$. More of the network's misses are near misses. This is tolerance
+around an annotated region, not localisation accuracy, and a denser output has more chances to fall
+inside a dilated one.
+
+\textbf{The difference is not concentrated at zero Doppler.} The stratum that the domain audit had
+identified as the largest structural difference between the domains shows a shortfall of
+\RoneNearZeroTinyCNN{} against \RoneNearZeroCFAR{} --- essentially the same as the
+\RoneAwayZeroTinyCNN{} against \RoneAwayZeroCFAR{} recorded clear of it. The ridge remains a
+measured domain difference; it is not the site of a detection deficit. The clearest stratified
+separation is elsewhere, in the nearest range block, where the network trails by
+\RoneRangeADiff{}.
+
+\textbf{Comparable recall is bought with substantially more output.} The network emits
+\RoneBurdenTinyCNN{} unmatched detections per frame against CA-CFAR's \RoneBurdenCFARCA{} ---
+\RoneBurdenRatio{} times as many. CARRADA supports no false-alarm measurement, so that cost cannot
+be priced here, and it must not be described as a false-alarm rate; but it cannot be omitted from
+any statement of the network's performance either. \textbf{The two arms are separable on output
+density even where they are not separable on recall.}
 
 None of this retracts the synthetic findings of Chapters~\ref{chp:synthetic}
 and~\ref{chp:attribution}. Those were controlled experiments and they remain valid within the domain
 that produced them. What this chapter establishes is the boundary of that validity: the learned
-detector's measured advantage was specific to its training domain and did not survive transfer,
-whereas a classical detector whose threshold adapts to local statistics by construction proved more
-robust. That is a narrower claim than the synthetic result alone would have supported, and it is
-the claim the evidence sustains.
+detector's measured advantage was specific to its training domain and did not transfer, while a
+classical detector whose threshold adapts to local statistics by construction reached comparable
+recall from a far sparser output. That is a narrower claim than the synthetic result alone would
+have supported, and it is the claim the evidence sustains.

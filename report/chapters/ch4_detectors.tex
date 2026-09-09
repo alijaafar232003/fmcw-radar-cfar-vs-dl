@@ -320,7 +320,7 @@ than a default, and the whole configuration was frozen before the test split was
 \textbf{Setting} & \textbf{Value} & \textbf{Note} \\
 \midrule
 Loss & \texttt{BCEWithLogits} & with positive-class weighting \\
-Positive weight & \TinyPosWeight & chosen by ablation, not by class balancing \\
+Positive weight & \TinyPosWeight & chosen by ablation, not class balancing \\
 Optimiser & Adam & learning rate \TinyLR, batch \TinyBatch \\
 Epochs & \TinyEpochs & pre-registered selection rule, below \\
 Early stopping & off & deliberately \\
@@ -387,26 +387,83 @@ $\rightarrow$ one-to-one matching $\rightarrow$ metrics
 
 \textbf{Peak extraction} is the same function call for both arms. A cell is a candidate if it is
 the maximum of its neighbourhood, where the neighbourhood is a square of side
-$2 \times \ProtocolNms + 1 = 11$ cells --- that is, suppression within a Chebyshev distance of
-\ProtocolNms{} bins, an $11 \times 11$ window. Candidates are extracted \emph{before} any
-threshold is applied, so that a score sweep can be performed afterwards on the same candidate set.
+$2\ProtocolNms + 1 = \ProtocolNmsWin$ cells --- that is, suppression within a Chebyshev distance of
+\ProtocolNms{} bins, a $\ProtocolNmsWin \times \ProtocolNmsWin$ window. Candidates are extracted
+\emph{before} any threshold is applied, so that a score sweep can be performed afterwards on the
+same candidate set.
 
-The radius was selected during development from a sweep over several values, as a compromise
-between two competing effects. A smaller radius preserves nearby target peaks better, but admits
-many more noise and duplicate candidates; holding the measured $\Pfa$ fixed then requires a higher
-score threshold, which can reject weak targets and reduce $\Pd$. A larger radius suppresses those
-candidates more effectively, but merges genuinely separate neighbouring targets. The two controls
-are not interchangeable: \textbf{suppression governs the spatial density of candidates, whereas the
-threshold governs their score}, so a smaller radius cannot be compensated by thresholding without
-cost. The development sweep showed exactly this trade-off --- smaller radii improved the masking
-condition, while a radius of \ProtocolNms{} performed substantially better on isolated targets ---
-and \ProtocolNms{} was fixed on that basis before the benchmark was scored. Those sweep values were
-development observations taken at an earlier stage of the work and are not the frozen benchmark
-results of Chapter~\ref{chp:synthetic}. The limitation should be stated plainly: an
-$11 \times 11$ window spans considerably more than the measured point-target mainlobe of
-Chapter~\ref{chp:simulator}, so it restricts how close two targets can be and still be reported
-separately. That is an acknowledged constraint of the frozen protocol, not a claim that this radius
-is a physical optimum.
+\subsubsection*{Selecting the suppression radius}
+\label{sec:nmschoice}
+
+The radius is a post-processing constant rather than a property of either detector, and it was
+fixed on \emph{development data alone}. The sweep reported here was run on the tuning split and
+confirmed on the validation split. Neither the held-out synthetic benchmark of
+Chapter~\ref{chp:synthetic} nor any real measurement of Chapter~\ref{chp:realdata} contributed to
+the choice.
+
+Radius $r$ denotes a window of side $2r+1$: $r = 1$ is $3 \times 3$, $r = 2$ is $5 \times 5$,
+$r = 3$ is $7 \times 7$ and $r = 5$ is $11 \times 11$. Radii \NmsRadiiTested{} were measured at
+the matched measured operating point of Section~\ref{sec:opoint}, with the threshold re-derived at
+each radius so that the comparison is never confounded by a drifting false-alarm rate.
+Figure~\ref{fig:nmssel} shows the result, and three observations decide the matter.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter4/ch4_fig8_nms_selection.png}
+\caption[Selecting the non-maximum-suppression radius]{Selection of the suppression radius, on
+\textbf{development data only}. \textbf{A}: candidate density on pure-noise frames, the quantity
+the radius directly controls. \textbf{B}: detection probability on isolated targets, which is
+essentially flat across radii. \textbf{C}: the masking and unresolved strata, where a larger window
+merges peaks belonging to different targets. \textbf{D}: the fraction of truths receiving two or
+more detections inside their gate, which is non-zero only at radius~1. Shading marks the selected
+radius. \textbf{These are protocol-selection measurements, not benchmark results}: the final
+synthetic holdout of Chapter~\ref{chp:synthetic} and the real data of
+Chapter~\ref{chp:realdata} were not used, and no real-data information of any kind entered this
+choice.}
+\label{fig:nmssel}
+\end{figure}
+
+\textbf{A smaller radius admits far more candidates, but candidate density is not itself a
+detection cost.} Reducing the radius from $5$ to $1$ raises CA-CFAR's candidate count on noise
+frames from \NmsCandFive{} to \NmsCandOne{} per frame, a factor of \NmsCandRatio{} (panel~A). The
+network's count barely moves, because the positive-logit
+floor described above already removes most cells before suppression is applied. The natural worry
+is that the extra candidates force a higher threshold at fixed measured $\Pfa$ and so cost weak
+detections --- but panel~B shows that this does not happen: isolated-target $\Pd$ varies by less
+than \NmsIsolatedSpread{} across the whole range, for the network and for both CFAR variants alike. Suppression
+and thresholding remain distinct controls --- \textbf{suppression governs the spatial density of
+candidates, the threshold governs their score} --- but on this benchmark the density term does not
+translate into lost detections once the operating point is rematched.
+
+\textbf{A larger radius merges peaks that belong to different targets.} This is the real cost, and
+it appears in panel~C. On the masking stratum the network's $\Pd$ falls monotonically as the window
+grows, from \NmsMaskingOne{} at $r = 1$ to \NmsMaskingFive{} at $r = 5$. A window of side $11$ spans
+far more than the measured point-target mainlobe of Chapter~\ref{chp:simulator}, so it removes
+genuine responses from neighbouring targets, not merely noise.
+
+\textbf{Radius~1 permits duplicate detections, and that is disqualifying.} At $r = 1$ several peaks
+from a single physical response survive suppression. Under the one-to-one matching of
+Section~\ref{sec:matching} a surplus peak can then be assigned to a \emph{neighbouring} truth, and
+because the evaluator deliberately ignores surplus in-gate detections rather than charging for them,
+nothing in the metric offsets that. The effect is measurable and one-sided: \NmsDupOneMin{} to
+\NmsDupOneMax{} of the network's matched truths receive a second in-gate detection at $r = 1$, and
+up to \NmsDupOneCFAR{} of CA-CFAR's, against \NmsDupOther{} at \emph{every} larger radius
+(panel~D). Its signature is unambiguous in the unresolved stratum, whose construction places both
+targets inside one mainlobe so that $\Pd$ cannot exceed about $0.5$: at $r = 1$ the measured value
+is \NmsUnresolvedOne{}, above that structural ceiling, and every arm shows the same lift. The
+difference between $r = 1$ and the larger radii is categorical rather than gradual.
+
+Radius \ProtocolNms{} was selected on that basis, as \textbf{the smallest tested radius that
+avoided measurable duplicate inflation while retaining close-target separation}. That is a
+statement about this evaluator on this benchmark, not a claim that \ProtocolNms{} is a universal
+physical optimum; a different truth representation or a different matching convention could well
+prefer another value.
+
+The remaining limitation should still be stated plainly. A $\ProtocolNmsWin \times \ProtocolNmsWin$
+window is still wider than a single point-target mainlobe, so it continues to bound how close two
+targets can be and still be reported separately. Chapter~\ref{chp:realdata} returns to this
+directly, because the objects annotated in real data are \emph{larger} than the suppression window
+itself, which is a regime the synthetic benchmark never exercises.
 
 \textbf{The valid region} is the interior where a full CFAR window fits: a margin of
 $\CfarGuardR + \CfarTrainR = 10$ bins is excluded on the range axis and
@@ -450,6 +507,7 @@ extended below a logit of zero, whereas the CFAR curve has no equivalent floor. 
 in the far high-$\Pfa$ region should be read with that asymmetry in mind.
 
 \subsection{Matching}
+\label{sec:matching}
 
 A detection matches a truth point if it falls within the tolerance gate,
 \begin{equation}
