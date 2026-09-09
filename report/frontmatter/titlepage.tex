@@ -1,19 +1,55 @@
 % !TEX root = ../main.tex
-% Replace this whole file with the official ULFG cover from www.ulfg.edu.lb.
-% Kept as a placeholder so the document compiles before the cover is dropped in.
+%
+% Title page. The university crest is expected at:
+%
+%     report/figures/ul_logo.png
+%
+% If that file is absent the page still compiles, leaving a marked gap where the crest goes, so a
+% missing asset can never silently break the build.
+%
+% NOTE: the layout below is a reasonable ULFG-style arrangement, not a transcription of the official
+% cover sheet. Field order, wording and any required jury or signature block should be checked
+% against the faculty's own template before submission.
 \thispagestyle{empty}
 \begin{titlepage}
 \centering
-\vspace*{2cm}
-{\Large Universit\'e Libanaise --- Facult\'e de G\'enie\par}
-\vspace{2.5cm}
+
+\IfFileExists{figures/ul_logo.png}{%
+  \includegraphics[width=3.2cm]{figures/ul_logo.png}%
+}{%
+  \framebox[3.2cm]{\rule{0pt}{3.2cm}\small\itshape logo}%
+}
+
+\vspace{0.8cm}
+{\large Universit\'e Libanaise\par}
+\vspace{0.2cm}
+{\large Facult\'e de G\'enie --- Branche III\par}
+
+\vspace{2.2cm}
 {\Huge\bfseries FMCW Radar Target Detection\par}
-\vspace{0.6cm}
+\vspace{0.7cm}
 {\LARGE Constant False Alarm Rate versus Deep Learning\par}
-\vspace{2cm}
+\vspace{0.4cm}
+{\large on Range--Doppler Maps\par}
+
+\vspace{2.2cm}
 {\large Final Year Project\par}
-\vspace{3cm}
+\vspace{0.3cm}
+{\normalsize submitted in partial fulfilment of the requirements\\
+for the Degree of Engineer in Electrical and Electronics Engineering\par}
+
+\vspace{2.0cm}
+\begin{minipage}{0.42\textwidth}
+\raggedright
+{\small\itshape Author}\\[2pt]
 {\large Ali Jaafar\par}
+\end{minipage}\hfill
+\begin{minipage}{0.42\textwidth}
+\raggedleft
+{\small\itshape Supervisor}\\[2pt]
+{\large Dr.~Rima Assaf\par}
+\end{minipage}
+
 \vfill
 {\large 2025--2026\par}
 \end{titlepage}
