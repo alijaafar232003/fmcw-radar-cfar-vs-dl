@@ -2,4 +2,39 @@
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-% TODO -- roughly 250-350 words. Written LAST, once the chapters are settled.
+Constant false-alarm rate (CFAR) detection is the standard approach to target detection in radar,
+and a growing literature reports that learned detectors outperform it. Those comparisons are hard to
+interpret, because the two arms often differ in their inputs, in the context they observe, or in
+whether false-alarm rates are matched by design or by measurement.
+
+A \TinyParams{}-parameter convolutional detector, whose receptive field is matched to the CFAR
+reference window, is compared against the CA, GO, SO and OS variants of CFAR on simulated FMCW
+range--Doppler maps. Both arms are scored by a single evaluator at a matched \emph{measured}
+false-alarm rate, across \SynConditions{} conditions spanning regimes where CFAR is
+near-optimal and regimes where it is documented to fail. Every network value is a mean over
+\TinySeeds{} seeds.
+
+On a held-out split read once, the network establishes a gain on \SynWins{} of the
+\SynConditions{} conditions after correction for multiple comparisons; the unresolved stratum shows
+a small difference (\SynUnresolvedDiff) that does not survive correction, and homogeneous clutter is
+a practical tie (\SynClutterDiff). In decibels, the network reaches half detection at a cell
+signal-to-noise ratio \SI{\SynSnrGainDL}{\deci\bel} below CA-CFAR. That advantage is paid for in
+placement: pooled localisation error is \LocRmseRatio{} times CA-CFAR's, and \LocDvRatio{} times
+worse on the Doppler axis.
+
+Three pre-registered attribution experiments narrow the mechanism without isolating it. Giving CFAR
+the same integrated mainlobe energy makes it worse, so energy integration does not explain the gain.
+Flat $3\times3$ supervision contributes strongly to the localisation deficit, and a weighted label
+roughly halves that error at no detection cost. Denying the network its guard cells costs little
+detection and sharpens its response.
+
+Evaluated zero-shot on the CARRADA automotive radar dataset, with no retraining or recalibration,
+the two detectors are statistically indistinguishable at exact annotated support (paired difference
+\RoneDelta{}, \SI{95}{\percent} interval $[\RoneCIlo, \RoneCIhi]$), while the network emits
+\RoneBurdenRatio{} times as many unmatched detections per frame. The synthetic advantage does not
+transfer cleanly to real measurements, and detection probability alone cannot rank the two
+detectors.
+
+\vspace{0.5em}
+\noindent\textbf{Keywords:} FMCW radar, range--Doppler processing, CFAR, convolutional neural
+networks, domain shift.
