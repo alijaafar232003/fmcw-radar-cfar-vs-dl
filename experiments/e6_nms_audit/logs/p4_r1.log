@@ -1,0 +1,38 @@
+==============================================================================
+FINAL CARRADA TEST ACCESS BEGINS HERE
+==============================================================================
+timestamp        : 2026-09-09T06:09:20.601140+00:00
+git commit       : 481f9977354a
+prereg sha256    : e800ad84af5a909d ...
+run manifest hash: 72f5926a9aeb5760 ...
+CFAR alphas      : {'CA': 10.4586, 'GO': 9.5458, 'SO': 12.8494, 'OS': 7.5786}
+TinyCNN thresh   : {0: 1.8049, 1: 1.8334, 2: 1.6981, 3: 2.0172, 4: 1.3329, 5: 1.9364, 6: 1.751, 7: 1.9862}
+sequences        : 6
+
+  2019-09-16-13-13-01  264 frames  (86s)
+  2019-09-16-13-18-33  264 frames  (101s)
+  2020-02-28-12-13-54  661 frames  (199s)
+  2020-02-28-12-23-30  390 frames  (118s)
+  2020-02-28-13-08-51  253 frames  (77s)
+  2020-02-28-13-14-35  298 frames  (87s)
+
+raw detector output preserved for 12 arms
+Traceback (most recent call last):
+  File "C:\Users\USER\Desktop\Radar-fyp\My work\Simulations\experiments\e6_nms_audit\scripts\carrada\run_r1_test.py", line 232, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "C:\Users\USER\Desktop\Radar-fyp\My work\Simulations\experiments\e6_nms_audit\scripts\carrada\run_r1_test.py", line 218, in main
+    dfo.to_parquet(os.path.join(OUT, "per_object.parquet"))
+  File "C:\Users\USER\Desktop\Radar-fyp\My work\Simulations\venv\Lib\site-packages\pandas\core\frame.py", line 3135, in to_parquet
+    return to_parquet(
+           ^^^^^^^^^^^
+  File "C:\Users\USER\Desktop\Radar-fyp\My work\Simulations\venv\Lib\site-packages\pandas\io\parquet.py", line 486, in to_parquet
+    impl = get_engine(engine)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\USER\Desktop\Radar-fyp\My work\Simulations\venv\Lib\site-packages\pandas\io\parquet.py", line 68, in get_engine
+    raise ImportError(
+ImportError: Unable to find a usable engine; tried using: 'pyarrow', 'fastparquet'.
+A suitable version of pyarrow or fastparquet is required for parquet support.
+Trying to import the above resulted in these errors:
+ - `Import pyarrow` failed. pyarrow is required for parquet support. Use pip or conda to install the pyarrow package.
+ - `Import fastparquet` failed. fastparquet is required for parquet support. Use pip or conda to install the fastparquet package.

@@ -50,3 +50,7 @@ report/**/*.blg
 report/main.pdf
 report/_harvest_exec/
 report_harvest.log
+
+# e6 NMS audit: generated holdout frames and raw peak caches (regenerable from the config + seed)
+experiments/e6_nms_audit/data/
+experiments/e6_nms_audit/results/p4_carrada/r1_test/*.npz

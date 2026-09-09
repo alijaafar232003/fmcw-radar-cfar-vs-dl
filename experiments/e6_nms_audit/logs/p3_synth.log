@@ -1,0 +1,24 @@
+8 seeds; conditions: clutter, clutter_edge, isolated, masking, mixed, multi, noise, unresolved
+  isolated      400 frames
+    nms 2 done
+    nms 5 done
+  masking       400 frames
+    nms 2 done
+    nms 5 done
+  clutter       400 frames
+    nms 2 done
+    nms 5 done
+  clutter_edge  400 frames
+    nms 2 done
+    nms 5 done
+  multi         400 frames
+    nms 2 done
+    nms 5 done
+  mixed         400 frames
+    nms 2 done
+    nms 5 done
+  unresolved    400 frames
+    nms 2 done
+    nms 5 done
+
+wrote experiments\e6_nms_audit\results\p3_synth\holdout_scores.csv
