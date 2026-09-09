@@ -2,7 +2,66 @@
 \chapter{Pre-registration and Provenance}
 \label{app:prereg}
 
-% R1 pre-registration summary, SHA-256 \Prereghash, and the phase commit chain.
+This appendix records the provenance of the real-data experiment: what was fixed in advance, the
+hashes that prove when, the commit chain, and the one protocol field that was later revised.
+
+\section{The R1 pre-registration}
+
+\subsection*{What the document fixes}
+
+The pre-registration settles every choice that could otherwise have been made after seeing a result.
+Table~\ref{tab:prereg} in Chapter~\ref{chp:realdata} summarises the substance and is not repeated
+here. In outline the document fixes: the ground-truth definition (the dense segmentation support,
+with centroid, box-centre, brightest-cell and sparse-centroid alternatives explicitly rejected); the
+eligible region and the definition of an eligible object; the matching rule and its tie-breaking
+order; the primary metric and the secondary tolerance ladder; the strata to be reported; the
+statistical plan, including the sequence-balanced bootstrap; the threshold rule for the learned arm;
+which CFAR variant is primary; and the wording permitted when describing unmatched detections.
+
+Two rulings were applied at the final freeze and are recorded because they changed the protocol
+after the draft:
+
+\begin{itemize}
+\itemsep2pt
+\item The learned detector's global threshold rule was approved as proposed --- derived per seed,
+from synthetic validation data only, as the lowest threshold whose pooled measured per-cell
+$\Pfa$ does not exceed the target.
+\item The primary CFAR comparator was changed from OS to CA.
+\end{itemize}
+
+\subsection*{Freeze record}
+
+\begin{table}[H]
+\centering
+\caption{Pre-registration freeze metadata, read from the freeze record itself.}
+\label{tab:freeze}
+\begin{tabular}{@{}p{0.32\textwidth}p{0.58\textwidth}@{}}
+\toprule
+\textbf{Field} & \textbf{Value} \\
+\midrule
+Document            & {\footnotesize\ttfamily \PreregFile} \\
+SHA-256             & {\footnotesize\ttfamily \PreregHashA\newline\PreregHashB} \\
+Size                & \PreregBytes{} bytes \\
+Frozen              & \PreregFrozen{} \\
+Status              & \PreregStatus \\
+Supersedes draft    & \texttt{\PreregDraftHashShort\ldots} \\
+R0 baseline commit  & \texttt{\PreregRzeroCommit} \\
+Detector scoring performed at freeze & \PreregScored \\
+CARRADA labels used for any choice   & \PreregCarradaUsed \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The last two fields are the ones that matter. At the moment of the freeze no detection statistic of
+any kind had been computed on real data, and no CARRADA label had informed any decision. The
+document was not edited afterwards; the draft it supersedes is retained under its own hash.
+
+\subsection*{Phase and commit chain}
+
+Table~\ref{tab:phases} in Chapter~\ref{chp:realdata} lists the eight phases and the commit at which
+each was fixed. Each was committed before the next began, so the order cannot be reconstructed
+favourably after the fact. Phases~1--6 are the original pre-registered experiment; phases~7--8 are
+the revision recorded below.
 
 \section{Revision of the post-processing protocol}
 \label{app:nmsrevision}

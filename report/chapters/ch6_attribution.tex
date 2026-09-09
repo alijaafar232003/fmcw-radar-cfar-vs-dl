@@ -1,17 +1,249 @@
 % !TEX root = ../main.tex
 \ulfgchapter{6}{Attribution: Where Does the Learned Advantage Come From?}{chp:attribution}
+
 \section{Introduction}
-% TODO -- what this chapter does and why it is here.
+
+Chapter~\ref{chp:synthetic} established that the learned detector holds a measured advantage on the
+synthetic benchmark, and that it localises worse. Neither result says \emph{why}. A margin reported
+as a single unexplained number cannot be transferred, defended or designed against: without a
+mechanism there is no way to predict whether the same advantage will appear under different
+conditions, which is exactly the question Chapter~\ref{chp:realdata} goes on to ask.
+
+This chapter therefore states the candidate explanations and pairs each with an experiment capable
+of disproving it. Three were run. Each was pre-registered in its own directory before any result
+existed, each is isolated from the frozen artefacts, and none of them touched the held-out split.
+
+\textbf{A note on scope that applies to the whole chapter.} These three experiments were carried out
+before the post-processing revision of Appendix~\ref{app:prereg}, and they were scored at the
+superseded suppression radius of \ProtocolNmsOriginal{}. They have not been re-scored at the final
+radius. They are reported here as they were measured, and every result below should be read as a
+radius-\ProtocolNmsOriginal{} measurement on the validation split. Section~\ref{sec:attrib_scope}
+states what that does and does not permit.
 
 \section{Motivation}
 
+Three explanations for a learned advantage appear in the literature reviewed in
+Section~\ref{sec:sota}, and they are not equivalent.
+
+\begin{description}
+\itemsep3pt
+\item[Energy integration.] A single-cell CFAR test discards the target energy that spills into
+neighbouring cells. A network with a $\TinyRFR \times \TinyRFD$ receptive field can combine it. If
+this is the mechanism, giving CFAR the same integrated energy should close most of the gap.
+\item[Supervision.] The $3\times3$ block label tells the network that nine cells are equally
+correct. This is the documented suspect behind the localisation deficit of
+Section~\ref{sec:localization}, and it predicts a response broader than one cell.
+\item[Information access.] CFAR must discard its guard cells to estimate a background; the network
+is under no such constraint and may use them. If that access is what matters, denying it should cost
+detection.
+\end{description}
+
+The first is the cheap explanation and is tested first. The second and third are tested by
+intervention rather than by argument.
+
 \section{Integrated CFAR: is the advantage mainlobe energy?}
+
+\textbf{What was tested.} CFAR's noise estimate was left exactly as it is --- the estimators are
+imported from the project's own code and called unchanged --- and only the cell under test was
+replaced by an integrated statistic over a $3\times3$ region. Two kernels were used: a uniform sum,
+and a kernel weighted by the measured point spread function, which is the matched filter for this
+response. The region was derived rather than assumed: a $1\times1$ cell captures \EtwoCapOne{} of a
+target's energy, $3\times3$ captures \EtwoCapThree{} and $5\times5$ captures \EtwoCapFive{}, so
+$3\times3$ takes almost all the available energy while still sitting strictly inside the guard
+region, where it cannot contaminate the reference ring.
+
+\textbf{The measured result.} Integration does not close the gap. It makes the classical detector
+\emph{worse}, on every condition and for both kernels.
+
+\begin{table}[H]
+\centering
+\caption{Effect of replacing CFAR's single-cell test statistic with an integrated one, at matched
+measured $\Pfa$ on the validation split. Negative values mean integration lost.
+\textbf{Radius-\ProtocolNmsOriginal{} measurement.}}
+\label{tab:e2}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Kernel} & \textbf{Mean $\Delta\Pd$} & \textbf{Negative on} & \textbf{Significant} \\
+\midrule
+Uniform $3\times3$      & \EtwoDeltaUniform & \EtwoNegUniform{} of \EtwoConds &
+\EtwoSigUniform{} of \EtwoConds \\
+PSF-weighted $3\times3$ & \EtwoDeltaPsf     & \EtwoNegPsf{} of \EtwoConds     &
+\EtwoSigPsf{} of \EtwoConds \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The ordering is informative. Performance is monotone in how sharply the kernel concentrates on the
+centre: single-cell CFAR is best, the matched filter second, the uniform sum worst. Localisation
+follows the same order --- averaged over the seven conditions, Doppler error rises to
+\EtwoDvRatioPsf{} times CFAR's under the PSF kernel and \EtwoDvRatioUniform{} times under the uniform
+one.
+
+\textbf{What it supports.} The response is concentrated in very few cells, so summing nine of them
+adds little signal and a great deal of noise; because the window functions correlate adjacent cells,
+the noise sum grows faster than the square root of the cell count and the deflection falls. The
+learned advantage is therefore \textbf{not} access to mainlobe energy that CFAR discards. The cheap
+explanation is eliminated, which promotes the learned decision rule itself to the live one.
+
+\textbf{Caveat.} This shows that \emph{this} form of integration, with the noise estimate held
+fixed, does not reproduce the advantage. It does not show that the network gains nothing from its
+receptive field: a network can weight that field in ways a fixed $3\times3$ kernel cannot, including
+adaptively.
 
 \section{Label ablation: what causes the localisation deficit?}
 
+\textbf{What was tested.} Three label representations, eight seeds each, trained identically and
+otherwise matching the frozen configuration: a single-cell \emph{point} label, the incumbent
+\emph{flat} $3\times3$ block, and a \emph{Gaussian} label over the same $3\times3$ footprint with
+weights taken from the measured point spread function. The positive-class loss weight was recomputed
+per arm so that total positive gradient mass is held constant, which is what makes the arms
+comparable.
+
+The control is verified rather than assumed: retraining the flat arm reproduces the frozen
+checkpoints bit-for-bit at epoch~\TinyEpochs{} on all eight seeds. \textbf{The control is the frozen
+arm}, so any difference between arms is attributable to the label alone.
+
+\begin{table}[H]
+\centering
+\caption{Label ablation, pooled over conditions on the validation split at epoch~\TinyEpochs{}.
+$\Pd$ and Doppler error are at the primary gate; the last column is exact-cell $\Pd$.
+\textbf{Radius-\ProtocolNmsOriginal{} measurement.}}
+\label{tab:e3}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Label} & \textbf{Doppler error} & \textbf{$\Pd$ ($\pm1$)} & \textbf{$\Delta\Pd$} &
+\textbf{$\Pd$ (exact cell)} \\
+\midrule
+Flat $3\times3$ (incumbent) & \EthreeFlatDv{} bins  & \EthreeFlatPd  & ---
+& \EthreeFlatGateZero \\
+Gaussian $3\times3$         & \EthreeGaussDv{} bins & \EthreeGaussPd & \EthreeGaussDeltaPd
+& \EthreeGaussGateZero \\
+Point $1\times1$            & \EthreePointDv{} bins & \EthreePointPd & \EthreePointDeltaPd
+& \EthreePointGateZero \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{The measured result.} The incumbent label costs \EthreeFlatDvRatio{} times the Doppler error
+of a point label. The sharpest test was pre-registered as the growth of localisation error with
+training, and it lands as the hypothesis predicted: between epoch~5 and epoch~\TinyEpochs{} Doppler
+error grows by a factor of \EthreeFlatGrowth{} under flat supervision, \EthreeGaussGrowth{} under
+the Gaussian and \EthreePointGrowth{} under the point label --- monotone in how flat the supervision
+is. At the exact-cell gate the incumbent actually \emph{degrades} with training while the other two
+hold, so flat supervision does not merely cap exact-cell accuracy; more training destroys it.
+
+\textbf{What it supports.} The localisation deficit is \textbf{caused by the supervision, and it is
+fixable}. The Gaussian label roughly halves Doppler error at a detection cost of
+\EthreeGaussDeltaPd{}, which is within seed noise. That converts a documented limitation into a
+design choice with a measured alternative, and it retires two competing explanations recorded
+alongside it: the deficit is not the network's capacity, and not the matching gate.
+
+\textbf{Caveat.} A pre-registered prediction failed here, and the failure is recorded rather than
+buried: the point label was expected to train poorly at its extreme class imbalance, which would
+have vindicated the $3\times3$ choice. It trained stably on all eight seeds and gave the best
+localisation. The $3\times3$ label is not vindicated. Its only advantage is
+\EthreePointDeltaPd{} of $\Pd$ over the point label at the primary gate, concentrated in the
+clutter-bearing conditions where sparser supervision gives less gradient signal.
+
 \section{Guard-masked patch network: is it information access?}
+
+\textbf{What was tested.} Whether the network's freedom to use its guard cells --- the cells CFAR
+must discard --- is what buys its detection advantage. Denying them turned out to be impossible on a
+dense fully-convolutional network, and the reason is structural: with a guard of $\pm2$, the cell
+one bin from a given cell under test lies inside that cell's guard region while being its own cell
+under test, and one input map cannot hold it simultaneously hidden and visible. The masked arm must
+therefore be a patch model centred on each cell under test. The primary contrast is consequently
+\textbf{masked patch against unmasked patch}, so that the patch-training differences are common-mode
+and cancel.
+
+\textbf{The measured result. The two gates disagree, and that disagreement is the finding.}
+
+\begin{table}[H]
+\centering
+\caption{Effect of denying the network its guard cells, on the validation split.
+$\Delta\Pd$ is unmasked minus masked, so a positive value means guard access helped.
+\textbf{Radius-\ProtocolNmsOriginal{} measurement.}}
+\label{tab:e4}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Gate} & \textbf{Mean $\Delta\Pd$} & \textbf{Sign} & \textbf{Significant} \\
+\midrule
+$\pm\ProtocolGate$ bin (primary) & \EfourDeltaOne  & positive \EfourPosOne{} of \EfourNOne &
+\EfourSigOne{} of \EfourNOne \\
+Exact cell                       & \EfourDeltaZero & negative \EfourNZero{} of \EfourNZero &
+\EfourSigZero{} of \EfourNZero \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At the primary gate guard access contributes, but the effect is small: removing those cells costs
+about one and a half percentage points of $\Pd$. At the exact-cell gate the sign reverses on every
+condition and the effect is far larger --- on isolated targets the masked model reaches
+\EfourIsoMasked{} against the unmasked model's \EfourIsoUnmasked{}, nearly double. Mainlobe energy
+in the guard cells makes the network's response \emph{broad}: broad enough to match within one bin,
+not sharp enough to identify the peak. Deny those cells and the response sharpens.
+
+\textbf{What it supports.} The guard cells carry information the learned detector genuinely uses for
+detection, but that information is not simply energy --- E2 integrated the same energy into CFAR and
+it hurt. The network's use of those cells is also part of what makes it place targets imprecisely.
+
+\textbf{Caveat, and it is a substantial one.} Both patch arms are undertrained relative to the dense
+frozen model, because uniform sampling of cells under test gives far fewer positive examples per
+epoch. This is common-mode, so the \emph{difference} between the arms is unbiased, but the absolute
+$\Pd$ of both arms sits below the dense model's and should not be compared with
+Chapter~\ref{chp:synthetic}.
 
 \section{Synthesis}
 
+Taken together the three experiments narrow the field without closing it.
+
+\begin{itemize}
+\itemsep3pt
+\item \textbf{Energy integration is ruled out} as the explanation for the detection margin. Given
+CFAR the same integrated energy, it performs worse, not better (E2).
+\item \textbf{The localisation deficit has two contributing causes, found from opposite
+directions.} Flat $3\times3$ \emph{supervision} broadens the response (E3); access to mainlobe
+\emph{input} broadens it too (E4). Both are tolerable at the primary gate and both collapse at the
+exact cell.
+\item \textbf{Guard-cell access buys detection, but little of it}, and it is paid for in placement
+precision (E4).
+\end{itemize}
+
+The explanation these leave standing is the learned decision rule itself --- the network's ability
+to weight its receptive field in a way no fixed kernel reproduces --- rather than any simple
+property of what it is given. That is a narrowing, not an identification, and this chapter does not
+claim to have isolated a single cause.
+
+One consequence is worth carrying into Chapter~\ref{chp:realdata}. Two independent interventions
+both produced the same signature: a response broader than one cell, harmless at a tolerant gate and
+costly at a strict one. That is the same signature the real-data tolerance ladder exhibits, and it
+is why Section~\ref{sec:litcompare} treats a broad response as \emph{consistent with} the real-data
+behaviour rather than as its established cause.
+
 \section{Conclusion}
-% TODO -- what was established, and what the next chapter needs from it.
+\label{sec:attrib_scope}
+
+Three pre-registered interventions were run, at zero cost to the frozen benchmark. The cheap
+explanation for the detection margin was eliminated, the localisation deficit was traced to two
+contributing causes and shown to be fixable in one of them, and the value of guard-cell access was
+measured rather than assumed.
+
+Two limits bound everything in this chapter, and both are stated rather than discovered.
+
+\textbf{Validation split only.} No experiment here touched the held-out data, so none of these
+results changes any number in Chapter~\ref{chp:synthetic}. They explain that benchmark; they do not
+extend it.
+
+\textbf{Superseded suppression radius.} All three were scored at radius
+\ProtocolNmsOriginal{}, before the revision of Appendix~\ref{app:prereg}, and none was re-scored at
+radius \ProtocolNms{}. The audit that motivated that revision found the radius to matter little for
+\emph{differences} measured on synthetic point targets, which is what every comparison in this
+chapter is --- but that was measured for the CFAR-versus-network contrast, not for these three, and
+it is not evidence about them. The effects reported here at the exact-cell gate are one to two
+orders of magnitude larger than any protocol effect that audit measured, so those conclusions are
+not in doubt. \textbf{The smaller tolerant-gate effects --- E4's \EfourDeltaOne{} in particular ---
+are not confirmed at the final radius}, and are reported as radius-\ProtocolNmsOriginal{}
+measurements. Re-scoring them is recorded as outstanding work rather than assumed to be immaterial.
+
+Chapter~\ref{chp:realdata} now asks whether any of this survives contact with real radar
+measurements.

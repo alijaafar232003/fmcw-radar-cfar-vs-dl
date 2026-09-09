@@ -465,12 +465,86 @@ def main():
     except Exception:
         pass
 
+    # ---------------------------------------------------------------- Chapter 6: attribution
+    # E2, E3 and E4 were run at the superseded suppression radius and are NOT re-scored here.
+    # Every value below is read from the original experiment's own artefacts, unchanged.
+    ICF = os.path.join(ROOT, "experiments", "integrated_cfar", "results")
+    LAB = os.path.join(ROOT, "experiments", "label_ablation", "results")
+    E4R = os.path.join(ROOT, "experiments", "e4_cut_guard_mask", "results")
+
+    lines.append("")
+    lines.append("% ---------- E2: integrated CFAR (bench2_val, radius 5) ----------")
+    cap = pd.read_csv(os.path.join(ICF, "psf_energy_capture.csv")).set_index("region")
+    for reg, nm in (("1x1", "One"), ("3x3", "Three"), ("5x5", "Five")):
+        macro("EtwoCap" + nm, pct(cap.loc[reg, "energy_fraction"], 1))
+    d2 = pd.read_csv(os.path.join(ICF, "deltas.csv"))
+    d2 = d2[d2.gate == 1]
+    macro("EtwoConds", int(len(d2[d2.statistic == "uniform"])))
+    for st, nm in (("uniform", "Uniform"), ("psf", "Psf")):
+        x = d2[d2.statistic == st]
+        macro("EtwoDelta" + nm, "{:+.4f}".format(x.delta_integration.mean()))
+        macro("EtwoNeg" + nm, int((x.delta_integration < 0).sum()))
+        macro("EtwoSig" + nm, int(x.sig_integration.sum()))
+    # Doppler error, averaged over the seven scored conditions at the primary gate.
+    l2 = pd.read_csv(os.path.join(ICF, "localization.csv"))
+    l2 = l2[l2.gate == 1]
+    base = l2[l2.arm == "CFAR-CA"].dv_bins.mean()
+    for arm, nm in (("INT-psf-CA", "Psf"), ("INT-uniform-CA", "Uniform")):
+        macro("EtwoDvRatio" + nm, "{:.2f}".format(l2[l2.arm == arm].dv_bins.mean() / base))
+
+    lines.append("")
+    lines.append("% ---------- E3: label ablation (bench2_val, radius 5) ----------")
+    ec = pd.read_csv(os.path.join(LAB, "epoch_curve.csv"))
+    arms = (("flat3x3", "Flat"), ("gaussian", "Gauss"), ("point", "Point"))
+    g1 = ec[(ec.gate == 1) & (ec.epoch == 21)].set_index("arm")
+    g0 = ec[(ec.gate == 0) & (ec.epoch == 21)].set_index("arm")
+    for arm, nm in arms:
+        macro("Ethree" + nm + "Dv", f(g1.loc[arm, "dv_bins"], 4))
+        macro("Ethree" + nm + "Dr", f(g1.loc[arm, "dr_bins"], 4))
+        macro("Ethree" + nm + "Pd", f(g1.loc[arm, "pd"], 4))
+        macro("Ethree" + nm + "GateZero", f(g0.loc[arm, "pd"], 4))
+        s = ec[(ec.gate == 1) & (ec.arm == arm)].set_index("epoch")["dv_bins"]
+        macro("Ethree" + nm + "Growth", "{:.2f}".format(s.loc[21] / s.loc[5]))
+    for arm, nm in (("gaussian", "Gauss"), ("point", "Point")):
+        macro("Ethree" + nm + "DeltaPd",
+              "{:+.4f}".format(g1.loc[arm, "pd"] - g1.loc["flat3x3", "pd"]))
+    macro("EthreeFlatDvRatio",
+          "{:.2f}".format(g1.loc["flat3x3", "dv_bins"] / g1.loc["point", "dv_bins"]))
+
+    lines.append("")
+    lines.append("% ---------- E4: guard-masked patch network (bench2_val, radius 5) ----------")
+    d4 = pd.read_csv(os.path.join(E4R, "deltas.csv"))
+    for gt, nm in ((1, "One"), (0, "Zero")):
+        x = d4[d4.gate == gt]
+        macro("EfourDelta" + nm, "{:+.4f}".format(x.delta_pd.mean()))
+        macro("EfourPos" + nm, int((x.delta_pd > 0).sum()))
+        macro("EfourSig" + nm, int(x.sig.sum()))
+        macro("EfourN" + nm, int(len(x)))
+    p4 = pd.read_csv(os.path.join(E4R, "per_condition.csv"))
+    iso = p4[(p4.gate == 0) & (p4.condition == "isolated")].set_index("arm")
+    macro("EfourIsoUnmasked", f(iso.loc["unmasked", "pd"], 3))
+    macro("EfourIsoMasked", f(iso.loc["masked", "pd"], 3))
+
     # ---------------------------------------------------------------- provenance
     FR = json.load(open(os.path.join(EXP, "results", "preregistration_freeze.json")))
     lines.append("")
     lines.append("% ---------- provenance ----------")
     macro("PrereghashShort", FR["sha256"][:16])
     macro("Prereghash", FR["sha256"])
+    # The full hash is 64 characters and will not fit a table cell, so it is also emitted in two
+    # halves for a two-line presentation. Both halves together are the hash, unaltered.
+    macro("PreregHashA", FR["sha256"][:32])
+    macro("PreregHashB", FR["sha256"][32:])
+    # Long path in a table cell: allow a break after each separator, or it overflows the column.
+    macro("PreregFile",
+          FR["file"].replace("_", "\\_").replace("/", "/\\allowbreak "))
+    macro("PreregBytes", "{:,}".format(FR["size_bytes"]))
+    macro("PreregFrozen", FR["frozen_utc"][:10])
+    macro("PreregStatus", FR["freeze_status"])
+    macro("PreregDraftHashShort", FR["supersedes_draft_sha256"][:16])
+    macro("PreregRzeroCommit", FR["r0_baseline_commit"][:7])
+    macro("PreregScored", "yes" if FR["detector_scoring_performed"] else "no")
+    macro("PreregCarradaUsed", "yes" if FR["carrada_labels_used_for_any_choice"] else "no")
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as fh:

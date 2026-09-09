@@ -2,31 +2,138 @@
 \chapter{Corrections Log}
 \label{app:corrections}
 
-% The eight retractions C1--C8, each with the reasoning error named.
-% This is deliberately included: it is stronger evidence of method than a clean-looking result.
+Nine claims were made during this project and later withdrawn. They are listed here in full, each
+with the reasoning error named, because the error is more instructive than the number. The canonical
+retraction list lives in \texttt{notebooks/cnn\_development\_log.ipynb}; this appendix summarises it
+and adds C9, which arose during report writing.
 
-\section{C9 --- The stated justification for the suppression radius}
+Two failure modes recur, and it is worth naming them before the list. \textbf{C1 and C5 are the same
+mistake in opposite directions}: C1 read a trend into noise, C5 read flatness into a range that was
+never sampled. Both had recorded the very caveat that should have blocked the conclusion. A stated
+caveat is not a substitute for the measurement that resolves it. \textbf{C3, C6 and C9 are premature
+conclusions from a single configuration or split}, each welcomed at the time because it made the
+result look more credible rather than less.
 
-\textbf{What was claimed.} An earlier draft of Section~\ref{sec:nmschoice} stated that a
-suppression radius of \ProtocolNmsOriginal{} had been selected because it ``performed substantially
-better on isolated targets'' than smaller radii, and that a smaller radius costs detection
-probability across every condition by admitting more candidates and forcing a higher threshold at
-fixed measured $\Pfa$.
+\section{C1 --- ``\texttt{clutter\_edge} is still climbing past the loss plateau''}
 
-\textbf{Why it was wrong.} The claim was never measured in the form in which it was stated. A
-controlled sweep over radii $1$, $2$, $3$ and $5$, run on the tuning split and confirmed on the
-validation split, finds isolated-target $\Pd$ flat to within $0.005$ across the entire range, for
-the network and for every CFAR variant. The mechanism the claim rested on --- candidate density
-rising sharply as the radius falls --- is real and large, and is reported in
-Figure~\ref{fig:nmssel}; the detection consequence attributed to it is not there once the operating
-point is rematched. The original observation appears to have come from a development sweep that
-watched a single arm, at a stage of the work before the benchmark data existed.
+\textbf{Claimed.} A monotone rise across epochs 30, 43 and 50 was the shape of continued
+improvement rather than scatter.
 
-\textbf{What replaced it.} Section~\ref{sec:nmschoice} now reports the full sweep and states the
-criterion that the measurements actually support: radius \ProtocolNms{} is the smallest tested
-radius that avoids measurable duplicate inflation while retaining close-target separation. The
-protocol consequence of that correction is recorded in Appendix~\ref{app:prereg}, since it changed
-the reported benchmark rather than only the text describing it.
+\textbf{Corrected.} The three points came from one training trajectory. Seed-to-seed spread at a
+\emph{fixed} epoch is $0.054$, nine times the $0.006$ that training from 15 to 30 actually produces.
+The reading was as well explained by which seed it was as by how long it trained.
 
-\textbf{What did not change.} No model was retrained or fine-tuned, no checkpoint was altered, and
-no threshold was re-derived from anything other than synthetic development data.
+\textbf{Effect on final results.} None. The claim was never carried into a reported number.
+
+\section{C2 --- ``eight seeds will give a standard error of about $0.011$''}
+
+\textbf{Claimed.} When proposing the eight-seed run, extrapolating from a three-seed spread.
+
+\textbf{Corrected.} The achieved standard error was $0.0040$, nearly three times tighter. The
+estimate had assumed seed variance is constant across training; it shrinks as a run converges, and
+a three-seed spread is a poor variance estimator in any case.
+
+\textbf{Effect on final results.} None --- the error was conservative, so the experiment was better
+powered than promised. Recorded because the \emph{mechanism} was misunderstood.
+
+\section{C3 --- ``CFAR genuinely beats the network on \texttt{clutter}''}
+
+\textbf{Claimed.} At \texttt{pos\_weight}~974, the network lost \texttt{clutter} with all eight
+seeds below the classical arm, $p = 0.00014$. It was welcomed as the network's genuine weakness.
+
+\textbf{Corrected.} At \texttt{pos\_weight}~100 the same comparison shows no detectable difference.
+The deficit was a property of the hyperparameter, not of the detectors. The value 974 had been set
+from the measured inverse class frequency and called a principled default, while the log itself
+noted that exact class balancing is a choice rather than a derivation.
+
+\textbf{Effect on final results.} The \texttt{clutter} loss is withdrawn. Chapter~\ref{chp:synthetic}
+reports that condition as a tie.
+
+\section{C4 --- ``the network beats CFAR on \texttt{isolated}'' ($p = 6.9\times10^{-7}$)}
+
+\textbf{Claimed.} A significant win on the clean homogeneous-noise condition.
+
+\textbf{Corrected.} The $p$-value came from a one-sample test that treats the classical arm's $\Pd$
+as exact. It is one draw over 200 frames. With a paired frame bootstrap giving both arms their
+sampling error, and Bonferroni across seven conditions, the same comparison gave $p = 0.031$ ---
+short of the corrected threshold. Eight seeds of precision on one arm does not license a point
+estimate on the other.
+
+\textbf{Effect on final results.} Decisive, and it is why every comparison in this report uses a
+paired bootstrap over frames. The final benchmark of Chapter~\ref{chp:synthetic} does establish
+\texttt{isolated} under the corrected procedure, on a larger split.
+
+\section{C5 --- ``$\Pd$ is flat with training, so stop at epoch 15''}
+
+\textbf{Claimed.} That $\Pd$ does not depend on training length, so the epoch count could be chosen
+on localisation alone.
+
+\textbf{Corrected.} Swept at every epoch, pooled $\Pd$ rises about 26 standard errors from epoch~1
+to the plateau. Nothing was measured wrongly: the four original points reproduce exactly. The error
+was concluding flatness from four samples that all lay inside the flat region, when the entire rise
+sits below the lowest of them.
+
+\textbf{Effect on final results.} The frozen epoch moved from 15 to \TinyEpochs{} under a
+pre-registered rule. The difference between them is inside the noise on all three metrics, so the
+number was nearly right and the justification was not.
+
+\section{C6 --- ``\texttt{clutter} is a significant loss, so the network does lose somewhere''}
+
+\textbf{Claimed.} On the validation split at the wider gate, a loss clearing the corrected
+threshold. Written up as strengthening the position, since a credible learned detector normally
+loses somewhere.
+
+\textbf{Corrected.} It did not replicate on held-out data --- a tie, measured with more power, not
+less. A result that had just moved across the significance threshold on a single split was treated
+as established when the sensible reading was ``unresolved''.
+
+\textbf{Effect on final results.} The final benchmark reports \texttt{clutter} as a tie at the
+primary gate, with the difference moving against the network at the wider one but not reaching
+significance. The network's real measured weakness is localisation, not detection.
+
+\section{C7 --- ``CFAR's $\alpha$ is calibrated empirically, and the empirical value is used''}
+
+\textbf{Claimed.} As part of the argument that the classical baseline is tuned rather than
+inherited.
+
+\textbf{Corrected.} The calibration module was never imported, so all four variants ran on
+closed-form multipliers achieving $0.13\times$ to $6.55\times$ the target rate. One variant had
+never been in the calibrator's method list at all. The module had been written, validated and
+documented, and its \emph{existence} was then treated as evidence that it was in use. \textbf{A
+module that exists is not a module that runs.}
+
+\textbf{Effect on final results.} None. Every result is scored at matched \emph{measured} $\Pfa$,
+which sweeps the threshold and discards $\alpha$; the defect affected the design operating point
+only. Section~\ref{sec:alphacal} now reports the design-versus-measured gap as a finding.
+
+\section{C8 --- the same claim, made true}
+
+\textbf{Resolved.} Multipliers are now Monte-Carlo calibrated on pure noise, verified on a held-out
+seed, cached, and read by the detector configuration. The achieved rate moved from
+$0.13$--$6.55\times$ target to $0.95$--$1.01\times$.
+
+\textbf{Effect on final results.} None, and this time provably: $\alpha$ is not an input to the
+ratio map, so re-deriving every summary with the calibrated table left the detection counts
+bit-identical and the cached peaks byte-identical. Recorded as a correction rather than a silent fix
+because C7's claim stood in the notebook for weeks before the work behind it was done.
+
+\section{C9 --- the stated justification for the suppression radius}
+
+\textbf{Claimed.} That a suppression radius of \ProtocolNmsOriginal{} had been selected because it
+``performed substantially better on isolated targets'' than smaller radii, and that a smaller radius
+costs $\Pd$ across every condition by admitting more candidates.
+
+\textbf{Corrected.} The claim was never measured in the form in which it was stated. A controlled
+sweep over radii \NmsRadiiTested{}, run on the tuning split and confirmed on the validation split,
+finds isolated-target $\Pd$ flat to within $0.005$ across the entire range, for the network and for
+every CFAR variant. The mechanism the claim rested on --- candidate density rising sharply as the
+radius falls --- is real and large, and is reported in Figure~\ref{fig:nmssel}; the detection
+consequence attributed to it is not there once the operating point is rematched. The original
+observation appears to have come from a development sweep that watched a single arm.
+
+\textbf{Effect on final results.} Substantial, and unlike C1--C8 it changed reported numbers rather
+than only the text. Section~\ref{sec:nmschoice} now reports the full sweep and the criterion the
+measurements support. The protocol consequence --- a revised radius, a fresh synthetic holdout and a
+re-scored real-data evaluation --- is recorded in Appendix~\ref{app:prereg}. No model was retrained
+or fine-tuned, no checkpoint altered, and no threshold derived from anything but synthetic
+development data.

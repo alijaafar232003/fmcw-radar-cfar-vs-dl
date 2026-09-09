@@ -2,4 +2,19 @@
 \chapter{Supplementary Tables}
 \label{app:tables}
 
-% Full per-condition, per-sequence and per-seed tables.
+These tables give the breakdowns the results chapters summarise. They are generated directly from
+the same artefacts the chapters read, by the script
+\texttt{make\_appendix\_\allowbreak tables.py}, so no value here is transcribed by hand
+and none can drift from the main text.
+
+Nothing already shown clearly in Chapters~\ref{chp:synthetic} and~\ref{chp:realdata} is repeated.
+What is added is the detail those chapters compress: every CFAR variant rather than the
+per-condition best, both matching gates rather than the primary one, per-condition localisation
+rather than the pooled figure, and the per-sequence and per-seed real-data results that appear in
+the main text only as figures.
+
+All synthetic values are from the held-out split at the final suppression radius of
+\ProtocolNms{}; all real-data values are from the revised evaluation described in
+Appendix~\ref{app:prereg}.
+
+\input{appendix_tables.tex}
