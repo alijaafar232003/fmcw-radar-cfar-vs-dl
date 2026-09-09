@@ -171,8 +171,14 @@ paired with an experiment that could disprove it.
 
 \item \textbf{A pre-registered zero-shot external validation.} The frozen detectors are evaluated on
 the CARRADA automotive radar dataset~\cite{ouaknine2021carrada} with no real-data training,
-fine-tuning or recalibration, under a protocol fixed by cryptographic hash before any test frame was
-scored. None of the directly comparable studies identified in the reviewed literature performs the
+fine-tuning or recalibration. The ground truth, the matching rule, the primary and secondary
+metrics and the statistical plan were all fixed by cryptographic hash before any test frame was
+scored, the model weights were frozen beforehand, and no threshold or post-processing constant was
+ever tuned on CARRADA. One qualification is owed: a single post-processing constant --- the
+non-maximum-suppression radius --- was later revised using synthetic development data, and the real
+data was then re-evaluated under it, so the reported figures come from that disclosed re-run rather
+than from the original one-shot read. Appendix~\ref{app:prereg} carries the full history. None of
+the directly comparable studies identified in the reviewed literature performs the
 same zero-shot synthetic-to-real evaluation. \textbf{The synthetic advantage does not carry across
 the domain shift}: at exact annotated support the two detectors become statistically
 indistinguishable (\RoneDelta{}, \SI{95}{\percent} interval $[\RoneCIlo, \RoneCIhi]$), the network
@@ -226,9 +232,10 @@ ratio, which expresses the result in the units used by the comparable literature
 from and reports the experiments that separate the competing explanations.
 
 \textbf{Chapter~\ref{chp:realdata}, \emph{Real-Data External Validation}}, evaluates the frozen
-detectors zero-shot on real automotive radar data under the pre-registered protocol. It audits the
-difference between the two domains before any scoring, reports what survives the transfer and what
-does not, and places both halves of the project against the published literature.
+detectors zero-shot on real automotive radar data under the pre-registered protocol, with the one
+later post-processing revision it records explicitly. It audits the difference between the two
+domains before any scoring, reports what survives the transfer and what does not, and places both
+halves of the project against the published literature.
 
 The \textbf{General Conclusion} states what the evidence supports, what it does not, and which
 directions follow naturally from it. Three appendices record the corrections log, the frozen

@@ -367,15 +367,19 @@ and the spread between seeds is not negligible. Every network result in this rep
 
 \subsection{One rulebook}
 
-Both detectors produce a score map: a ratio map for CFAR, a logit map for the network. Both are
-then reduced to the same output type --- a list of detected points --- and scored by the same code.
-Figure~\ref{fig:protocol} shows the path.
+Each detector applies its own fixed input transform and produces a score map: CFAR works from linear
+power and produces a ratio map, while the network applies the median-relative logarithmic
+normalisation of Section~\ref{sec:inputrep} and produces a logit map. From that point on the two
+routes are identical: both are reduced to the same output type --- a list of detected points --- and
+scored by the same code. Figure~\ref{fig:protocol} shows the path.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter4/ch4_fig5_protocol.png}
 \caption[The shared evaluation protocol]{Both arms are reduced to point lists and scored through a
-single code path. The only thing that differs between the two routes is the score map itself.}
+single code path. What differs between the two routes is the score map and the fixed
+detector-specific transform that produces it; everything downstream --- candidate extraction,
+thresholding, matching and scoring --- is shared.}
 \label{fig:protocol}
 \end{figure}
 
@@ -386,11 +390,16 @@ $\rightarrow$ one-to-one matching $\rightarrow$ metrics
 \end{center}
 
 \textbf{Peak extraction} is the same function call for both arms. A cell is a candidate if it is
-the maximum of its neighbourhood, where the neighbourhood is a square of side
-$2\ProtocolNms + 1 = \ProtocolNmsWin$ cells --- that is, suppression within a Chebyshev distance of
-\ProtocolNms{} bins, a $\ProtocolNmsWin \times \ProtocolNmsWin$ window. Candidates are extracted
-\emph{before} any threshold is applied, so that a score sweep can be performed afterwards on the
-same candidate set.
+the maximum of its neighbourhood, where the neighbourhood is a square whose side is set by a
+suppression radius $r$,
+\begin{equation}
+\text{side} = 2r + 1 ,
+\label{eq:nmsside}
+\end{equation}
+so that suppression acts within a Chebyshev distance of $r$ bins. The protocol uses
+$r = \ProtocolNms$, giving a $\ProtocolNmsWin \times \ProtocolNmsWin$ window. Candidates are
+extracted \emph{before} any threshold is applied, so that a score sweep can be performed afterwards
+on the same candidate set.
 
 \subsubsection*{Selecting the suppression radius}
 \label{sec:nmschoice}
@@ -401,8 +410,8 @@ confirmed on the validation split. Neither the held-out synthetic benchmark of
 Chapter~\ref{chp:synthetic} nor any real measurement of Chapter~\ref{chp:realdata} contributed to
 the choice.
 
-Radius $r$ denotes a window of side $2r+1$: $r = 1$ is $3 \times 3$, $r = 2$ is $5 \times 5$,
-$r = 3$ is $7 \times 7$ and $r = 5$ is $11 \times 11$. Radii \NmsRadiiTested{} were measured at
+By Equation~\ref{eq:nmsside}, $r = 1$ gives a $3 \times 3$ window, $r = 2$ gives $5 \times 5$,
+$r = 3$ gives $7 \times 7$ and $r = 5$ gives $11 \times 11$. Radii \NmsRadiiTested{} were measured at
 the matched measured operating point of Section~\ref{sec:opoint}, with the threshold re-derived at
 each radius so that the comparison is never confounded by a drifting false-alarm rate.
 Figure~\ref{fig:nmssel} shows the result, and three observations decide the matter.
@@ -437,8 +446,9 @@ translate into lost detections once the operating point is rematched.
 
 \textbf{A larger radius merges peaks that belong to different targets.} This is the real cost, and
 it appears in panel~C. On the masking stratum the network's $\Pd$ falls monotonically as the window
-grows, from \NmsMaskingOne{} at $r = 1$ to \NmsMaskingFive{} at $r = 5$. A window of side $11$ spans
-far more than the measured point-target mainlobe of Chapter~\ref{chp:simulator}, so it removes
+grows, from \NmsMaskingOne{} at $r = 1$ to \NmsMaskingFive{} at $r = 5$. A window of side
+$\ProtocolNmsOriginalWin$ spans far more than the measured point-target mainlobe of
+Chapter~\ref{chp:simulator}, so it removes
 genuine responses from neighbouring targets, not merely noise.
 
 \textbf{Radius~1 permits duplicate detections, and that is disqualifying.} At $r = 1$ several peaks
@@ -448,10 +458,20 @@ because the evaluator deliberately ignores surplus in-gate detections rather tha
 nothing in the metric offsets that. The effect is measurable and one-sided: \NmsDupOneMin{} to
 \NmsDupOneMax{} of the network's matched truths receive a second in-gate detection at $r = 1$, and
 up to \NmsDupOneCFAR{} of CA-CFAR's, against \NmsDupOther{} at \emph{every} larger radius
-(panel~D). Its signature is unambiguous in the unresolved stratum, whose construction places both
-targets inside one mainlobe so that $\Pd$ cannot exceed about $0.5$: at $r = 1$ the measured value
-is \NmsUnresolvedOne{}, above that structural ceiling, and every arm shows the same lift. The
-difference between $r = 1$ and the larger radii is categorical rather than gradual.
+(panel~D). Its clearest signature is in the unresolved stratum. That stratum is constructed so that
+two truths share a single resolvable response, so under the intended construction the expected
+detection ceiling is near $\Pd = 0.5$: one of the two targets can be found, and the second has no
+separate response to be found by. At $r = 1$ the measured value is \NmsUnresolvedOne{}, above that
+expected ceiling, and every arm shows the same lift.
+
+This is stated as evidence rather than as a proof of impossibility. The $0.5$ figure is what the
+construction is designed to produce, not a mathematical bound: two targets placed within one
+mainlobe may still leave some residual asymmetry that a detector could legitimately exploit, and the
+stratum's own sampling adds noise. What makes the $r = 1$ value diagnostic is that it appears
+\emph{only} at the radius that also produces duplicate in-gate detections, that it appears for
+every arm at once, and that it is exactly the direction the free-attempt mechanism of
+Section~\ref{sec:matching} predicts. The difference between $r = 1$ and the larger radii is
+categorical rather than gradual.
 
 Radius \ProtocolNms{} was selected on that basis, as \textbf{the smallest tested radius that
 avoided measurable duplicate inflation while retaining close-target separation}. That is a
@@ -523,8 +543,8 @@ self-evident, so it is stated in full.
 \begin{itemize}
 \itemsep2pt
 \item \textbf{One truth yields at most one true positive.} Because the assignment is one-to-one,
-several detections falling inside a target's gate cannot all be credited; exactly one is matched.
-Producing duplicates near a target therefore cannot raise $\Pd$.
+several detections falling inside \emph{one isolated} target's gate cannot all be credited; exactly
+one is matched, and the surplus is neutral.
 \item \textbf{A surplus detection still inside a truth gate is ignored,} rather than being counted
 as a false alarm. It is a near miss of a real target, not a spurious response somewhere the
 detector should have stayed silent, and counting it as a false alarm would penalise a detector for
@@ -534,8 +554,20 @@ any truth are excluded when counting the cells tested, so a detector is not cred
 correctly rejecting them either.
 \end{itemize}
 
-Under this convention a duplicate is neutral: it neither helps $\Pd$ nor harms $\Pfa$. The rule is
-applied identically to both arms through the same code, and it is part of the frozen protocol.
+\textbf{That neutrality holds for an isolated target, and only there.} It is worth stating the
+exception explicitly, because Section~\ref{sec:nmschoice} rests on it. When two truths lie close
+enough that their gates overlap, or that one physical response spans both, the surplus peaks are no
+longer confined to a single truth's gate: the assignment is free to give one peak to each truth, so
+several peaks arising from \emph{one} response can be credited as \emph{two} detections. The
+one-to-one rule prevents double-counting a single truth; it does not prevent one response from
+satisfying two neighbouring truths. Combined with the second bullet --- surplus in-gate detections
+are ignored rather than charged for --- a detector that emits many close peaks then gets extra
+attempts at no cost. That is exactly the behaviour the suppression sweep of
+Section~\ref{sec:nmschoice} finds at radius~1, and it is why the radius was not chosen on
+detection probability alone.
+
+The rule is applied identically to both arms through the same code, and it is part of the frozen
+protocol.
 
 Figure~\ref{fig:matching} works a small example through both tolerances, scored by the project's own
 evaluator rather than by hand.

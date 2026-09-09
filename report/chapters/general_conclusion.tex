@@ -8,13 +8,14 @@
 This project asked what a small learned local decision rule adds to radar target detection when it
 is compared against CFAR on genuinely equal terms. Four results answer that.
 
-\textbf{On matched synthetic data the learned detector is ahead everywhere, and clearly ahead where
-CFAR is known to fail.} Across all \SynConditions{} scored conditions of a held-out split read once,
-the frozen network's detection probability exceeded that of the best CFAR variant for each
-condition, with the difference significant after Bonferroni correction in \SynWins{} of them. The
-margin is not uniform. It is largest at clutter edges (\SynClutterEdgeDiff{}), which is precisely
-the regime where a classical threshold is estimated from the wrong background, and it is not
-established on the two strata where physics rather than the detector sets the limit. Expressed in
+\textbf{On matched synthetic data the learned detector establishes a real but uneven advantage.} On
+a held-out split read once, and against the best CFAR variant for each condition, the frozen network
+establishes a gain on \SynWins{} of the \SynConditions{} scored conditions after Bonferroni
+correction. Of the remaining two, the unresolved stratum shows a small difference that does not
+survive correction under a construction that leaves little room for one, and homogeneous clutter is
+a practical tie. The margin is not uniform. It is largest at clutter edges
+(\SynClutterEdgeDiff{}), which is precisely the regime where a classical threshold is estimated from
+the wrong background. Expressed in
 the currency the comparable literature uses, the network reaches half detection at a cell SNR
 \SI{\SynSnrGainDL}{\deci\bel} below CA-CFAR --- a margin of ordinary size for this literature, not
 an outlier.

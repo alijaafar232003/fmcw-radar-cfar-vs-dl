@@ -114,10 +114,13 @@ $[\SynClutterCIlo,\ \SynClutterCIhi]$ \\
 \end{tabular}
 \end{table}
 
-The difference is positive in all \SynConditions{} conditions, and reaches significance after
-Bonferroni correction in \SynWins{} of them. The margin is far from uniform: among the established
-differences it ranges from \SynMultiDiff{} on multi-target scenes to \SynClutterEdgeDiff{} at
-clutter edges, a factor of more than eight between the smallest and the largest.
+Read practically rather than by sign count, the result is: \textbf{\SynWins{} established gains, one
+small difference on the unresolved stratum that does not survive correction, and a practical tie on
+homogeneous clutter.} Every difference happens to carry a positive sign, but two of the seven are
+too small to be claimed, and reporting the result as ``ahead in all seven'' would rest on a
+\SynClutterDiff{} margin that means nothing. Among the \SynWins{} established differences the margin
+ranges from \SynMultiDiff{} on multi-target scenes to \SynClutterEdgeDiff{} at clutter edges, a
+factor of more than eight between the smallest and the largest.
 
 That pattern is itself informative, and it is consistent with the failure modes of
 Section~\ref{sec:cfar_failures}.
@@ -127,17 +130,23 @@ target in clean noise with the reference window reaching into the ridge --- is w
 threshold is set from the wrong background. The network gains \SynClutterEdgeDiff{} there, roughly
 three times its next largest margin.
 
-\textbf{Where physics rather than the detector sets the limit, the difference is not established.}
-On the unresolved stratum both targets lie inside one mainlobe, so neither arm can exceed a
-structural ceiling near $\Pd = 0.5$. The measured difference of \SynUnresolvedDiff{} has a
-bootstrap $p$-value of \SynUnresolvedP{}, which does not survive correction for seven comparisons.
-The honest reading is that the two arms cannot be separated where the physics leaves nothing to
-separate them with.
+The two unestablished conditions are unestablished for different reasons, and grouping them would
+misrepresent both.
 
-\textbf{On homogeneous clutter the two are indistinguishable.} The difference is
-\SynClutterDiff{}, with a bootstrap $p$-value of \SynClutterP{} --- an exact tie for practical
-purposes. This is the one condition in which the network gains nothing at all, and
-Section~\ref{sec:tolerance} shows that widening the tolerance moves it against the network.
+\textbf{Unresolved: a small difference under a construction that leaves little room for one.} This
+stratum places two truths inside a single resolvable response, so the intended detection ceiling is
+near $\Pd = 0.5$ for either arm --- not because the detectors are weak, but because the stratum was
+built to remove the separate response a second detection would need. The measured difference of
+\SynUnresolvedDiff{} has a bootstrap $p$-value of \SynUnresolvedP{} and does not survive correction
+for seven comparisons. The limit here is one of resolution and peak extraction rather than of
+detector sensitivity.
+
+\textbf{Homogeneous clutter: a tie, and nothing more should be read into it.} The difference is
+\SynClutterDiff{}, with a bootstrap $p$-value of \SynClutterP{}. This is \emph{not} a
+physics-limited condition --- both arms detect a substantial fraction of targets in it, and there is
+no structural ceiling in play. It is simply the one scored condition on which the learned detector
+establishes no advantage at all. Section~\ref{sec:tolerance} shows that widening the tolerance moves
+it against the network.
 
 \section{The result in decibels}
 
@@ -164,8 +173,12 @@ The right-hand panel is the qualification, and it is a substantial one. Scored o
 rather than within one bin, the network never reaches $\Pd = 0.5$ at all, peaking at
 \SynPdMaxExactDL{}, while every CFAR variant crosses it between
 \SI{\SynSnrFiftyExactCA}{\deci\bel} and \SI{\SynSnrFiftyExactOS}{\deci\bel}. \textbf{The network's
-advantage exists at the $\pm1$-bin gate and reverses at the exact cell.} That is a statement about
-localisation rather than detection, and Section~\ref{sec:localization} measures it directly.
+advantage exists at the $\pm1$-bin gate and reverses at the exact cell.} This strongly suggests
+that localisation contributes substantially to the difference between the two gates. It does not
+isolate it: exact-cell scoring asks two things at once --- whether the target was found at all, and
+whether the surviving peak landed on its centre cell --- and a single crossing point cannot
+separate them. Section~\ref{sec:localization} measures placement directly, and
+Chapter~\ref{chp:attribution} tests the mechanism.
 
 One further quantity is available from this figure. CA-CFAR crosses $\Pd = 0.5$ at
 \SI{\SynSnrFiftyExactCA}{\deci\bel} on the exact cell, against the clairvoyant bound of
@@ -205,8 +218,11 @@ threshold, so this report does not claim the classical arm wins there.
 What can be said is narrower, and still worth stating. The one condition where the network gains
 nothing is also the one where relaxing the localisation demand moves the comparison \emph{against}
 it. A purely detection-driven difference would not behave that way: giving both arms more room to
-be right should help the arm that finds more targets. It is the second independent sign pointing at
-localisation rather than detection, and Section~\ref{sec:localization} measures that directly.
+be right should help the arm that finds more targets. This is a second indication that localisation
+contributes to the observed difference. It is not an independent one --- both indications are
+computed from the same detections on the same frames, so they are not statistically independent
+tests --- and neither establishes the mechanism. Section~\ref{sec:localization} measures placement
+directly.
 
 \section{Localisation}
 \label{sec:localization}
@@ -297,12 +313,13 @@ protocol fixed in advance:
 
 \begin{itemize}
 \itemsep3pt
-\item The frozen network is ahead in all \SynConditions{} conditions and significantly ahead in
-\SynWins{} of them after correction for multiple comparisons, against a per-condition best-CFAR
-comparator that is stronger than any deployable single variant.
+\item The frozen network establishes a gain on \SynWins{} of the \SynConditions{} scored conditions
+after correction for multiple comparisons, against a per-condition best-CFAR comparator that is
+stronger than any deployable single variant. Of the remaining two, the unresolved stratum shows a
+small difference that does not survive correction under a construction that leaves little room for
+one, and homogeneous clutter is a practical tie.
 \item The margin is largest where CFAR is documented to fail --- \SynClutterEdgeDiff{} at clutter
-edges --- and is not established where physics rather than the detector sets the limit, on the
-unresolved and homogeneous-clutter strata.
+edges.
 \item Expressed in the currency the comparable literature uses, the network reaches half detection
 at a cell SNR \SI{\SynSnrGainDL}{\deci\bel} lower than CA-CFAR.
 \item On homogeneous clutter the two arms are statistically indistinguishable, and the difference

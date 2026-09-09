@@ -53,7 +53,7 @@ the experimental discipline adopted to keep the result credible, since a real-da
 performed after the synthetic results are known is unusually easy to bias.
 Section~\ref{sec:carrada} introduces the dataset. Section~\ref{sec:r0} audits how far the two
 domains actually differ, before any detector is run. Section~\ref{sec:prereg} states the
-pre-registered evaluation protocol. Section~\ref{sec:r1} reports the one-shot result, and
+pre-registered evaluation protocol. Section~\ref{sec:r1} reports the result, and
 Section~\ref{sec:crossdomain} places it beside the synthetic benchmark.
 
 \section{Experimental discipline}
@@ -85,17 +85,30 @@ wording permitted when describing false alarms --- was written, hashed and commi
 \emph{before any real detector output existed}. The frozen document has SHA-256
 \texttt{e800ad84\ldots1bba98a8}. It was not edited afterwards.
 
-\paragraph{One-shot evaluation.} The official test sequences were passed through the detectors
-exactly once. The access event is recorded with its timestamp, the repository commit, the
-pre-registration hash, the run-manifest hash, the environment, and the hash of every model
-checkpoint used. Raw detector output was written to disk and hashed before any summary statistic
-was computed, so every table and figure in this chapter is traceable to immutable evidence.
+\paragraph{One-shot evaluation, and one disclosed re-run.} The original pre-registered R1 evaluation
+was a one-shot test read: the official test sequences were passed through the detectors exactly
+once, and no result was seen before the protocol was fixed. Every access event is recorded with its
+timestamp, the repository commit, the pre-registration hash, the run-manifest hash, the environment,
+and the hash of every model checkpoint used. Raw detector output was written to disk and hashed
+before any summary statistic was computed, so every table and figure in this chapter is traceable to
+immutable evidence.
+
+The results reported below are not that first read. Following the later protocol revision documented
+in Appendix~\ref{app:prereg} --- in which the non-maximum-suppression radius was reselected using
+\emph{synthetic development data only} --- the same official test sequences were re-scored once
+under the revised radius-\ProtocolNms{} post-processing rule. That re-run is what
+Section~\ref{sec:r1} reports. It is a second read of the test sequences, made after the first
+result was known, and it is recorded as such rather than presented as an untouched one-shot
+evaluation. The original radius-\ProtocolNmsOriginal{} outputs were neither deleted nor overwritten.
 
 \paragraph{Separation of development from evaluation.} Implementation and debugging used the
 CARRADA \emph{training} sequences only. The operating threshold required by the learned detector
 was derived from \emph{synthetic} validation data alone, with a runtime file-access audit
-confirming that no other dataset was opened during its derivation. The validation sequences were
-never used, and the test sequences were touched only by the single scoring run.
+confirming that no other dataset was opened during its derivation. The same discipline governed the
+later revision: the suppression radius was selected on synthetic development splits, with no
+CARRADA data consulted at any point. The validation sequences were never used, and the test
+sequences were read only by the two scoring runs described above --- the original one-shot
+evaluation and the disclosed re-run under the revised radius.
 
 Table~\ref{tab:phases} lists the phases and the commit at which each was fixed. The full audit
 trail, including the pre-registration text and the isolation manifest, is reproduced in
@@ -104,18 +117,26 @@ Appendix~\ref{app:prereg}.
 \begin{table}[h!]
 \centering
 \caption{Phases of the real-data experiment. Each was committed before the next began, so the
-record cannot be reordered after the fact.}
+record cannot be reordered after the fact. Phases~1--6 are the original pre-registered experiment.
+Phases~7--8 are the later, disclosed protocol revision of Appendix~\ref{app:prereg}: the
+suppression radius was reselected on synthetic development data, and the official test sequences
+were then re-scored once under it.}
 \label{tab:phases}
 \begin{tabular}{@{}clll@{}}
 \toprule
 \textbf{Phase} & \textbf{Content} & \textbf{Detector run?} & \textbf{Commit} \\
 \midrule
+\multicolumn{4}{@{}l}{\emph{Original pre-registered experiment}} \\
 1 & Isolation and dataset integrity        & no  & \texttt{15f3aab} \\
 2 & Domain audit (R0)                      & no  & \texttt{a3a3b88} \\
 3 & Pre-registration frozen                & no  & \texttt{9c9a3e2} \\
 4 & Implementation, adapters, thresholds   & synthetic / train only & \texttt{30936d6} \\
 5 & One-shot test evaluation (R1)          & \textbf{yes, once}     & \texttt{9bfa805} \\
 6 & Documentation and closeout             & no  & \texttt{8c0d826} \\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Later post-processing revision (Appendix~\ref{app:prereg})}} \\
+7 & Suppression-radius rule frozen      & no                     & \texttt{8f38dd8} \\
+8 & Radius reselected, test re-scored   & \textbf{yes, re-run}   & \texttt{fe5e790} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -486,9 +507,11 @@ therefore \textbf{not poolable} with the synthetic tables.
 \section{Zero-shot transfer}
 \label{sec:r1}
 
-The official test sequences were scored once, with every quantity above already fixed. All eight
-frozen network seeds and all four CFAR variants were evaluated on the same
-\CarradaTestFrames{} frames.
+The results below come from the revised-protocol re-run described in
+Section~\ref{sec:discipline}: the official test sequences were re-scored once under the
+radius-\ProtocolNms{} rule, with every other quantity above already fixed and unchanged from the
+pre-registration. All eight frozen network seeds and all four CFAR variants were evaluated on the
+same \CarradaTestFrames{} frames.
 
 \subsection{Primary result}
 
@@ -939,11 +962,15 @@ and pays for it in localisation precision.
 This is worth stating here rather than in Chapter~\ref{chp:synthetic} alone, because the same
 asymmetry appears in the real-data tolerance ladder of Section~\ref{sec:r1}: exact dense-mask recall
 \RoneTinyCNNExact{} rises to \RoneTinyCNNTolThree{} once a three-bin tolerance is allowed, a far
-larger gain than CA-CFAR's over the same range. One mechanism --- a detector whose response is
-broader than a single cell --- accounts for a synthetic weakness and a real-data behaviour that
-would otherwise look unrelated. On synthetic point targets that breadth is unambiguously a cost,
-because the truth is a single cell; on extended real objects it is not obviously either, because
-the truth is a region.
+larger gain than CA-CFAR's over the same range. A broader detector response is consistent with, and
+may contribute to, both the synthetic exact-cell weakness and the stronger real-data tolerance gain.
+It is not established as the cause of either, and on the real-data side it is certainly not the
+whole story: Section~\ref{sec:burden} shows that the network also emits \RoneBurdenRatio{} times
+CA-CFAR's output, and a denser candidate set has more chances to fall inside a dilated region
+whatever the shape of the underlying response. Separating response breadth from output density
+would require an intervention that was not performed. On synthetic point targets the breadth is
+unambiguously a cost, because the truth is a single cell; on extended real objects it is not
+obviously either, because the truth is a region.
 That is a more economical explanation than two separate ones, and it is testable: the label
 representation and the decision receptive field are independent design axes, and neither was varied
 in this work.
