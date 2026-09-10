@@ -370,11 +370,14 @@ and the spread between seeds is not negligible. Every network result in this rep
 
 \subsection{One rulebook}
 
-Each detector applies its own fixed input transform and produces a score map: CFAR works from linear
-power and produces a ratio map, while the network applies the median-relative logarithmic
-normalisation of Section~\ref{sec:inputrep} and produces a logit map. From that point on the two
-routes are identical: both are reduced to the same output type --- a list of detected points --- and
-scored by the same code. Figure~\ref{fig:protocol} shows the path.
+Each detector produces its own score map. CFAR works from linear power and produces a ratio map.
+The network applies the normalisation of Section~\ref{sec:inputrep} and produces a logit map.
+
+Everything after that point is shared. Both maps go through the same code, in the same order:
+\begin{center}
+score map $\rightarrow$ peak extraction (NMS) $\rightarrow$ operating threshold\\[2pt]
+$\rightarrow$ one-to-one matching $\rightarrow$ metrics
+\end{center}
 
 \begin{figure}[H]
 \centering
@@ -386,38 +389,36 @@ thresholding, matching and scoring --- is shared.}
 \label{fig:protocol}
 \end{figure}
 
-The order is fixed and identical for both arms:
-\begin{center}
-score map $\rightarrow$ local-peak extraction $\rightarrow$ operating threshold\\[2pt]
-$\rightarrow$ one-to-one matching $\rightarrow$ metrics
-\end{center}
+\subsubsection*{Peak extraction}
 
-\textbf{Peak extraction} is the same function call for both arms. A cell is a candidate if it is
-the maximum of its neighbourhood, where the neighbourhood is a square whose side is set by a
-suppression radius $r$,
+A strong target does not produce one bright cell. It produces a small cluster of bright cells, and
+several of them may be local maxima. Non-maximum suppression (NMS) reduces each cluster to its
+strongest cell.
+
+A cell is kept as a candidate if it is the largest value in its neighbourhood. The neighbourhood is
+a square set by a suppression radius $r$,
 \begin{equation}
 \text{side} = 2r + 1 ,
 \label{eq:nmsside}
 \end{equation}
-so that suppression acts within a Chebyshev distance of $r$ bins. The protocol uses
-$r = \ProtocolNms$, giving a $\ProtocolNmsWin \times \ProtocolNmsWin$ window. Candidates are
-extracted \emph{before} any threshold is applied, so that a score sweep can be performed afterwards
-on the same candidate set.
+so $r = 1$ gives $3 \times 3$, $r = 2$ gives $5 \times 5$, $r = 3$ gives $7 \times 7$ and $r = 5$
+gives $11 \times 11$. This protocol uses $r = \ProtocolNms$, a
+$\ProtocolNmsWin \times \ProtocolNmsWin$ window.
+
+Candidates are extracted \emph{before} any threshold is applied. The candidate set is therefore
+computed once and reused at every threshold the score sweep visits.
 
 \subsubsection*{Selecting the suppression radius}
 \label{sec:nmschoice}
 
-The radius is a post-processing constant rather than a property of either detector, and it was
-fixed on \emph{development data alone}. The sweep reported here was run on the tuning split and
-confirmed on the validation split. Neither the held-out synthetic benchmark of
-Chapter~\ref{chp:synthetic} nor any real measurement of Chapter~\ref{chp:realdata} contributed to
-the choice.
+The radius is a post-processing constant, not a property of either detector. It was chosen on
+development data only: the tuning split for selection, the validation split for confirmation.
+Neither the held-out benchmark of Chapter~\ref{chp:synthetic} nor any real data of
+Chapter~\ref{chp:realdata} contributed to the choice.
 
-By Equation~\ref{eq:nmsside}, $r = 1$ gives a $3 \times 3$ window, $r = 2$ gives $5 \times 5$,
-$r = 3$ gives $7 \times 7$ and $r = 5$ gives $11 \times 11$. Radii \NmsRadiiTested{} were measured at
-the matched measured operating point of Section~\ref{sec:opoint}, with the threshold re-derived at
-each radius so that the comparison is never confounded by a drifting false-alarm rate.
-Figure~\ref{fig:nmssel} shows the result, and three observations decide the matter.
+Radii \NmsRadiiTested{} were compared at matched measured $\Pfa$, with the threshold re-derived at
+each radius so that a drifting false-alarm rate could not confound the comparison.
+Figure~\ref{fig:nmssel} shows the four panels that decide it.
 
 \begin{figure}[H]
 \centering
@@ -435,69 +436,54 @@ choice.}
 \label{fig:nmssel}
 \end{figure}
 
-\textbf{A smaller radius admits far more candidates, but candidate density is not itself a
-detection cost.} Reducing the radius from $5$ to $1$ raises CA-CFAR's candidate count on noise
-frames from \NmsCandFive{} to \NmsCandOne{} per frame, a factor of \NmsCandRatio{} (panel~A). The
-network's count barely moves, because the positive-logit
-floor described above already removes most cells before suppression is applied. The natural worry
-is that the extra candidates force a higher threshold at fixed measured $\Pfa$ and so cost weak
-detections --- but panel~B shows that this does not happen: isolated-target $\Pd$ varies by less
-than \NmsIsolatedSpread{} across the whole range, for the network and for both CFAR variants alike. Suppression
-and thresholding remain distinct controls --- \textbf{suppression governs the spatial density of
-candidates, the threshold governs their score} --- but on this benchmark the density term does not
-translate into lost detections once the operating point is rematched.
+\textbf{Panel A: a smaller radius keeps more candidates.} Going from $r = 5$ to $r = 1$ raises
+CA-CFAR's candidate count on noise frames from \NmsCandFive{} to \NmsCandOne{} per frame, a factor
+of \NmsCandRatio{}. The network's count barely moves, because its positive-score floor already
+removes most cells before suppression runs.
 
-\textbf{A larger radius merges peaks that belong to different targets.} This is the real cost, and
-it appears in panel~C. On the masking stratum the network's $\Pd$ falls monotonically as the window
-grows, from \NmsMaskingOne{} at $r = 1$ to \NmsMaskingFive{} at $r = 5$. A window of side
-$\ProtocolNmsOriginalWin$ spans far more than the measured point-target mainlobe of
-Chapter~\ref{chp:simulator}, so it removes
-genuine responses from neighbouring targets, not merely noise.
+\textbf{Panel B: that extra density costs almost nothing in detection.} One might expect the extra
+candidates to force a higher threshold at fixed measured $\Pfa$, and so lose weak targets. They do
+not. Isolated-target $\Pd$ varies by less than \NmsIsolatedSpread{} across the whole range, for
+every arm. Suppression sets how densely candidates are spaced; the threshold sets how strong they
+must be. On this benchmark the first does not translate into lost detections.
 
-\textbf{Radius~1 permits duplicate detections, and that is disqualifying.} At $r = 1$ several peaks
-from a single physical response survive suppression. Under the one-to-one matching of
-Section~\ref{sec:matching} a surplus peak can then be assigned to a \emph{neighbouring} truth, and
-because the evaluator deliberately ignores surplus in-gate detections rather than charging for them,
-nothing in the metric offsets that. The effect is measurable and one-sided: \NmsDupOneMin{} to
-\NmsDupOneMax{} of the network's matched truths receive a second in-gate detection at $r = 1$, and
-up to \NmsDupOneCFAR{} of CA-CFAR's, against \NmsDupOther{} at \emph{every} larger radius
-(panel~D). Its clearest signature is in the unresolved stratum. That stratum is constructed so that
-two truths share a single resolvable response, so under the intended construction the expected
-detection ceiling is near $\Pd = 0.5$: one of the two targets can be found, and the second has no
-separate response to be found by. At $r = 1$ the measured value is \NmsUnresolvedOne{}, above that
-expected ceiling, and every arm shows the same lift.
+\textbf{Panel C: a large radius merges nearby real targets.} This is the real cost. On the masking
+stratum the network's $\Pd$ falls steadily as the window grows, from \NmsMaskingOne{} at $r = 1$ to
+\NmsMaskingFive{} at $r = 5$. A window of side $\ProtocolNmsOriginalWin$ is far wider than the
+measured point-target mainlobe of Chapter~\ref{chp:simulator}, so it removes genuine responses from
+neighbouring targets, not just noise.
 
-This is stated as evidence rather than as a proof of impossibility. The $0.5$ figure is what the
-construction is designed to produce, not a mathematical bound: two targets placed within one
-mainlobe may still leave some residual asymmetry that a detector could legitimately exploit, and the
-stratum's own sampling adds noise. What makes the $r = 1$ value diagnostic is that it appears
-\emph{only} at the radius that also produces duplicate in-gate detections, that it appears for
-every arm at once, and that it is exactly the direction the free-attempt mechanism of
-Section~\ref{sec:matching} predicts. The difference between $r = 1$ and the larger radii is
-categorical rather than gradual.
+\textbf{Panel D: at $r = 1$ one target can produce two counted detections.} Several peaks from a
+single response survive suppression, and Section~\ref{sec:matching} explains how they can then be
+credited to two different truths. Between \NmsDupOneMin{} and \NmsDupOneMax{} of the network's
+matched truths receive a second in-gate detection at $r = 1$, and up to \NmsDupOneCFAR{} of
+CA-CFAR's, against \NmsDupOther{} at every larger radius.
 
-Radius \ProtocolNms{} was selected on that basis, as \textbf{the smallest tested radius that
-avoided measurable duplicate inflation while retaining close-target separation}. That is a
-statement about this evaluator on this benchmark, not a claim that \ProtocolNms{} is a universal
-physical optimum; a different truth representation or a different matching convention could well
-prefer another value.
+The unresolved stratum makes that visible. It places two targets close enough that they cannot be
+resolved cleanly, so roughly one response is expected for two truths and $\Pd$ near $0.5$ is the
+intended outcome. At $r = 1$ the measured value is \NmsUnresolvedOne{}, and every arm shows the
+same lift. This is treated as evidence, not as proof: $0.5$ is what the construction is designed to
+produce, not a mathematical limit. What makes it diagnostic is that the lift appears only at the
+radius that also produces duplicate detections, and in exactly the direction that mechanism
+predicts.
 
-The remaining limitation should still be stated plainly. A $\ProtocolNmsWin \times \ProtocolNmsWin$
-window is still wider than a single point-target mainlobe, so it continues to bound how close two
-targets can be and still be reported separately. Chapter~\ref{chp:realdata} returns to this
-directly, because the objects annotated in real data are \emph{larger} than the suppression window
-itself, which is a regime the synthetic benchmark never exercises.
+\textbf{Radius \ProtocolNms{} was selected because it was the smallest tested radius that removed
+duplicate detections while preserving close-target separation.} That is a statement about this
+evaluator on this benchmark, not a claim of a universal optimum.
 
-\textbf{The valid region} is the interior where a full CFAR window fits: a margin of
-$\CfarGuardR + \CfarTrainR = 10$ bins is excluded on the range axis and
-$\CfarGuardD + \CfarTrainD = 4$ on the Doppler axis. The same mask is applied to the network, so
-that the false-alarm denominator counts the same cells for both arms. Using a square mask here
-would have scored the network on Doppler bins that CFAR never tests.
+One limitation remains. A $\ProtocolNmsWin \times \ProtocolNmsWin$ window is still wider than a
+single point-target mainlobe, so it bounds how close two targets can be and still be reported
+separately. Chapter~\ref{chp:realdata} returns to this, because real annotated objects are
+\emph{larger} than the suppression window --- a regime the synthetic benchmark never exercises.
 
-Figure~\ref{fig:stages} shows the same sequence executed on one frame, which makes the ordering
-concrete: the candidate set is fixed by non-maximum suppression \emph{before} any threshold is
-consulted, and the threshold then selects from that fixed set. The candidate set is therefore
-computed once and reused at every threshold a score sweep visits.
+\subsubsection*{The valid region}
+
+CFAR cannot form its full $\CfarWinR \times \CfarWinD$ window near the border, so the outer margin
+is excluded: $\CfarGuardR + \CfarTrainR = 10$ bins on the range axis and
+$\CfarGuardD + \CfarTrainD = 4$ on Doppler.
+
+The same mask is applied to the network. Both detectors are therefore scored on exactly the same
+cells, and the false-alarm denominator counts the same cells for both.
 
 \begin{figure}[H]
 \centering
@@ -513,67 +499,47 @@ universal deployment thresholds.}
 \label{fig:stages}
 \end{figure}
 
-\subsubsection*{A protocol asymmetry: the candidate score floor}
+\subsubsection*{The candidate score floor}
 
-One detail of the shared extractor is not symmetric between the arms, and is recorded here rather
-than left implicit.
+The shared extractor keeps only cells with a strictly positive score. CFAR scores are ratios of
+powers and are always positive, so nothing is removed. Network scores are logits, which are
+negative wherever the predicted probability is below one half, so those cells can never become
+candidates.
 
-Candidate extraction keeps only cells whose score is strictly positive. For CFAR the score is a
-ratio of powers and is positive by construction, so the condition never removes anything. For the
-network the score is a \emph{logit}, which is negative wherever the predicted probability is below
-one half, so those cells can never become candidates however low the threshold is subsequently set.
-
-The consequence is limited but real. It does not affect the reported operating points, which lie
-well above zero, and it therefore does not affect any $\Pd$ reported in this work. What it does
-truncate is the extreme high-false-alarm tail of the network's ROC curve: that curve cannot be
-extended below a logit of zero, whereas the CFAR curve has no equivalent floor. Any ROC comparison
-in the far high-$\Pfa$ region should be read with that asymmetry in mind.
+This does not affect any reported result: the operating points used here lie well above zero. It
+does truncate the extreme high-$\Pfa$ tail of the network's ROC curve, which cannot extend below a
+logit of zero. ROC comparisons in that far tail should be read with the asymmetry in mind.
 
 \subsection{Matching}
 \label{sec:matching}
 
-A detection matches a truth point if it falls within the tolerance gate,
+A detection matches a truth if it lies inside the tolerance gate,
 \begin{equation}
-|\Delta r| \le G_r \quad\text{and}\quad |\Delta v| \le G_v ,
+|\Delta r| \le G_r \quad\text{and}\quad |\Delta v| \le G_v .
 \end{equation}
-and matching is \textbf{one-to-one and optimal}, computed by Hungarian assignment on the distance
-between candidate and truth, with pairs outside the gate made unaffordable. A matched detection is
-a true positive; an unmatched truth is a false negative.
 
-The treatment of surplus detections near a real target is the one convention here that is not
-self-evident, so it is stated in full.
+Matching is one-to-one, computed by Hungarian assignment on the distance between candidate and
+truth. Hungarian assignment chooses the pairing that minimises total distance, with pairs outside
+the gate made unaffordable. A matched detection is a true positive; an unmatched truth is a false
+negative.
+
+Two consequences follow for detections that land near a real target.
 
 \begin{itemize}
 \itemsep2pt
-\item \textbf{One truth yields at most one true positive.} Because the assignment is one-to-one,
-several detections falling inside \emph{one isolated} target's gate cannot all be credited; exactly
-one is matched, and the surplus is neutral.
-\item \textbf{A surplus detection still inside a truth gate is ignored,} rather than being counted
-as a false alarm. It is a near miss of a real target, not a spurious response somewhere the
-detector should have stayed silent, and counting it as a false alarm would penalise a detector for
-responding twice to something genuinely there.
-\item \textbf{The corresponding cells leave the false-alarm denominator.} Cells inside the gate of
-any truth are excluded when counting the cells tested, so a detector is not credited with
-correctly rejecting them either.
+\item \textbf{One truth gives at most one true positive.} If several detections fall inside one
+isolated target's gate, exactly one is matched and the rest are ignored --- neither credited nor
+charged as false alarms. Cells inside a truth's gate also leave the false-alarm denominator, so the
+detector is not credited for correctly rejecting them either.
+\item \textbf{Two nearby truths are different.} If their gates overlap, or one physical response
+spans both, the assignment may give one peak to each truth. Several peaks from a \emph{single}
+response can then be counted as \emph{two} detections. Since surplus in-gate detections cost
+nothing, a detector that emits many close peaks gets extra attempts for free.
 \end{itemize}
 
-\textbf{That neutrality holds for an isolated target, and only there.} It is worth stating the
-exception explicitly, because Section~\ref{sec:nmschoice} rests on it. When two truths lie close
-enough that their gates overlap, or that one physical response spans both, the surplus peaks are no
-longer confined to a single truth's gate: the assignment is free to give one peak to each truth, so
-several peaks arising from \emph{one} response can be credited as \emph{two} detections. The
-one-to-one rule prevents double-counting a single truth; it does not prevent one response from
-satisfying two neighbouring truths. Combined with the second bullet --- surplus in-gate detections
-are ignored rather than charged for --- a detector that emits many close peaks then gets extra
-attempts at no cost. That is exactly the behaviour the suppression sweep of
-Section~\ref{sec:nmschoice} finds at radius~1, and it is why the radius was not chosen on
-detection probability alone.
-
-The rule is applied identically to both arms through the same code, and it is part of the frozen
-protocol.
-
-Figure~\ref{fig:matching} works a small example through both tolerances, scored by the project's own
-evaluator rather than by hand.
+That second case is the free-attempt behaviour the suppression sweep found at $r = 1$, and it is
+why the radius was not chosen on detection probability alone. The rule is applied identically to
+both arms.
 
 \begin{figure}[H]
 \centering
@@ -593,72 +559,67 @@ different purpose, as explained below.}
 \label{fig:matching}
 \end{figure}
 
-The two shaded constructs in this chapter must not be confused, because both are conventionally
-called ``guard'' regions and they do entirely different jobs.
-
-\begin{itemize}
-\itemsep2pt
-\item The \textbf{CFAR guard cells} of Figure~\ref{fig:window} sit inside the detector. They
-determine which cells CFAR excludes when \emph{estimating the background}, and they exist because a
-target's own mainlobe would otherwise inflate its threshold.
-\item The \textbf{near-target exclusion region} of Figure~\ref{fig:matching} sits inside the
-evaluator, and is used only \emph{after} detection. It determines which unmatched detections are
-treated as near misses rather than false alarms, and which cells leave the false-alarm denominator.
-\end{itemize}
-
-They are built from different quantities --- the first from the CFAR window geometry, the second
-from the matching tolerance --- and in general they do not have the same extent.
+Two shaded regions appear in this chapter and they are easy to confuse. The \textbf{CFAR guard
+cells} of Figure~\ref{fig:window} belong to the detector: they keep a target's own energy out of
+the background estimate. The \textbf{near-target exclusion region} of Figure~\ref{fig:matching}
+belongs to the evaluator: it decides which unmatched detections count as near misses rather than
+false alarms. One is built from the CFAR window geometry, the other from the matching tolerance,
+and they need not have the same extent.
 
 \subsection{Operating point}
 \label{sec:opoint}
 
 The headline synthetic comparison is $\Pd$ at matched \emph{measured} $\Pfa$. Each detector's score
 threshold is swept, the achieved false-alarm rate is measured at each setting, and the two arms are
-compared at the same achieved rate. This is calibration (B) of Section~\ref{sec:alphacal}, and it
-is stricter than the common practice of matching at design $\Pfa$: Figure~\ref{fig:alphacal} showed
-that the achieved and design rates are not the same number and that the gap differs between
-variants, so matching at the achieved rate removes that as a confound.
+compared where those achieved rates agree.
 
-\textbf{The sweep is performed per condition, and that needs interpreting carefully.} Each
-stratum is evaluated through its own score sweep, and the detectors are compared at the same
-measured false-alarm level within that stratum. This isolates the ranking of the detectors from an
-arbitrary threshold choice, which is what the comparison is for. It is \emph{not} a claim that one
-global deployment threshold would simultaneously achieve that false-alarm rate in every condition;
-it is an evaluation operating point, not a deployable setting.
+This is stricter than matching at design $\Pfa$. Figure~\ref{fig:alphacal} showed that achieved and
+design rates differ, and by different amounts for different variants, so matching on the achieved
+rate removes that confound.
 
-The distinction matters later. In Chapter~\ref{chp:realdata} the network must run on real data at a
-\emph{single frozen threshold} derived without access to that data, which is a materially harder
-requirement than the per-condition matching used here.
+The sweep is performed \emph{per condition}. Each stratum gets its own sweep, and the arms are
+compared at the same measured false-alarm level within that stratum. This is an \textbf{evaluation
+operating point, not a deployable threshold}: it requires labels on the data being scored, and one
+global setting would not achieve the same rate in every condition.
+
+Chapter~\ref{chp:realdata} works differently, and the contrast matters. There the network must run
+at a single fixed threshold derived from synthetic validation data alone, without access to the
+real data it is scored on. That is a harder requirement than the per-condition matching used here.
 
 \subsection{Tolerance}
 
-The primary gate is $\pm\ProtocolGate$ bin, specified in advance. A gate of
-$\pm\ProtocolGateRobust$ bins is reported \emph{beside} it, never instead of it.
+The primary gate is $\pm\ProtocolGate$ bin, fixed in advance. A gate of $\pm\ProtocolGateRobust$
+bins is reported beside it as a robustness check, never instead of it.
 
 Reporting both separates detection from localisation. A detector that finds a target but places it
-two bins away is credited under the wider gate and not under the narrower one --- exactly the
-detection near truth C in Figure~\ref{fig:matching} --- so the pair of numbers shows how far a
-conclusion depends on localisation tolerance rather than on detection ability. A single tolerance cannot distinguish the two, and choosing which one to report after
-seeing the outcome would be exactly the bias this chapter is arranged to avoid. Both are therefore
-reported for every condition in Chapter~\ref{chp:synthetic}, whichever direction they point.
+two bins away is credited at the wider gate and not at the narrower one --- the detection near
+truth~C in Figure~\ref{fig:matching}. Comparing the two numbers therefore shows how far a
+conclusion depends on localisation tolerance. Both are reported for every condition, whichever way
+they point.
 
 \subsection{Statistics}
 
 Differences are assessed by a paired bootstrap with \ProtocolBootstrap{} resamples. \textbf{The
-resampling unit is the frame}: frames are drawn with replacement, and within each resample both
-arms are re-scored on exactly the same frames, so frame difficulty cancels rather than adding
-noise. Resampling frames rather than individual cells or detections preserves the dependence among
-the several targets and detections belonging to one frame, which resampling smaller units would
-destroy by treating correlated observations as independent.
+resampling unit is the frame.} Frames are drawn with replacement, and within each resample both
+arms are re-scored on exactly the same frames, so frame difficulty cancels instead of adding noise.
+Resampling whole frames also preserves the dependence among targets belonging to the same frame.
 
-Because seven conditions are scored, significance uses a Bonferroni correction, giving a
-per-condition threshold of $\alpha = \ProtocolBonf$ against a family-wise $0.05$.
+Seven conditions are scored, so significance uses a Bonferroni correction: a per-condition
+threshold of $\alpha = \ProtocolBonf$ against a family-wise $0.05$.
 
-One limitation of this procedure should be noted. The operating threshold is computed
-once per condition on the full data and held fixed across resamples, so the intervals quantify
-sampling error in $\Pd$ \emph{at a fixed operating point}. They do not propagate the variability of
-choosing that threshold, which would require redoing the sweep inside every resample. The reported
-intervals are therefore mildly optimistic.
+One limitation should be noted. The operating threshold is computed once per condition and held
+fixed across resamples, so the intervals capture sampling error in $\Pd$ at a fixed operating
+point. They do not include the uncertainty in choosing that threshold, which would require redoing
+the sweep inside every resample. The reported intervals are therefore slightly optimistic.
+
+\subsection*{Summary of the protocol}
+
+Both detectors see comparable $\CfarWinR \times \CfarWinD$ local context and generate their score
+maps by their own fixed transforms. Everything downstream is identical: NMS at radius
+\ProtocolNms{}, a threshold set to match \emph{measured} $\Pfa$ per condition, one-to-one Hungarian
+matching, and metrics from a single code path. Results are reported at the
+$\pm\ProtocolGate$-bin gate and at the $\pm\ProtocolGateRobust$-bin robustness gate, with paired
+frame bootstraps and a Bonferroni correction across the seven conditions.
 
 \section{Conclusion}
 
