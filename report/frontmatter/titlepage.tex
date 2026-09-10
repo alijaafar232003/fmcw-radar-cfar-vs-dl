@@ -1,55 +1,88 @@
 % !TEX root = ../main.tex
 %
-% Title page. The university crest is expected at:
+% Title page, following the structure of the Lebanese University, Faculty of Engineering (Branch 3)
+% final-year-project cover: crest, academic year, document type, submission statement, major,
+% author, title, supervisor, defence date and jury.
 %
-%     report/figures/ul_logo.png
+% The crest is read from report/figures/ul_logo.png. The \IfFileExists guard means a missing asset
+% leaves a marked gap rather than breaking the build.
 %
-% If that file is absent the page still compiles, leaving a marked gap where the crest goes, so a
-% missing asset can never silently break the build.
+% Line spacing is set to single here only. The document body uses \onehalfspacing, which is right
+% for running text but leaves a cover page loose and over-tall.
 %
-% NOTE: the layout below is a reasonable ULFG-style arrangement, not a transcription of the official
-% cover sheet. Field order, wording and any required jury or signature block should be checked
-% against the faculty's own template before submission.
-\thispagestyle{empty}
+% Vertical budget: the fixed content below is kept comfortably inside the A4 text height so that
+% the single \vfill can pin the jury block to the foot of the page without overflowing onto a
+% second page.
+%
+% ITEMS STILL TO BE COMPLETED BEFORE SUBMISSION are marked [TO BE PROVIDED].
 \begin{titlepage}
+\thispagestyle{empty}
+\singlespacing
 \centering
 
+% ---------------------------------------------------------------- institution
 \IfFileExists{figures/ul_logo.png}{%
-  \includegraphics[width=3.2cm]{figures/ul_logo.png}%
+  \includegraphics[width=2.6cm]{figures/ul_logo.png}%
 }{%
-  \framebox[3.2cm]{\rule{0pt}{3.2cm}\small\itshape logo}%
+  \framebox[2.6cm]{\rule{0pt}{2.6cm}\small\itshape crest}%
 }
 
-\vspace{0.8cm}
-{\large Universit\'e Libanaise\par}
-\vspace{0.2cm}
-{\large Facult\'e de G\'enie --- Branche III\par}
+\vspace{5mm}
+{\large Lebanese University\par}
+\vspace{1mm}
+{\large Faculty of Engineering --- Branch 3\par}
 
-\vspace{2.2cm}
-{\Huge\bfseries FMCW Radar Target Detection\par}
-\vspace{0.7cm}
-{\LARGE Constant False Alarm Rate versus Deep Learning\par}
-\vspace{0.4cm}
-{\large on Range--Doppler Maps\par}
+\vspace{5mm}
+{\large 2025--2026\par}
 
-\vspace{2.2cm}
-{\large Final Year Project\par}
-\vspace{0.3cm}
-{\normalsize submitted in partial fulfilment of the requirements\\
-for the Degree of Engineer in Electrical and Electronics Engineering\par}
+% ---------------------------------------------------------------- document type
+\vspace{9mm}
+{\LARGE\scshape Final Year Project\par}
 
-\vspace{2.0cm}
-\begin{minipage}{0.42\textwidth}
-\raggedright
-{\small\itshape Author}\\[2pt]
-{\large Ali Jaafar\par}
-\end{minipage}\hfill
-\begin{minipage}{0.42\textwidth}
-\raggedleft
-{\small\itshape Supervisor}\\[2pt]
-{\large Dr.~Rima Assaf\par}
-\end{minipage}
+\vspace{5mm}
+{\normalsize
+Submitted in fulfillment of the requirements for the\\[1pt]
+Engineering Degree from the Lebanese University\\[1pt]
+Faculty of Engineering --- Branch 3\par}
+
+\vspace{5mm}
+{\large Major: Electrical and Electronics Engineering\par}
+
+\vspace{7mm}
+{\normalsize\itshape Prepared by\par}
+\vspace{1.5mm}
+{\Large Ali Jaafar\par}
+
+% ---------------------------------------------------------------- title
+\vspace{8mm}
+{\rule{0.82\textwidth}{0.4pt}\par}
+\vspace{5mm}
+
+{\huge\bfseries FMCW Radar Target Detection\par}
+\vspace{3.5mm}
+{\LARGE CFAR vs Deep Learning on Range--Doppler Maps\par}
+
+\vspace{5mm}
+{\rule{0.82\textwidth}{0.4pt}\par}
+
+% ---------------------------------------------------------------- supervision
+\vspace{8mm}
+{\normalsize\itshape Supervised by\par}
+\vspace{1.5mm}
+{\Large Dr.~Rima Assaf\par}
+
+\vspace{7mm}
+{\normalsize Defended on: [TO BE PROVIDED]\par}
 
 \vfill
-{\large 2025--2026\par}
+
+% ---------------------------------------------------------------- jury
+{\large\bfseries Jury\par}
+\vspace{2.5mm}
+{\normalsize
+\begin{tabular}{@{}ll@{}}
+{}[President name] & President \\[1pt]
+{}[Member name]    & Member    \\[1pt]
+{}[Member name]    & Member    \\
+\end{tabular}\par}
 \end{titlepage}
