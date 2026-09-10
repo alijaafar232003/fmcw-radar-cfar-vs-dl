@@ -4,7 +4,8 @@
 \section{Introduction}
 
 Chapter~\ref{chp:synthetic} established that the learned detector holds a measured advantage on the
-synthetic benchmark, and that it localises worse. Neither result says \emph{why}. A margin reported
+synthetic benchmark, and that the frozen arm places its detections less precisely than CFAR. Neither
+result says \emph{why}. A margin reported
 as a single unexplained number cannot be transferred, defended or designed against: without a
 mechanism there is no way to predict whether the same advantage will appear under different
 conditions, which is exactly the question Chapter~\ref{chp:realdata} goes on to ask.
@@ -99,7 +100,7 @@ weights taken from the measured point spread function. The positive-class loss w
 per arm so that total positive gradient mass is held constant, which is what makes the arms
 comparable.
 
-The control is verified rather than assumed: retraining the flat arm reproduces the frozen
+The control is verified directly: retraining the flat arm reproduces the frozen
 checkpoints bit-for-bit at epoch~\TinyEpochs{} on all eight seeds. \textbf{The control is the frozen
 arm}, so any difference between arms is attributable to the label alone.
 
@@ -132,18 +133,19 @@ the Gaussian and \EthreePointGrowth{} under the point label --- monotone in how 
 is. At the exact-cell gate the incumbent actually \emph{degrades} with training while the other two
 hold, so flat supervision does not merely cap exact-cell accuracy; more training destroys it.
 
-\textbf{What it supports.} The localisation deficit is \textbf{caused by the supervision, and it is
-fixable}. The Gaussian label roughly halves Doppler error at a detection cost of
-\EthreeGaussDeltaPd{}, which is within seed noise. That converts a documented limitation into a
-design choice with a measured alternative, and it retires two competing explanations recorded
-alongside it: the deficit is not the network's capacity, and not the matching gate.
+\textbf{What it supports.} \textbf{Most of the frozen arm's localisation deficit is attributable to
+the supervision, and is largely removable.} Concentrating the label reduces Doppler error from
+\EthreeFlatDv{} bins to \EthreeGaussDv{} (weighted) and \EthreePointDv{} (point), while the weighted
+label costs \EthreeGaussDeltaPd{} in detection --- within seed noise. That converts a limitation of
+the benchmark configuration into a design choice with a measured alternative, and it retires two
+competing explanations: the deficit is not the network's capacity, and not the matching gate.
 
-\textbf{Caveat.} A pre-registered prediction failed here, and the failure is recorded rather than
-buried: the point label was expected to train poorly at its extreme class imbalance, which would
-have vindicated the $3\times3$ choice. It trained stably on all eight seeds and gave the best
-localisation. The $3\times3$ label is not vindicated. Its only advantage is
-\EthreePointDeltaPd{} of $\Pd$ over the point label at the primary gate, concentrated in the
-clutter-bearing conditions where sparser supervision gives less gradient signal.
+\textbf{Caveat.} The point label was pre-registered as likely to train poorly at its extreme class
+imbalance, which would have vindicated the $3\times3$ choice. It trained stably on all
+\TinySeeds{} seeds and localised best, so that prediction failed. The $3\times3$ label's only
+advantage is \EthreePointDeltaPd{} of $\Pd$ over the point label at the primary gate, concentrated
+in the clutter-bearing conditions where sparser supervision gives less gradient signal. The weighted
+label avoids even that cost, and is the better choice on this evidence.
 
 \section{Guard-masked patch network: is it information access?}
 
@@ -201,34 +203,33 @@ Taken together the three experiments narrow the field without closing it.
 \itemsep3pt
 \item \textbf{Energy integration is ruled out} as the explanation for the detection margin. Given
 CFAR the same integrated energy, it performs worse, not better (E2).
-\item \textbf{The localisation deficit has two contributing causes, found from opposite
-directions.} Flat $3\times3$ \emph{supervision} broadens the response (E3); access to mainlobe
-\emph{input} broadens it too (E4). Both are tolerable at the primary gate and both collapse at the
-exact cell.
+\item \textbf{The frozen arm's placement behaviour is largely set by its supervision, and is
+substantially fixable} (E3). Guard-region access broadens the response as well (E4), so two
+different design choices push in the same direction.
 \item \textbf{Guard-cell access buys detection, but little of it}, and it is paid for in placement
 precision (E4).
 \end{itemize}
 
-The explanation these leave standing is the learned decision rule itself --- the network's ability
-to weight its receptive field in a way no fixed kernel reproduces --- rather than any simple
-property of what it is given. That is a narrowing, not an identification, and this chapter does not
-claim to have isolated a single cause.
+The explanation these leave standing for the \emph{detection} margin is the learned decision rule
+itself --- the network's ability to weight its receptive field in a way no fixed kernel reproduces
+--- rather than any simple property of what it is given. That is a narrowing, not an identification,
+and this chapter does not claim to have isolated a single cause.
 
-One consequence is worth carrying into Chapter~\ref{chp:realdata}. Two independent interventions
-both produced the same signature: a response broader than one cell, harmless at a tolerant gate and
-costly at a strict one. That is the same signature the real-data tolerance ladder exhibits, and it
-is why Section~\ref{sec:litcompare} treats a broad response as \emph{consistent with} the real-data
-behaviour rather than as its established cause.
+One consequence carries into Chapter~\ref{chp:realdata}. Two different interventions produced the
+same signature: a response broader than one cell, harmless at a tolerant gate and costly at a strict
+one. The real-data tolerance ladder shows the same shape, which is why
+Section~\ref{sec:litcompare} treats a broad response as \emph{consistent with} that behaviour rather
+than as its established cause.
 
 \section{Conclusion}
 \label{sec:attrib_scope}
 
 Three pre-registered interventions were run, at zero cost to the frozen benchmark. The cheap
-explanation for the detection margin was eliminated, the localisation deficit was traced to two
-contributing causes and shown to be fixable in one of them, and the value of guard-cell access was
-measured rather than assumed.
+explanation for the detection margin was eliminated; the frozen arm's placement behaviour was
+traced largely to its supervision and shown to be substantially fixable; and the value of
+guard-region access was measured.
 
-Two limits bound everything in this chapter, and both are stated rather than discovered.
+Two limits bound everything in this chapter.
 
 \textbf{Validation split only.} No experiment here touched the held-out data, so none of these
 results changes any number in Chapter~\ref{chp:synthetic}. They explain that benchmark; they do not
@@ -243,7 +244,7 @@ it is not evidence about them. The effects reported here at the exact-cell gate 
 orders of magnitude larger than any protocol effect that audit measured, so those conclusions are
 not in doubt. \textbf{The smaller tolerant-gate effects --- E4's \EfourDeltaOne{} in particular ---
 are not confirmed at the final radius}, and are reported as radius-\ProtocolNmsOriginal{}
-measurements. Re-scoring them is recorded as outstanding work rather than assumed to be immaterial.
+measurements. Re-scoring them remains outstanding work.
 
 Chapter~\ref{chp:realdata} now asks whether any of this survives contact with real radar
 measurements.

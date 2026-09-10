@@ -240,7 +240,7 @@ rule adds over a fixed one, not how well a large network can be made to perform.
 \label{sec:matched}
 
 The receptive-field match is the fairness argument of this report, so its limits should be stated
-plainly rather than discovered by a reader.
+plainly.
 
 \textbf{Matching the footprint does not equalise the decision rule.} Both detectors see the same
 $\TinyRFR \times \TinyRFD$ neighbourhood, but they use it differently. CFAR takes the cell under
@@ -309,7 +309,10 @@ assumed.
 \subsection{Training}
 
 Table~\ref{tab:training} gives the training configuration. Every entry is a recorded choice rather
-than a default, and the whole configuration was frozen before the test split was read.
+than a default, and the whole configuration was frozen before any benchmark split was scored. It
+was not revisited afterwards: the one later protocol change described in
+Appendix~
+ef{app:prereg} touches candidate extraction, not the network or its training.
 
 \begin{table}[H]
 \centering
@@ -651,7 +654,7 @@ destroy by treating correlated observations as independent.
 Because seven conditions are scored, significance uses a Bonferroni correction, giving a
 per-condition threshold of $\alpha = \ProtocolBonf$ against a family-wise $0.05$.
 
-One limitation of this procedure is stated rather than hidden. The operating threshold is computed
+One limitation of this procedure should be noted. The operating threshold is computed
 once per condition on the full data and held fixed across resamples, so the intervals quantify
 sampling error in $\Pd$ \emph{at a fixed operating point}. They do not propagate the variability of
 choosing that threshold, which would require redoing the sweep inside every resample. The reported

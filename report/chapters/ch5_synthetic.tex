@@ -248,28 +248,26 @@ over all conditions at the primary gate. Measured over true positives only.}
 \label{fig:loc}
 \end{figure}
 
-The result is unambiguous. Pooled over all conditions, the network's combined RMSE is
-\LocRmseDL{} bins against \LocRmseCA{} for CA-CFAR --- \LocRmseRatio{} times worse. Broken down by
-axis, the range error is \LocDrDL{} bins against \LocDrCA{}, and the Doppler error is
-\LocDvDL{} bins against \LocDvCA{}, a factor of \LocDvRatio{}. In physical units the network places
-detections to \SI{\LocRangeMDL}{\metre} and \SI{\LocVelMpsDL}{\metre\per\second} against CA-CFAR's
+Pooled over all conditions, the frozen network's combined RMSE is \LocRmseDL{} bins against
+\LocRmseCA{} for CA-CFAR --- \LocRmseRatio{} times larger. Broken down by axis, the range error is
+\LocDrDL{} bins against \LocDrCA{}, and the Doppler error is \LocDvDL{} bins against \LocDvCA{}, a
+factor of \LocDvRatio{}. In physical units the network places detections to
+\SI{\LocRangeMDL}{\metre} and \SI{\LocVelMpsDL}{\metre\per\second} against CA-CFAR's
 \SI{\LocRangeMCA}{\metre} and \SI{\LocVelMpsCA}{\metre\per\second}.
 
 All four CFAR variants localise similarly well, between \LocRmseCFARMin{} and \LocRmseCFARMax{}
-bins. That the four classical arms agree with one another and the learned arm sits far outside their
-range indicates that this is a property of the learned arm rather than of the evaluation.
+bins. That the four classical arms agree with one another and the learned arm sits outside their
+range indicates that this is a property of the learned arm as configured here, rather than of the
+evaluation.
 
-\textbf{This is a genuine cost, and it is the counterweight to the headline result.} The network
-finds more targets and places them less precisely. Which matters more depends on the application:
-a tracker fed slightly imprecise but more numerous detections may do better than one fed fewer
-precise ones, but that is an assertion this report has not tested. Nor does this measurement on its
-own establish \emph{why} the network localises worse --- the caveat above means it is not even a
-clean like-for-like comparison. Chapter~\ref{chp:attribution} investigates the mechanism directly
-rather than inferring it here.
-
-Chapter~\ref{chp:detectors} identified the $3\times3$ block label as the leading candidate
-explanation, since a block label asks the network to respond over a region rather than at one cell.
-Chapter~\ref{chp:attribution} tests that explicitly rather than leaving it as a plausible story.
+\textbf{This is a measured cost of the benchmark configuration, and it should be scoped carefully.}
+It is a property of \emph{this} frozen arm, trained with the $3\times3$ block label of
+Section~\ref{sec:labels} --- not a general property of learned detection. A block label asks the
+network to respond over a region rather than at one cell, which is precisely the behaviour measured
+here. Chapter~\ref{chp:attribution} varies the label directly and finds that most of this gap is
+attributable to that choice and is largely removable: supervision concentrated on the target cell
+reduces the error substantially at essentially no cost in detection. The figure above therefore
+records what the frozen benchmark does, not a limit on what a small convolutional detector can do.
 
 \section{Computational cost}
 
@@ -308,32 +306,30 @@ simplest classical rule and cheap relative to the more robust ones.
 
 \section{Conclusion}
 
-On the synthetic benchmark, measured at a verified common operating point and scored through a
-protocol fixed in advance:
+On the synthetic benchmark, measured at a verified common operating point:
 
 \begin{itemize}
 \itemsep3pt
-\item The frozen network establishes a gain on \SynWins{} of the \SynConditions{} scored conditions
-after correction for multiple comparisons, against a per-condition best-CFAR comparator that is
-stronger than any deployable single variant. Of the remaining two, the unresolved stratum shows a
-small difference that does not survive correction under a construction that leaves little room for
-one, and homogeneous clutter is a practical tie.
-\item The margin is largest where CFAR is documented to fail --- \SynClutterEdgeDiff{} at clutter
-edges.
-\item Expressed in the currency the comparable literature uses, the network reaches half detection
-at a cell SNR \SI{\SynSnrGainDL}{\deci\bel} lower than CA-CFAR.
-\item On homogeneous clutter the two arms are statistically indistinguishable, and the difference
-moves against the network when the matching tolerance is widened.
-\item The network localises substantially worse: \LocRmseRatio{} times the combined RMSE of
-CA-CFAR, and \LocDvRatio{} times the error on the Doppler axis. At the exact-cell gate it does not
-reach half detection at all.
+\item \textbf{The network establishes a gain on the five resolvable challenge conditions} ---
+isolated, masking, multi-target, mixed and clutter edge --- after correction for multiple
+comparisons, against a per-condition best-CFAR comparator stronger than any deployable single
+variant. The margin is largest where CFAR is documented to fail, reaching
+\SynClutterEdgeDiff{} at clutter edges.
+\item \textbf{Homogeneous clutter is a practical tie} (\SynClutterDiff), and the difference moves
+against the network when the matching tolerance is widened, without approaching significance.
+\item \textbf{The unresolved stratum is a resolution and protocol stress test rather than an
+ordinary competitive condition.} Both arms sit near the ceiling its construction imposes, and the
+small difference does not survive correction.
+\item In the currency the comparable literature uses, the network reaches half detection at a cell
+SNR \SI{\SynSnrGainDL}{\deci\bel} lower than CA-CFAR.
+\item \textbf{This frozen arm places its detections less precisely than CFAR}
+(\LocRmseRatio{} times the combined RMSE, \LocDvRatio{} times on the Doppler axis), and at the
+exact-cell gate it does not reach half detection. That is a measured property of the $3\times3$
+block label this arm was trained with, not of learned detection in general:
+Chapter~\ref{chp:attribution} varies the label and removes most of the gap.
 \end{itemize}
 
-The headline and the qualification point in opposite directions, and both are properties of the
-same frozen system. A fair one-sentence summary is that \textbf{the network detects more and places
-worse}.
-
-Two questions follow immediately, and the next two chapters take one each.
-Chapter~\ref{chp:attribution} asks where the detection margin comes from and whether the
-localisation penalty has the cause suspected of it. Chapter~\ref{chp:realdata} asks whether any of
-this survives contact with real radar measurements.
+Two questions follow, and the next two chapters take one each.
+Chapter~\ref{chp:attribution} asks where the detection margin comes from and how much of the
+placement behaviour is set by supervision. Chapter~\ref{chp:realdata} asks whether any of this
+survives contact with real radar measurements.

@@ -155,43 +155,33 @@ are reported across a tolerance ladder rather than at a single gate. Each choice
 asymmetries listed in Section~\ref{sec:problem}, and is documented alongside the asymmetry it
 removes.
 
-\item \textbf{A quantified and externally calibrated margin.} On synthetic data, the learned
-detector reaches a detection probability of 50\,\% at a cell signal-to-noise ratio
-\SynSnrGainDL{}\,dB lower than CA-CFAR, at matched measured $\Pfa$. In other words, it can tolerate
-a weaker target signal while maintaining the same detection level. At clutter edges the advantage
-reaches \SynClutterEdgeDiff{} in $\Pd$, which falls inside the range reported independently for
-clutter transitions on real X-band measurements~\cite{gusland2020deeptemporal}. The CFAR loss
-proposed as an explanation for learned wins in homogeneous conditions~\cite{lallouet2023loss} is
-measured here rather than assumed: \SynCfarLossCA{}\,dB, relative to an ideal detector that is given
-the true noise level instead of estimating it.
+\item \textbf{A quantified and externally calibrated synthetic margin}, reported per condition with
+confidence intervals and a correction for multiple comparisons, and expressed in decibels of cell
+SNR so that it can be placed beside the comparable literature. The CFAR loss proposed as an
+explanation for learned wins in homogeneous conditions~\cite{lallouet2023loss} is measured here
+rather than assumed.
 
-\item \textbf{A set of experiments investigating why the two detectors differ.} Instead of reporting
-the margin as a single unexplained number, several possible explanations are stated, and each is
-paired with an experiment that could disprove it.
+\item \textbf{Attribution by intervention.} Three pre-registered experiments each pair a candidate
+explanation with a measurement capable of disproving it. One outcome is directly useful: the frozen
+benchmark's localisation deficit proves to be largely a consequence of its supervision, and
+substantially removable, rather than an inherent property of the learned detector.
 
 \item \textbf{A pre-registered zero-shot external validation.} The frozen detectors are evaluated on
 the CARRADA automotive radar dataset~\cite{ouaknine2021carrada} with no real-data training,
-fine-tuning or recalibration. The ground truth, the matching rule, the primary and secondary
-metrics and the statistical plan were all fixed by cryptographic hash before any test frame was
-scored, the model weights were frozen beforehand, and no threshold or post-processing constant was
-ever tuned on CARRADA. One qualification is owed: a single post-processing constant --- the
-non-maximum-suppression radius --- was later revised using synthetic development data, and the real
-data was then re-evaluated under it, so the reported figures come from that disclosed re-run rather
-than from the original one-shot read. Appendix~\ref{app:prereg} carries the full history. None of
-the directly comparable studies identified in the reviewed literature performs the
-same zero-shot synthetic-to-real evaluation. \textbf{The synthetic advantage does not carry across
-the domain shift}: at exact annotated support the two detectors become statistically
-indistinguishable (\RoneDelta{}, \SI{95}{\percent} interval $[\RoneCIlo, \RoneCIhi]$), the network
-leads at wider tolerance gates, and it reaches that comparable recall while emitting
-\RoneBurdenRatio{} times as many unmatched detections per frame. This report treats that outcome ---
-including the fact that the learned detector's value is not captured by recall alone --- as a
-principal result rather than as an anomaly to be explained away.
+fine-tuning or recalibration. Ground truth, matching, metrics and the statistical plan were fixed by
+cryptographic hash before any test frame was scored, and no threshold or post-processing constant
+was ever tuned on CARRADA. None of the directly comparable studies identified in the reviewed
+literature performs the same zero-shot synthetic-to-real evaluation. One qualification is owed: a
+single post-processing constant --- the suppression radius --- was later revised using synthetic
+development data and the real data re-scored under it, so the reported figures come from that
+disclosed re-run rather than from the original one-shot read. Appendix~\ref{app:prereg} carries the
+full history.
 
 \item \textbf{A protocol-sensitivity finding about extended objects.} The real-data comparison
 proved to depend not only on the two score maps but on the fixed rule that converts a dense score
-map into object candidates. On point targets that rule is inconsequential; on annotated objects
-larger than the suppression window it is not. Appendix~\ref{app:prereg} records how the dependence
-was found and what was changed in response.
+map into object candidates. On synthetic point targets the choice of that rule moved the reported
+margins by an order of magnitude less than the published confidence intervals; on annotated objects
+larger than the suppression window it moved the headline result.
 
 \item \textbf{A reproducibility framework supporting these claims:} frozen model and detector
 artefacts, isolation manifests that prevent completed experiments from being modified later, raw
@@ -221,8 +211,10 @@ dismissed as a scaling artefact.
 
 \textbf{Chapter~\ref{chp:detectors}, \emph{Detectors and Evaluation Protocol}}, specifies both
 detectors and fixes the evaluation protocol: peak extraction, matching, the operating-point
-definition and the statistical treatment. The protocol is frozen before any comparative result is
-produced.
+definition and the statistical treatment. The protocol was frozen before any comparative result was
+produced; the single field revised afterwards, and the disclosure of that revision, are recorded in
+Appendix~
+ef{app:prereg}.
 
 \textbf{Chapter~\ref{chp:synthetic}, \emph{Synthetic Benchmark Results}}, reports the benchmark
 across the seven conditions, including detection probability as a function of cell signal-to-noise

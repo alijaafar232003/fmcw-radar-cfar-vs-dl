@@ -56,12 +56,49 @@ The last two fields are the ones that matter. At the moment of the freeze no det
 any kind had been computed on real data, and no CARRADA label had informed any decision. The
 document was not edited afterwards; the draft it supersedes is retained under its own hash.
 
+\subsection*{Isolation manifest}
+
+Before any real data was processed, a manifest recorded the SHA-256 hash, size and protection
+category of \textbf{628 files}: the eight frozen network checkpoints and their training
+configurations; the network, CFAR, evaluation and radar source modules; the frozen configuration
+file; the calibrated threshold table; the dataset configurations and caches; the headline result
+tables; the CFAR baseline outputs; and the complete outputs of the three attribution experiments.
+The manifest was re-verified at the end of every phase, and no protected file changed at any point.
+
+Every test-split access event is recorded with its timestamp, the repository commit, the
+pre-registration hash, the run-manifest hash, the environment, and the hash of every model
+checkpoint used. Raw detector output was written to disk and hashed before any summary statistic was
+computed, so every table and figure in Chapter~\ref{chp:realdata} is traceable to immutable
+evidence.
+
 \subsection*{Phase and commit chain}
 
-Table~\ref{tab:phases} in Chapter~\ref{chp:realdata} lists the eight phases and the commit at which
-each was fixed. Each was committed before the next began, so the order cannot be reconstructed
-favourably after the fact. Phases~1--6 are the original pre-registered experiment; phases~7--8 are
-the revision recorded below.
+Each phase was committed before the next began, so the order cannot be reconstructed favourably
+after the fact. Phases~1--6 are the original pre-registered experiment; phases~7--8 are the revision
+recorded below.
+
+\begin{table}[H]
+\centering\small
+\caption{Phases of the real-data experiment, with the commit at which each was fixed.}
+\label{tab:phases}
+\begin{tabular}{@{}clll@{}}
+\toprule
+\textbf{Phase} & \textbf{Content} & \textbf{Detector run?} & \textbf{Commit} \\
+\midrule
+\multicolumn{4}{@{}l}{\emph{Original pre-registered experiment}} \\
+1 & Isolation and dataset integrity        & no  & \texttt{15f3aab} \\
+2 & Domain audit (R0)                      & no  & \texttt{a3a3b88} \\
+3 & Pre-registration frozen                & no  & \texttt{9c9a3e2} \\
+4 & Implementation, adapters, thresholds   & synthetic / train only & \texttt{30936d6} \\
+5 & One-shot test evaluation (R1)          & \textbf{yes, once}     & \texttt{9bfa805} \\
+6 & Documentation and closeout             & no  & \texttt{8c0d826} \\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Later post-processing revision}} \\
+7 & Suppression-radius rule frozen      & no                     & \texttt{8f38dd8} \\
+8 & Radius reselected, test re-scored   & \textbf{yes, re-run}   & \texttt{fe5e790} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Revision of the post-processing protocol}
 \label{app:nmsrevision}

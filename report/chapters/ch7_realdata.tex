@@ -60,89 +60,45 @@ Section~\ref{sec:crossdomain} places it beside the synthetic benchmark.
 \label{sec:discipline}
 
 A real-data evaluation carried out at the end of a project, by the person who produced the
-synthetic result, with full knowledge of what that result was, is exposed to a specific failure
-mode: the many small methodological choices that a new dataset forces --- what counts as ground
-truth, what counts as a detection, which operating point to use, which detector variant to treat as
-the baseline --- can each be settled, quite unconsciously, in the direction that flatters the
-expected answer. The individual decisions are all defensible; their accumulation is not. Because
-the outcome of this chapter contradicts the synthetic result, the protections against that failure
-mode matter more, not less.
+synthetic result and with full knowledge of what it was, is exposed to a specific failure mode. The
+many small choices a new dataset forces --- what counts as ground truth, what counts as a detection,
+which operating point to use, which detector variant is the baseline --- can each be settled, quite
+unconsciously, in the direction that flatters the expected answer. The individual decisions are all
+defensible; their accumulation is not.
 
-Four measures were adopted.
+Four measures were adopted against it. Appendix~\ref{app:prereg} holds the audit trail: the
+pre-registration hash and freeze record, the isolation manifest, and the phase-by-phase commit
+chain.
 
-\paragraph{Isolation.} The real-data work was carried out in a self-contained experiment directory
-that reads the frozen benchmark and writes nothing back to it. Before any real data was processed,
-a manifest recorded the SHA-256 hash, size and protection category of \textbf{628 files}: the eight
-frozen network checkpoints and their training configurations, the network, CFAR, evaluation and
-radar source modules, the frozen configuration file, the calibrated threshold table, the dataset
-configurations and caches, the headline result tables, the CFAR baseline outputs, and the complete
-outputs of the three attribution experiments. That manifest was re-verified at the end of every
-phase. No protected file changed at any point.
+\paragraph{Isolation.} The real-data work ran in a self-contained directory that reads the frozen
+benchmark and writes nothing back to it. A manifest recorded the hash of every protected file
+before any real data was processed, and was re-verified after every phase. No protected file changed
+at any point.
 
-\paragraph{Pre-registration.} The complete evaluation protocol --- ground-truth definition,
-eligibility rule, matching algorithm, primary and secondary metrics, statistical plan, and the
-wording permitted when describing false alarms --- was written, hashed and committed
-\emph{before any real detector output existed}. The frozen document has SHA-256
-\texttt{e800ad84\ldots1bba98a8}. It was not edited afterwards.
+\paragraph{Pre-registration.} The complete protocol --- ground truth, eligibility, matching, primary
+and secondary metrics, statistical plan, and the wording permitted when describing false alarms ---
+was written, hashed and committed \emph{before any real detector output existed}, and was not edited
+afterwards.
 
-\paragraph{One-shot evaluation, and one disclosed re-run.} The original pre-registered R1 evaluation
-was a one-shot test read: the official test sequences were passed through the detectors exactly
-once, and no result was seen before the protocol was fixed. Every access event is recorded with its
-timestamp, the repository commit, the pre-registration hash, the run-manifest hash, the environment,
-and the hash of every model checkpoint used. Raw detector output was written to disk and hashed
-before any summary statistic was computed, so every table and figure in this chapter is traceable to
-immutable evidence.
+\paragraph{One-shot evaluation, and one disclosed re-run.} The original pre-registered evaluation
+was a one-shot read: the test sequences were scored exactly once, with the protocol already fixed.
+\textbf{The results reported below are not that first read.} Following the protocol revision of
+Appendix~\ref{app:prereg} --- in which the suppression radius was reselected using \emph{synthetic
+development data only} --- the same sequences were re-scored once under the revised
+radius-\ProtocolNms{} rule, and that re-run is what Section~\ref{sec:r1} reports. It is a second
+read, made after the first result was known, and is recorded as such rather than presented as an
+untouched one-shot evaluation. The original radius-\ProtocolNmsOriginal{} outputs were neither
+deleted nor overwritten.
 
-The results reported below are not that first read. Following the later protocol revision documented
-in Appendix~\ref{app:prereg} --- in which the non-maximum-suppression radius was reselected using
-\emph{synthetic development data only} --- the same official test sequences were re-scored once
-under the revised radius-\ProtocolNms{} post-processing rule. That re-run is what
-Section~\ref{sec:r1} reports. It is a second read of the test sequences, made after the first
-result was known, and it is recorded as such rather than presented as an untouched one-shot
-evaluation. The original radius-\ProtocolNmsOriginal{} outputs were neither deleted nor overwritten.
+\paragraph{Separation of development from evaluation.} Implementation and debugging used the CARRADA
+\emph{training} sequences only. The learned detector's operating threshold was derived from
+\emph{synthetic} validation data alone, confirmed by a runtime file-access audit, and the same
+discipline governed the later revision: the suppression radius was selected on synthetic development
+splits with no CARRADA data consulted. The validation sequences were never used, and the test
+sequences were read only by the two scoring runs described above.
 
-\paragraph{Separation of development from evaluation.} Implementation and debugging used the
-CARRADA \emph{training} sequences only. The operating threshold required by the learned detector
-was derived from \emph{synthetic} validation data alone, with a runtime file-access audit
-confirming that no other dataset was opened during its derivation. The same discipline governed the
-later revision: the suppression radius was selected on synthetic development splits, with no
-CARRADA data consulted at any point. The validation sequences were never used, and the test
-sequences were read only by the two scoring runs described above --- the original one-shot
-evaluation and the disclosed re-run under the revised radius.
-
-Table~\ref{tab:phases} lists the phases and the commit at which each was fixed. The full audit
-trail, including the pre-registration text and the isolation manifest, is reproduced in
-Appendix~\ref{app:prereg}.
-
-\begin{table}[h!]
-\centering
-\caption{Phases of the real-data experiment. Each was committed before the next began, so the
-record cannot be reordered after the fact. Phases~1--6 are the original pre-registered experiment.
-Phases~7--8 are the later, disclosed protocol revision of Appendix~\ref{app:prereg}: the
-suppression radius was reselected on synthetic development data, and the official test sequences
-were then re-scored once under it.}
-\label{tab:phases}
-\begin{tabular}{@{}clll@{}}
-\toprule
-\textbf{Phase} & \textbf{Content} & \textbf{Detector run?} & \textbf{Commit} \\
-\midrule
-\multicolumn{4}{@{}l}{\emph{Original pre-registered experiment}} \\
-1 & Isolation and dataset integrity        & no  & \texttt{15f3aab} \\
-2 & Domain audit (R0)                      & no  & \texttt{a3a3b88} \\
-3 & Pre-registration frozen                & no  & \texttt{9c9a3e2} \\
-4 & Implementation, adapters, thresholds   & synthetic / train only & \texttt{30936d6} \\
-5 & One-shot test evaluation (R1)          & \textbf{yes, once}     & \texttt{9bfa805} \\
-6 & Documentation and closeout             & no  & \texttt{8c0d826} \\
-\addlinespace
-\multicolumn{4}{@{}l}{\emph{Later post-processing revision (Appendix~\ref{app:prereg})}} \\
-7 & Suppression-radius rule frozen      & no                     & \texttt{8f38dd8} \\
-8 & Radius reselected, test re-scored   & \textbf{yes, re-run}   & \texttt{fe5e790} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-None of this makes the result correct. It makes the result \emph{auditable}: every choice that
-could have been made to favour an outcome was fixed, in writing, before the outcome was known.
+None of this makes the result correct. It makes the result \emph{auditable}: every choice that could
+have been made to favour an outcome was fixed, in writing, before the outcome was known.
 
 \section{The CARRADA dataset}
 \label{sec:carrada}
@@ -215,8 +171,9 @@ measurement.
 
 \begin{table}[h!]
 \centering
-\caption{Official CARRADA sequence-level splits, used unchanged. Only the test split is scored, and
-only once.}
+\caption{Official CARRADA sequence-level splits, used unchanged. Only the test split is scored:
+once in the original pre-registered read, and once again in the disclosed re-run under the revised
+suppression radius (Section~\ref{sec:discipline}).}
 \label{tab:carrada_splits}
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
@@ -340,13 +297,14 @@ independent would produce meaninglessly narrow intervals.
 \caption{Background statistics, measured on the same eligible population in both domains with no
 trimming. Uncertainty is across groups, not frames.}
 \label{tab:r0_stats}
+\small
 \begin{tabular}{@{}lccc@{}}
 \toprule
-\textbf{Statistic} & \textbf{CARRADA} & \textbf{Simulator} & \textbf{Single-look ideal} \\
+\textbf{Statistic} & \textbf{CARRADA} & \textbf{Simulator} & \textbf{Ideal} \\
 \midrule
 Coefficient of variation, $CV(P)$ & \RzeroCarradaCV{} $\pm$ \RzeroCarradaCVSE{} & \RzeroSimCV{} $\pm$ \RzeroSimCVSE{} & 1.000 \\
 Effective Gamma shape, $k$        & \RzeroCarradaGammaK{} $\pm$ \RzeroCarradaGammaKSE{} & \RzeroSimGammaK{} $\pm$ \RzeroSimGammaKSE{} & 1.00 \\
-Background standard deviation [dB]& \RzeroCarradaDBstd{} $\pm$ \RzeroCarradaDBstdSE{} & \RzeroSimDBstd{} $\pm$ \RzeroSimDBstdSE{} & 5.57 \\
+Background std.\ deviation [dB]  & \RzeroCarradaDBstd{} $\pm$ \RzeroCarradaDBstdSE{} & \RzeroSimDBstd{} $\pm$ \RzeroSimDBstdSE{} & 5.57 \\
 Lag-1 correlation, range axis     & \RzeroCarradaLagRange{} $\pm$ \RzeroCarradaLagRangeSE{} & \RzeroSimLagRange{} $\pm$ \RzeroSimLagRangeSE{} & --- \\
 Lag-1 correlation, Doppler axis   & \RzeroCarradaLagDoppler{} $\pm$ \RzeroCarradaLagDopplerSE{} & \RzeroSimLagDoppler{} $\pm$ \RzeroSimLagDopplerSE{} & --- \\
 \bottomrule
@@ -494,15 +452,28 @@ Reporting such counts as $P_{fa}$ would assert knowledge the dataset does not co
 reported instead as \emph{unmatched detections per frame}, an output-density measure, and that
 term is used consistently throughout.
 
-\paragraph{Why the operating point is a new protocol.} The synthetic benchmark sets the network's
-threshold per condition, from the ROC of the split being scored. That is an evaluation oracle, and
-it cannot transfer: it requires labels on the scored data, and CARRADA supplies no equivalent
-false-alarm axis. A single global threshold was therefore derived per frozen seed, from
-\emph{synthetic validation data alone}, pooled across all eight scenario conditions at a measured
-per-cell false-alarm rate of $10^{-4}$. No CARRADA data of any split entered that derivation, and a
-runtime file-access audit confirms it. The consequence, registered in advance, is that R1 operates
-under a different operating-point protocol from Chapter~\ref{chp:synthetic}, and its numbers are
-therefore \textbf{not poolable} with the synthetic tables.
+\paragraph{Why the operating point is a new protocol.} The two domains use different threshold
+rules, and the difference is worth stating precisely because it is the main reason their headline
+numbers cannot be pooled.
+
+\begin{description}
+\itemsep2pt
+\item[Chapter~\ref{chp:synthetic}] sweeps each detector's score threshold \emph{per condition} and
+compares the arms where their measured false-alarm rates agree. This is an \textbf{evaluation
+operating point}, not a deployable setting: it needs labels on the very data being scored, and it
+would differ from condition to condition in service. Its purpose is to remove threshold choice as a
+confound from the comparison.
+\item[This chapter] cannot use that rule --- CARRADA supplies no false-alarm axis to sweep against.
+A \textbf{single global threshold} was therefore derived per frozen seed from \emph{synthetic
+validation data alone}, pooled across all eight scenario conditions at a measured per-cell
+false-alarm rate of $10^{-4}$, and then applied unchanged to every real frame. \textbf{No CARRADA
+data of any split entered that derivation}, and a runtime file-access audit confirms it.
+\end{description}
+
+This is the harder requirement of the two: one fixed threshold, chosen without sight of the data it
+will run on. The consequence, registered in advance, is that R1 operates under a different
+operating-point protocol from Chapter~\ref{chp:synthetic}, and its numbers are therefore
+\textbf{not poolable} with the synthetic tables.
 
 \section{Zero-shot transfer}
 \label{sec:r1}
@@ -831,54 +802,11 @@ literature. The purpose is calibration, not advocacy: the question is whether th
 here are of a normal size, and whether the loss of the synthetic margin under domain shift is
 larger than a reader should expect.
 
-\subsection{Which published results are comparable at all}
-
-Most work described as ``deep learning versus CFAR'' does not measure what this project measures.
-The corpus separates into families that answer different questions, and pooling them is how
-inflated claims of learned superiority arise.
-
-\begin{table}[h!]
-\centering
-\caption{Families in the learned-detection literature, and whether their metric is commensurable
-with the per-cell $P_d$-at-matched-$P_{fa}$ protocol used here.}
-\label{tab:lit_families}
-\begin{tabular}{@{}p{4.2cm}p{5.4cm}p{3.6cm}@{}}
-\toprule
-\textbf{Family} & \textbf{Representative work} & \textbf{Commensurable?} \\
-\midrule
-Per-cell learned threshold, scored against CFAR &
-RadCNN~\cite{yavuz2021radcnn}, Gusland et al.~\cite{gusland2020deeptemporal},
-Lallouet et al.~\cite{lallouet2023loss}, Banerjee et al.~\cite{banerjee2025rctd},
-\emph{and this work} &
-\textbf{Yes} \\
-\addlinespace
-CFAR-property constrained learning &
-CFARnet~\cite{diskin2023cfarnet} &
-Partly --- optimises for the CFAR property, not for $P_d$ \\
-\addlinespace
-Object detection on RD maps &
-DAROD~\cite{decourt2022darod} &
-No --- bounding boxes scored by mAP at an IoU threshold \\
-\addlinespace
-Structure-preserving reformulation &
-Liu et al.~\cite{liu2024cacfarconv} &
-No --- CFAR re-expressed, detection performance unchanged \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Only the first family is used for numerical comparison below. The others are cited where they
-inform interpretation, and are never placed on a shared axis with results from this work.
-
-One theoretical result from the last family bears directly on the design of this project.
-Liu et al.~\cite{liu2024cacfarconv} show that CA-CFAR can be written exactly as a convolution
-followed by a thresholding nonlinearity, with fixed weights: $+1$ on the cell under test and
-$-\alpha/N$ on each training cell. Banerjee et al.~\cite{banerjee2025rctd} restate this result and
-observe that a convolutional layer with \emph{learned} weights and bias is the data-driven
-generalisation of the same operator. The receptive-field-matched TinyCNN of
-Chapter~\ref{chp:detectors} is therefore not merely a small network placed beside CFAR by
-analogy; it occupies the same operator family, with the weights learned rather than derived. This
-is the strongest available justification for treating the two arms as a controlled comparison.
+Section~\ref{sec:sota} already separated the corpus into families and established that only one
+of them --- per-cell learned thresholding scored against CFAR at a matched false-alarm rate ---
+measures the same quantity as this work. Only that family is used for numerical comparison here;
+the others are cited where they inform interpretation and are never placed on a shared axis with
+results from this work.
 
 \subsection{The synthetic margin against the literature}
 
@@ -955,9 +883,11 @@ part of that margin but not all of it. Chapter~\ref{chp:attribution} pursues the
 
 The dB comparison above uses the $\pm 1$-bin gate, and that choice conceals something the
 literature comparison brings into view. At the exact-cell gate the ordering reverses within the
-synthetic domain itself: CA-CFAR reaches $P_d = 0.5$ at \SynSnrFiftyExactCA{}\,dB, while the
-network never reaches it at all, peaking at $P_d = \SynPdMaxExactDL{}$. The network buys sensitivity
-and pays for it in localisation precision.
+synthetic domain itself: CA-CFAR reaches $P_d = 0.5$ at \SynSnrFiftyExactCA{}\,dB, while the frozen
+network never reaches it at all, peaking at $P_d = \SynPdMaxExactDL{}$. This frozen arm buys
+sensitivity and pays for it in placement precision --- a consequence of its $3\times3$ block label,
+which Chapter~\ref{chp:attribution} shows is largely removable, rather than a property of learned
+detection as such.
 
 This is worth stating here rather than in Chapter~\ref{chp:synthetic} alone, because the same
 asymmetry appears in the real-data tolerance ladder of Section~\ref{sec:r1}: exact dense-mask recall

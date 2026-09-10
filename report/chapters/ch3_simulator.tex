@@ -292,7 +292,7 @@ Figure~\ref{fig:snrdist} shows the resulting distribution across the test split.
 \centering
 \includegraphics[width=0.92\textwidth]{figures/Chapter3/ch3_fig5_snr_distribution.png}
 \caption[Cell SNR distribution]{Measured cell SNR for every target in the reported holdout of
-Table~ef{tab:splits}. The spread
+Table~\ref{tab:splits}. The spread
 reflects range and target amplitude as well as the configured scene SNR, because propagation is
 applied before the measurement.}
 \label{fig:snrdist}
@@ -332,7 +332,7 @@ condition by condition. This gives a reliable estimate within every scenario of 
 makes the composition of the benchmark an explicit design choice rather than an accident of
 sampling.
 
-One point should be stated plainly to avoid a misreading. Equal strata are \emph{not} a claim about
+One point avoids a misreading. Equal strata are \emph{not} a claim about
 how often these conditions occur in real driving; a road scene does not contain unresolved target
 pairs a seventh of the time. This is a controlled benchmark, built so that each condition can be
 measured reliably, and the per-condition results should be read that way rather than as a
@@ -347,7 +347,7 @@ Table~\ref{tab:strata} lists them, and Figure~\ref{fig:strata} shows one frame f
 \caption{The eight strata. Each is generated in equal quantity. Seven contain targets and are
 scored; \texttt{noise} contains none and supports false-alarm measurement.}
 \label{tab:strata}
-\begin{tabular}{@{}p{2.4cm}p{6.2cm}p{4.3cm}@{}}
+\begin{tabular}{@{}p{2.9cm}p{5.8cm}p{4.2cm}@{}}
 \toprule
 \textbf{Stratum} & \textbf{Content} & \textbf{Purpose} \\
 \midrule
@@ -359,7 +359,7 @@ The masking failure mode of Section~\ref{sec:cfar_failures} \\
 \addlinespace
 \texttt{clutter} & Target inside the zero-Doppler ridge & Detection against heavy-tailed clutter \\
 \addlinespace
-\texttt{clutter\_edge} & Target in clean noise, with the CFAR window reaching into the ridge &
+\texttt{clutter\_edge} & Target in clean noise, CFAR window reaching into the ridge &
 The clutter-edge failure mode. Also the condition in which a published CNN
 \emph{loses}~\cite{yavuz2021radcnn} \\
 \addlinespace
@@ -419,7 +419,7 @@ Its velocity band needed care. The two clutter strata are meant to be different:
 window still overlaps it. The difficulty is that the ridge does not end where its nominal width
 says it does --- the Doppler window spreads its energy outwards, so the region beside it is still
 elevated (still \SI{13.6}{\deci\bel} above the noise floor at \SI{1.68}{\metre\per\second}). The
-usable edge was therefore measured on generated frames rather than assumed. Had the nominal edge
+usable edge was therefore measured on generated frames. Had the nominal edge
 been used, a substantial fraction of \texttt{clutter\_edge} targets would have landed inside the
 residual clutter skirt and the stratum would simply have duplicated \texttt{clutter}.
 
