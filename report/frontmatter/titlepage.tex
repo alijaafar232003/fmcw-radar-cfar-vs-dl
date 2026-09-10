@@ -1,8 +1,8 @@
 % !TEX root = ../main.tex
 %
 % Title page, following the structure of the Lebanese University, Faculty of Engineering (Branch 3)
-% final-year-project cover: crest, academic year, document type, submission statement, major,
-% author, title, supervisor, defence date and jury.
+% final-year-project cover: crest, academic year, document type, major, author, title, supervisor,
+% defence date and jury.
 %
 % The crest is read from report/figures/ul_logo.png. The \IfFileExists guard means a missing asset
 % leaves a marked gap rather than breaking the build.
@@ -10,9 +10,10 @@
 % Line spacing is set to single here only. The document body uses \onehalfspacing, which is right
 % for running text but leaves a cover page loose and over-tall.
 %
-% Vertical budget: the fixed content below is kept comfortably inside the A4 text height so that
-% the single \vfill can pin the jury block to the foot of the page without overflowing onto a
-% second page.
+% Vertical budget: the fixed content below is kept inside the A4 text height so that the single
+% \vfill can pin the jury block to the foot of the page without spilling onto a second page. The
+% gaps are sized so that \vfill absorbs only a small remainder -- if it has to absorb a lot, the
+% page develops a visible void above the jury.
 %
 % ITEMS STILL TO BE COMPLETED BEFORE SUBMISSION are marked [TO BE PROVIDED].
 \begin{titlepage}
@@ -22,39 +23,33 @@
 
 % ---------------------------------------------------------------- institution
 \IfFileExists{figures/ul_logo.png}{%
-  \includegraphics[width=2.6cm]{figures/ul_logo.png}%
+  \includegraphics[width=2.8cm]{figures/ul_logo.png}%
 }{%
-  \framebox[2.6cm]{\rule{0pt}{2.6cm}\small\itshape crest}%
+  \framebox[2.8cm]{\rule{0pt}{2.8cm}\small\itshape crest}%
 }
 
-\vspace{5mm}
+\vspace{6mm}
 {\large Lebanese University\par}
 \vspace{1mm}
 {\large Faculty of Engineering --- Branch 3\par}
 
-\vspace{5mm}
+\vspace{7mm}
 {\large 2025--2026\par}
 
 % ---------------------------------------------------------------- document type
-\vspace{9mm}
+\vspace{11mm}
 {\LARGE\scshape Final Year Project\par}
 
-\vspace{5mm}
-{\normalsize
-Submitted in fulfillment of the requirements for the\\[1pt]
-Engineering Degree from the Lebanese University\\[1pt]
-Faculty of Engineering --- Branch 3\par}
-
-\vspace{5mm}
+\vspace{8mm}
 {\large Major: Electrical and Electronics Engineering\par}
 
-\vspace{7mm}
+\vspace{9mm}
 {\normalsize\itshape Prepared by\par}
 \vspace{1.5mm}
 {\Large Ali Jaafar\par}
 
 % ---------------------------------------------------------------- title
-\vspace{8mm}
+\vspace{10mm}
 {\rule{0.82\textwidth}{0.4pt}\par}
 \vspace{5mm}
 
@@ -66,12 +61,12 @@ Faculty of Engineering --- Branch 3\par}
 {\rule{0.82\textwidth}{0.4pt}\par}
 
 % ---------------------------------------------------------------- supervision
-\vspace{8mm}
+\vspace{10mm}
 {\normalsize\itshape Supervised by\par}
 \vspace{1.5mm}
 {\Large Dr.~Rima Assaf\par}
 
-\vspace{7mm}
+\vspace{9mm}
 {\normalsize Defended on: [TO BE PROVIDED]\par}
 
 \vfill
