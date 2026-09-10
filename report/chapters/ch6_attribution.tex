@@ -210,6 +210,24 @@ different design choices push in the same direction.
 precision (E4).
 \end{itemize}
 
+Figure~\ref{fig:attribsummary} puts the three results side by side.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter6/ch6_fig1_attribution_summary.png}
+\caption[Summary of the three attribution experiments]{Summary of the three attribution experiments
+on the validation split. \textbf{All values are radius-\ProtocolNmsOriginal{} measurements.}
+\textbf{A}: giving CFAR the same integrated mainlobe energy moves $\Pd$ below zero for both kernels,
+so integration does not explain the learned advantage. \textbf{B}: concentrating the supervision
+reduces Doppler localisation error sharply, while detection probability at the primary gate
+(annotated in each bar) barely changes. \textbf{C}: denying the network its guard region helps
+slightly at the $\pm\ProtocolGate$-bin gate and costs a great deal at the exact cell --- the sign
+reverses. The small $\pm\ProtocolGate$-bin effect in panel~C is the one quantity in this chapter
+that the radius audit cannot vouch for, and it is not claimed as confirmed at radius
+\ProtocolNms{}.}
+\label{fig:attribsummary}
+\end{figure}
+
 The explanation these leave standing for the \emph{detection} margin is the learned decision rule
 itself --- the network's ability to weight its receptive field in a way no fixed kernel reproduces
 --- rather than any simple property of what it is given. That is a narrowing, not an identification,
