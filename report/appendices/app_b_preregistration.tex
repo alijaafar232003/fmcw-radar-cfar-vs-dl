@@ -56,6 +56,29 @@ The last two fields are the ones that matter. At the moment of the freeze no det
 any kind had been computed on real data, and no CARRADA label had informed any decision. The
 document was not edited afterwards; the draft it supersedes is retained under its own hash.
 
+\subsection*{Adapter equivalence checks}
+
+Two numerical checks confirm that the frozen detectors receive real data without any preprocessing
+being redesigned, as Section~\ref{sec:r0} states.
+
+\begin{itemize}
+\itemsep2pt
+\item \textbf{CFAR scale invariance.} Scaling the input by factors from $10^{-2}$ to $10^{6}$ left
+the CFAR statistic unchanged to $1.5 \times 10^{-11}$ and produced identical peak sets, confirming
+that the unknown constant relating the published array to absolute power cancels in the ratio test.
+\item \textbf{Network preprocessing.} Feeding $10^{\,D/20}$ to the unmodified frozen preprocessing
+code reproduces the analytic reduction of Equation~\ref{eq:cnn_input} to $2.4 \times 10^{-7}$,
+about two units in the last place of the single-precision output.
+\end{itemize}
+
+\subsection*{Dataset reduction check}
+
+The CARRADA distribution stores every annotation twice: as dense per-frame arrays and as a compact
+coordinate file. Before the redundant arrays were deleted, masks reconstructed from the coordinate
+file were compared against the stored arrays on \textbf{360 sampled frame--annotation-type pairs}
+spanning all \CarradaSequences{} sequences. Every pair was byte-identical, so the reduction
+described in Chapter~\ref{chp:realdata} discards no annotation content.
+
 \subsection*{Isolation manifest}
 
 Before any real data was processed, a manifest recorded the SHA-256 hash, size and protection

@@ -79,6 +79,11 @@ def main():
     macro("RoneCFARGO", f(P["cfar"]["GO"], 4))
     macro("RoneCFARSO", f(P["cfar"]["SO"], 4))
     macro("RoneCFAROS", f(P["cfar"]["OS"], 4))
+    # Two different quantities, and the chapter names both. The pooled difference is the raw
+    # recall gap over all eligible objects; the sequence-balanced paired difference is the
+    # pre-registered inferential estimate, and is what the confidence interval belongs to.
+    macro("RonePooledDelta",
+          "{:+.4f}".format(P["tinycnn_seed_mean"] - P["cfar"]["CA"]))
     macro("RoneDelta", "{:+.4f}".format(BS["mean_delta"]))
     macro("RoneCIlo", "{:+.4f}".format(BS["ci_lo"]))
     macro("RoneCIhi", "{:+.4f}".format(BS["ci_hi"]))
