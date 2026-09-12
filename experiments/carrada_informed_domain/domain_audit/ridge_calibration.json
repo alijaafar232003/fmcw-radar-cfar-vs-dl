@@ -1,0 +1,174 @@
+{
+ "target": {
+  "peak_over_floor_db_median": 23.045033857957495,
+  "peak_over_floor_db_p05": 19.351801714324825,
+  "peak_over_floor_db_p95": 26.439335343730477,
+  "halfpower_bins_median": 1.0,
+  "bins_above_3db_median": 1.0,
+  "fraction_frames_over_10db": 0.9903560830860534
+ },
+ "grid": [
+  {
+   "width_bins": 0,
+   "cnr_db": 0.0,
+   "ridge_peak_over_floor_db": 2.993165646198915,
+   "ridge_bins_above_3db": 0.0,
+   "ridge_halfpower_bins": 32.0,
+   "ridge_floor_power": 10433401.287318435,
+   "db_std": 2.150758512645816,
+   "looks_implied": 4.557196231735155
+  },
+  {
+   "width_bins": 0,
+   "cnr_db": 5.0,
+   "ridge_peak_over_floor_db": 6.179620698828399,
+   "ridge_bins_above_3db": 3.0,
+   "ridge_halfpower_bins": 3.0,
+   "ridge_floor_power": 10433397.644900545,
+   "db_std": 2.150759185602688,
+   "looks_implied": 4.55719366774893
+  },
+  {
+   "width_bins": 0,
+   "cnr_db": 10.0,
+   "ridge_peak_over_floor_db": 10.364337004544172,
+   "ridge_bins_above_3db": 3.0,
+   "ridge_halfpower_bins": 1.0,
+   "ridge_floor_power": 10433391.177011613,
+   "db_std": 2.1507603786775484,
+   "looks_implied": 4.557189122103169
+  },
+  {
+   "width_bins": 0,
+   "cnr_db": 15.0,
+   "ridge_peak_over_floor_db": 15.060521939514508,
+   "ridge_bins_above_3db": 3.0,
+   "ridge_halfpower_bins": 1.0,
+   "ridge_floor_power": 10433379.704858266,
+   "db_std": 2.150762488809729,
+   "looks_implied": 4.557181082463951
+  },
+  {
+   "width_bins": 0,
+   "cnr_db": 20.0,
+   "ridge_peak_over_floor_db": 19.966159406996965,
+   "ridge_bins_above_3db": 5.0,
+   "ridge_halfpower_bins": 1.0,
+   "ridge_floor_power": 10433359.397642234,
+   "db_std": 2.1507662048434892,
+   "looks_implied": 4.557166924369777
+  },
+  {
+   "width_bins": 0,
+   "cnr_db": 25.0,
+   "ridge_peak_over_floor_db": 24.935605228940975,
+   "ridge_bins_above_3db": 5.0,
+   "ridge_halfpower_bins": 1.0,
+   "ridge_floor_power": 10433323.581341684,
+   "db_std": 2.1507726977542774,
+   "looks_implied": 4.557142186545016
+  },
+  {
+   "width_bins": 1,
+   "cnr_db": 0.0,
+   "ridge_peak_over_floor_db": 3.440911828890727,
+   "ridge_bins_above_3db": 2.0,
+   "ridge_halfpower_bins": 5.0,
+   "ridge_floor_power": 10433401.929023039,
+   "db_std": 2.1507597205592344,
+   "looks_implied": 4.557191629549864
+  },
+  {
+   "width_bins": 1,
+   "cnr_db": 5.0,
+   "ridge_peak_over_floor_db": 6.840004595261194,
+   "ridge_bins_above_3db": 3.0,
+   "ridge_halfpower_bins": 3.0,
+   "ridge_floor_power": 10433398.791464891,
+   "db_std": 2.1507613339652063,
+   "looks_implied": 4.557185482438158
+  },
+  {
+   "width_bins": 1,
+   "cnr_db": 10.0,
+   "ridge_peak_over_floor_db": 11.20283592395733,
+   "ridge_bins_above_3db": 5.0,
+   "ridge_halfpower_bins": 3.0,
+   "ridge_floor_power": 10433393.233108021,
+   "db_std": 2.1507642001951304,
+   "looks_implied": 4.557174562073959
+  },
+  {
+   "width_bins": 1,
+   "cnr_db": 15.0,
+   "ridge_peak_over_floor_db": 15.980695824550361,
+   "ridge_bins_above_3db": 5.0,
+   "ridge_halfpower_bins": 3.0,
+   "ridge_floor_power": 10433383.41551476,
+   "db_std": 2.1507692881409906,
+   "looks_implied": 4.557155177057052
+  },
+  {
+   "width_bins": 1,
+   "cnr_db": 20.0,
+   "ridge_peak_over_floor_db": 20.908314167588998,
+   "ridge_bins_above_3db": 5.0,
+   "ridge_halfpower_bins": 3.0,
+   "ridge_floor_power": 10433366.168072637,
+   "db_std": 2.1507783075615716,
+   "looks_implied": 4.557120813501353
+  },
+  {
+   "width_bins": 1,
+   "cnr_db": 25.0,
+   "ridge_peak_over_floor_db": 25.885363493255554,
+   "ridge_bins_above_3db": 7.0,
+   "ridge_halfpower_bins": 3.0,
+   "ridge_floor_power": 10433336.164484564,
+   "db_std": 2.150794257687359,
+   "looks_implied": 4.557060045346019
+  }
+ ],
+ "inverted": {
+  "0": {
+   "cnr_for_median": 23.097804625784306,
+   "cnr_for_p05": 19.37382481202038,
+   "cnr_for_p95": 25.0,
+   "peak_at_cnr_grid": {
+    "5.0": 6.179620698828399,
+    "10.0": 10.364337004544172,
+    "15.0": 15.060521939514508,
+    "20.0": 19.966159406996965,
+    "25.0": 24.935605228940975
+   },
+   "halfpower_at_grid": {
+    "5.0": 3.0,
+    "10.0": 1.0,
+    "15.0": 1.0,
+    "20.0": 1.0,
+    "25.0": 1.0
+   }
+  },
+  "1": {
+   "cnr_for_median": 22.14657274878659,
+   "cnr_for_p05": 18.42062397601968,
+   "cnr_for_p95": 25.0,
+   "peak_at_cnr_grid": {
+    "5.0": 6.840004595261194,
+    "10.0": 11.20283592395733,
+    "15.0": 15.980695824550361,
+    "20.0": 20.908314167588998,
+    "25.0": 25.885363493255554
+   },
+   "halfpower_at_grid": {
+    "5.0": 3.0,
+    "10.0": 3.0,
+    "15.0": 3.0,
+    "20.0": 3.0,
+    "25.0": 3.0
+   }
+  }
+ },
+ "n_frames_per_point": 12,
+ "note": "cnr_db is mean clutter power over the noise floor; peak_over_floor is the measured Doppler-profile peak. This file maps one to the other."
+}

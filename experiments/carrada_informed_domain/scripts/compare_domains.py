@@ -44,9 +44,14 @@ plt.rcParams.update({
 INK, BLUE, RED, GREY, GOLD, GREEN = "#1a1a1a", "#2c6fbb", "#c0392b", "#8a8a8a", "#d19a13", "#2e7d52"
 COLOUR = {"carrada_train": INK, "sim_bench2_train": RED, "sim_bench2_val": "#e08a7a",
           "newsim": BLUE, "newsim_pilot": BLUE}
+# Dataset directory under data/ for each non-"sim_" tag, so the profile sampler can find frames.
+NEWSIM_ROOT = {"newsim_pilot": "carrada_informed_pilot",
+               "newsim_val": "carrada_informed_val",
+               "newsim_train": "carrada_informed_train"}
 LABEL = {"carrada_train": "CARRADA train (real)", "sim_bench2_train": "original simulator",
          "sim_bench2_val": "original simulator (val)", "newsim": "CARRADA-informed simulator",
-         "newsim_pilot": "CARRADA-informed simulator"}
+         "newsim_pilot": "CARRADA-informed simulator", "newsim_val": "CARRADA-informed (val)",
+         "newsim_train": "CARRADA-informed (train)"}
 
 STATS = [
     ("gamma_k_moment", "Gamma shape k (moment)", "higher = smoother"),
@@ -87,7 +92,8 @@ def profiles(tag, n=200, seed=20260912):
             rng_prof.append(_range_profile(p, cells))
     else:
         fdir = (os.path.join(ROOT, "data", tag.replace("sim_", ""), "frames")
-                if tag.startswith("sim_") else os.path.join(EXP, "pilot", "frames"))
+                if tag.startswith("sim_")
+                else os.path.join(ROOT, "data", NEWSIM_ROOT[tag], "frames"))
         names = sorted(os.listdir(fdir))
         pick = [names[i] for i in rng.choice(len(names), size=min(n, len(names)), replace=False)]
         for nm in pick:
