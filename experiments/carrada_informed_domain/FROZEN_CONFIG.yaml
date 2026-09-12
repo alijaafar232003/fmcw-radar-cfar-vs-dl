@@ -1,0 +1,226 @@
+# FROZEN CONFIGURATION — CARRADA-informed synthetic training (follow-up domain intervention)
+#
+# Frozen before the new models were evaluated on CARRADA test. `results/freeze.json` records the
+# SHA-256 of every file listed under `hashed:` below, together with this file and the
+# pre-analysis plan, so the specification cannot drift from what was run.
+#
+# This file supplements `configs/frozen_dl.yaml` and `configs/final_protocol.yaml`; it does not
+# replace either. Everything in those contracts is unchanged except the TRAINING DATA DOMAIN.
+
+meta:
+  experiment: carrada_informed_domain
+  framing: >
+    Post-hoc domain-intervention experiment using synthetic-only model optimisation and
+    target-domain-informed simulator calibration. NOT a new pristine zero-shot external
+    validation: the CARRADA test split had already been read once, for Chapter 7.
+  short_name: CARRADA-informed synthetic training
+  pre_analysis_plan: pre_analysis_plan.md
+  audit_snapshot: AUDIT_SNAPSHOT.json          # Phase 2-3, frozen before the generator existed
+  isolation_manifest: results/isolation_manifest.json
+  supplements:
+    - configs/frozen_dl.yaml
+    - configs/final_protocol.yaml
+
+# ---------------------------------------------------------------------------- data discipline
+data_discipline:
+  carrada_train_used_for: "measuring target-domain background statistics only"
+  carrada_train_sequences: 18
+  carrada_validation_used: false               # untouched, for anything
+  carrada_test_used_before_frozen_evaluation: false
+  real_frames_in_gradient_computation: 0
+  real_frames_in_threshold_calibration: 0
+  fine_tuning: false
+  retraining_of_original_arm: false
+  enforcement: >
+    Every CARRADA read in this experiment goes through a path guard holding the 18 official Train
+    sequence names, which raises on any other sequence; the sequences actually opened are recorded
+    in domain_audit/carrada_train_stats.json. The threshold scripts additionally install a
+    filesystem access audit that aborts on any path containing bench2_test, CARRADA or Carrada.
+
+# ---------------------------------------------------------------------------- the intervention
+intervention:
+  what_changed: "the synthetic TRAINING DOMAIN's background/clutter statistics, and nothing else"
+  parameter_source: domain_audit/train_derived_targets.json
+  components:
+    multi_look:
+      looks: [7, 8]
+      look_weights: [0.5, 0.5]
+      looks_mean: 7.5
+      derivation: "detrended equivalent look number 7.42; per-sequence range 7.08-7.88"
+      mechanism: "incoherent power average of L independent background realisations sharing one
+                  deterministic target field"
+    range_dependence:
+      profile: "measured 256-bin mean background power per range bin, unit mean power, 9-bin
+                smoothed"
+      applied_to: "background only -- never to targets, whose amplitudes come from the frozen
+                   radar equation"
+      measured_span_valid_interior_db: 9.75
+    ridge:
+      width_bins: 0
+      cnr_db: {min: 19.4, max: 26.4}           # maps ~1:1 to peak-over-floor; see ridge_calibration.json
+      distribution: weibull
+      shape: {min: 1.1, max: 2.0}
+      prevalence: 0.990
+  unchanged_generator_components:
+    - radar.simulator.generate_dechirped_cpi
+    - radar.rd_processing.compute_rd_map
+    - "Blackman range and Doppler windows (therefore the target PSF, the measured mainlobe width,
+       the 21x9 receptive-field equality and the guard geometry)"
+    - radar.labels (flat 3x3)
+    - "target placement, counts, separations, amplitude ranges, propagation, the snr_db sweep"
+    - "the 7 training / 8 validation strata and their equal proportions"
+  declared_residuals:
+    - "lag-1 Doppler speckle correlation NOT matched (~0.58 vs ~0.02 within-block): frozen
+       slow-time window, which also defines the target PSF"
+    - "lag-1 range correlation REGRESSES (frame-level error 0.016 -> 0.131): the range profile's
+       common-mode on top of a window-set baseline already above CARRADA's"
+    - "ridge skirt wider than CARRADA's (4.9 vs 1.8 bins above 3 dB) although the core matches
+       (half-power 1.31 vs 1.01 bins)"
+    - "Gamma k overshoots (5.005 vs 3.975) while dB spread matches to 0.023"
+    - "fixed range-localised bright structure and extended target morphology NOT modelled"
+  residuals_recorded_before_training: true     # domain_audit/pilot_validation.md
+
+# ---------------------------------------------------------------------------- datasets
+datasets:
+  train:
+    name: carrada_informed_train
+    config: configs/train.yaml
+    frames: 8400
+    seed: 770001
+  validation:
+    name: carrada_informed_val
+    config: configs/val.yaml
+    frames: 1600
+    seed: 770002
+  pilot:
+    name: carrada_informed_pilot
+    config: configs/pilot.yaml
+    frames: 700
+    seed: 770100
+    role: "Phase 5 domain validation only; never trained on"
+  seed_collision_check: >
+    770001 / 770002 / 770100 are disjoint from every seed already used in the project
+    (92001 bench2_train, 96001 the NMS-audit holdout, 20260831 the R1 bootstrap).
+  save:
+    compact: true
+    preview_png: false
+    complex: false                             # a multi-look magnitude map has no single
+                                               # coherent complex counterpart
+  target_side_equality_asserted: true          # scripts/make_configs.py
+
+# ---------------------------------------------------------------------------- model and training
+model:
+  name: TinyCNN
+  width: 16
+  params: 5041
+  receptive_field: [21, 9]
+  dilations_range: [1, 2, 3, 4]
+  dilations_doppler: [1, 1, 1, 1]
+  downsampling: none
+
+training:
+  epochs: 21
+  patience: null
+  pos_weight: 100.0
+  optimizer: adam
+  lr: 0.001
+  weight_decay: 0.0
+  batch_size: 32
+  loss: BCEWithLogitsLoss
+  label: "3x3 block around each target"        # deliberately NOT Gaussian or point: Chapter 6
+                                               # showed supervision changes localisation, and
+                                               # varying it here would confound the intervention
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7]
+  device: cpu
+  threads: 2                                   # LOAD-BEARING, as in frozen_dl.yaml
+  tag_pattern: ci_s{seed}
+  checkpoint_dir: checkpoints                  # NEVER results/dl
+  save_at: [21]
+  script: scripts_patched/train_tinycnn_ci.py
+  model_selection_from_carrada: false
+  early_stopping: false
+
+# ---------------------------------------------------------------------------- thresholds
+thresholds:
+  rule: >
+    One global threshold per seed from the NEW SYNTHETIC VALIDATION SPLIT ONLY: the lowest score
+    threshold whose pooled measured per-cell Pfa <= 1e-4, pooled over all 8 synthetic conditions,
+    at the +-1 gate, with the frozen valid region.
+  source_split: carrada_informed_val
+  target_pfa: 1.0e-4
+  gate: 1
+  primary: thresholds_r5.json                  # reproduces the Chapter 7 code path exactly
+  sensitivity: thresholds_r2.json              # what the stated rule asks for
+  chapter7_implementation_defect: >
+    dl.infer.predict_points declares nms_size: int = NMS_SIZE and a Python default binds at
+    definition time; dl.infer.NMS_SIZE is 5 and collect_split does not pass nms_size, so
+    collect_split always extracts at radius 5. The NMS audit's copy sets det.NMS_SIZE = 2, which
+    reaches det.tinycnn_peaks but NOT collect_split -- so the thresholds published as radius-2
+    were derived at radius 5, which is why they are byte-identical to the radius-5 set.
+  handling: >
+    The PRIMARY comparison uses the r=5 derivation for the new arm, so that new-versus-original
+    differs in training domain only and not in threshold protocol. The r=2 derivation is produced
+    as a pre-registered sensitivity check and both results are reported. If they disagree on the
+    sign or significance of the primary difference, both are reported and no single headline is
+    claimed. Chapter 7's artefacts are not modified.
+
+# ---------------------------------------------------------------------------- evaluation
+evaluation:
+  split: "CARRADA official test, 6 sequences, 2130 frames"
+  nms_size: 2
+  valid_region: "CFAR-testable interior, margin 10 range / 4 Doppler"
+  truth: "CARRADA dense segmentation support"
+  matching: "one-to-one within the gate"
+  primary_metric: "exact dense-mask object recall"
+  tolerances: [0, 1, 3]
+  burden_metric: "unmatched detections per frame -- NEVER false alarms, NEVER Pfa"
+  range_blocks: [[10, 60], [60, 110], [110, 160], [160, 210], [210, 246]]
+  zero_doppler_band: [28, 37]
+  strata_frozen_before_result: true
+  arms:
+    A: "original TinyCNN, existing frozen 8-seed population, unchanged"
+    B: "CARRADA-informed TinyCNN, new 8-seed population"
+    C: "CA-CFAR, existing frozen classical primary baseline, unchanged"
+  cfar_variant_promotion_after_result: forbidden
+
+statistics:
+  primary: "B - A, paired over the 6 test sequences"
+  resampling_unit: sequence
+  n_bootstrap: 10000
+  ci_level: 0.95
+  seed_variability: "reported separately; NEVER pooled into the sequence CI"
+  forbidden: "treating 8 seeds x 1627 objects as thousands of independent samples"
+
+# ---------------------------------------------------------------------------- protected
+protected:
+  statement: >
+    Chapter 5, Chapter 6 and Chapter 7 results are not modified by this experiment. The original
+    checkpoints in results/dl are read-only and the patched trainer cannot write there.
+  verification: "scripts/isolation.py build (before) / verify (after)"
+  n_files_hashed: 17864
+  sampled_frame_dirs: 5
+  rolling_sha256_at_build: 5c9f293824711f32
+
+hashed:
+  - FROZEN_CONFIG.yaml
+  - pre_analysis_plan.md
+  - AUDIT_SNAPSHOT.json
+  - configs/pilot.yaml
+  - configs/train.yaml
+  - configs/val.yaml
+  - domain_audit/train_derived_targets.json
+  - domain_audit/ridge_calibration.json
+  - domain_audit/carrada_train_stats.json
+  - scripts/audit_domain.py
+  - scripts/carrada_sim.py
+  - scripts/derive_targets.py
+  - scripts/calibrate_ridge.py
+  - scripts/make_configs.py
+  - scripts/gen_dataset.py
+  - scripts/decompose_intervention.py
+  - scripts/compare_domains.py
+  - scripts/isolation.py
+  - scripts/patch_scripts.py
+  - scripts_patched/train_tinycnn_ci.py
+  - scripts_patched/derive_thresholds_ci_r5.py
+  - scripts_patched/derive_thresholds_ci_r2.py

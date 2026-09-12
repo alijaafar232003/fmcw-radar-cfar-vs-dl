@@ -4,3 +4,5 @@ domain_audit/*_blocks.csv
 domain_audit/*_ridge.csv
 logs/
 results/*.log
+checkpoints/
+results/isolation_manifest.json

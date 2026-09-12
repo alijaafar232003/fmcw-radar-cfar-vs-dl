@@ -1,0 +1,38 @@
+{
+ "split": "val",
+ "dataset_name": "carrada_informed_val",
+ "config": "experiments/carrada_informed_domain/configs/val.yaml",
+ "config_sha256": "bdfb778fd62b30ce3405877f4331b98b136c213282450c0b4b676ab497c184ed",
+ "generator_sha256": "6d69be55d440353e81a0b7bcce017441f59302782a7fabd1d85e43a0c20a5ba8",
+ "train_targets_sha256": "a2820d87c93944c7b4826220fd34b65067b93be14fde5c3938a31a3b0e0795da",
+ "domain_config": {
+  "looks": [
+   7,
+   8
+  ],
+  "look_weights": [
+   0.5,
+   0.5
+  ],
+  "looks_mean": 7.5,
+  "ridge_cnr_db": [
+   19.351801714324825,
+   26.439335343730477
+  ],
+  "ridge_width_bins": 0,
+  "ridge_distribution": "weibull",
+  "ridge_shape": [
+   1.1,
+   2.0
+  ],
+  "ridge_prevalence": 0.9903560830860534,
+  "apply_range_profile": true,
+  "range_profile_len": 256
+ },
+ "n_frames": 1600,
+ "runtime_s": 298.4,
+ "carrada_frames_read": 0,
+ "carrada_test_read": false,
+ "carrada_validation_read": false,
+ "note": "Background parameters are CARRADA-TRAIN-derived. No real frame is read by this script; it consumes only the already-frozen train_derived_targets.json."
+}

@@ -1,0 +1,133 @@
+{
+ "what": "Frozen specification of the CARRADA-informed follow-up, hashed before training and before any CARRADA test read.",
+ "frozen_utc": "2026-09-12T17:40:35Z",
+ "frozen_config_sha256": "c6ca7f606ce494c7ad02fd95a4bd48b31ec06e123a6c611974d3a0c3e188595f",
+ "pre_analysis_plan_sha256": "dd783e40f3c85ba727c6b683efeb667c1146856336226e50b12eb381636fc4de",
+ "n_files": 22,
+ "rolling_sha256": "2fe3716f828257ca3d5ff0bb476c59f54c57f29f970973983e3abbe5e694a78d",
+ "files": {
+  "FROZEN_CONFIG.yaml": {
+   "sha256": "c6ca7f606ce494c7ad02fd95a4bd48b31ec06e123a6c611974d3a0c3e188595f",
+   "bytes": 10333
+  },
+  "pre_analysis_plan.md": {
+   "sha256": "dd783e40f3c85ba727c6b683efeb667c1146856336226e50b12eb381636fc4de",
+   "bytes": 11030
+  },
+  "AUDIT_SNAPSHOT.json": {
+   "sha256": "2c43a232ed2ac5603391ec612ee4cdd4b30e09e0f4f720160ae1a2fa5ca58aec",
+   "bytes": 4881
+  },
+  "configs/pilot.yaml": {
+   "sha256": "852aed8dec3c87b78511ebfb3aebe8cdd59a2505b75b0645aff113fbc2aa1c8d",
+   "bytes": 4242
+  },
+  "configs/train.yaml": {
+   "sha256": "48914796b717ce8fc2ba2a97d70168dad49abdc4e4a4994509962a21f5fefc64",
+   "bytes": 4243
+  },
+  "configs/val.yaml": {
+   "sha256": "bdfb778fd62b30ce3405877f4331b98b136c213282450c0b4b676ab497c184ed",
+   "bytes": 4648
+  },
+  "domain_audit/train_derived_targets.json": {
+   "sha256": "a2820d87c93944c7b4826220fd34b65067b93be14fde5c3938a31a3b0e0795da",
+   "bytes": 11134
+  },
+  "domain_audit/ridge_calibration.json": {
+   "sha256": "8325340447627028c0e1d16d405d3f33c6b664d6762448c6c5a983795a1299c6",
+   "bytes": 4818
+  },
+  "domain_audit/carrada_train_stats.json": {
+   "sha256": "b27b5e2c26cc351b77b3048e5523aeb437debd98d1584c34d1592ba26696ec2d",
+   "bytes": 22950
+  },
+  "scripts/audit_domain.py": {
+   "sha256": "4123d39fb7f42933ff6233580e0138411b60ffe4010ecedf2df2188357d8733c",
+   "bytes": 15455
+  },
+  "scripts/carrada_sim.py": {
+   "sha256": "6d69be55d440353e81a0b7bcce017441f59302782a7fabd1d85e43a0c20a5ba8",
+   "bytes": 13117
+  },
+  "scripts/derive_targets.py": {
+   "sha256": "cf2cafcc0979d452e7e62252b958df36dc11e9296072c17fb7b1d892bf2d40f5",
+   "bytes": 11444
+  },
+  "scripts/calibrate_ridge.py": {
+   "sha256": "0e90cdbf58ea0b4ef94d844399f5a7d76379bd4fcf2c5a314d2061ee9b7cf6d2",
+   "bytes": 7367
+  },
+  "scripts/make_configs.py": {
+   "sha256": "c9eae11e9bcf35f43a34080bb330d5bc4ed8561650e1d7d53d9eae1a17bb6637",
+   "bytes": 4663
+  },
+  "scripts/gen_dataset.py": {
+   "sha256": "2d880b1ac80f4ad59fd492e1e68c8eb97cfb1afd554eb5ac7e044435952aee07",
+   "bytes": 4168
+  },
+  "scripts/decompose_intervention.py": {
+   "sha256": "15313fb07f974ef28df58371f33a1ff1bcfc957dfa843e7dd7d08828ce7906b1",
+   "bytes": 7585
+  },
+  "scripts/compare_domains.py": {
+   "sha256": "2ae96f12ce6c81b465924bebaf5c3dc9d61dc358cb6c7a6ed69a9850678493c9",
+   "bytes": 14947
+  },
+  "scripts/isolation.py": {
+   "sha256": "0426f3e4e7406d28432bc54776294fd26ea821a8e315f2fc90927684f06eea00",
+   "bytes": 8263
+  },
+  "scripts/patch_scripts.py": {
+   "sha256": "a1ad2fdd0d0dfad1da5ec66a6930087214ca921f90439c8b04260006363fab2e",
+   "bytes": 12007
+  },
+  "scripts_patched/train_tinycnn_ci.py": {
+   "sha256": "fb1180dc14564204520a92c3bfd0ad78b8b1c3cb5415d920bfe9ad2e99e358c1",
+   "bytes": 14246
+  },
+  "scripts_patched/derive_thresholds_ci_r5.py": {
+   "sha256": "eca5daf23a0402754fbd002b322b8062dff307bcac4f39f24d0084b841a280ec",
+   "bytes": 9801
+  },
+  "scripts_patched/derive_thresholds_ci_r2.py": {
+   "sha256": "1e7d3699015378451ce7f81c53b04b47a675ff17eff0d16d5e26a6a038e555b6",
+   "bytes": 9801
+  }
+ },
+ "datasets": {
+  "carrada_informed_train": {
+   "present": true,
+   "n_frames": 8400,
+   "provenance": {
+    "dataset_config_used.yaml": "48914796b717ce8fc2ba2a97d70168dad49abdc4e4a4994509962a21f5fefc64",
+    "radar_config_used.json": "28c89083a84d768b9f6a3d82144d152d0023f4c749c511febf539e0da56f11a7",
+    "metadata.csv": "4a2ae5b9ef3a635113fffd9fb7c166daf7caf6a54a68d326aff3afd85d6173d5"
+   },
+   "fingerprint": "41a69d52ef5e8863e3cb9e3966fc316111a6ba58a0b1106387f530fd01a16d88"
+  },
+  "carrada_informed_val": {
+   "present": true,
+   "n_frames": 1600,
+   "provenance": {
+    "dataset_config_used.yaml": "bdfb778fd62b30ce3405877f4331b98b136c213282450c0b4b676ab497c184ed",
+    "radar_config_used.json": "28c89083a84d768b9f6a3d82144d152d0023f4c749c511febf539e0da56f11a7",
+    "metadata.csv": "d3f90ba6f8e88e277d1d2462b4dff25ca75ebaee0bb061c580c458176c3ce8ea"
+   },
+   "fingerprint": "c2675b8aeafc4da97f06c5929d2490db4d84a7f265d8b702692e31f6872f43b3"
+  },
+  "carrada_informed_pilot": {
+   "present": true,
+   "n_frames": 700,
+   "provenance": {
+    "dataset_config_used.yaml": "852aed8dec3c87b78511ebfb3aebe8cdd59a2505b75b0645aff113fbc2aa1c8d",
+    "radar_config_used.json": "28c89083a84d768b9f6a3d82144d152d0023f4c749c511febf539e0da56f11a7",
+    "metadata.csv": "392986cf9d752e6a357d7d0a1b555451f63c25ee59077a9df3dc6861cd45489b"
+   },
+   "fingerprint": "83539e0a2417d4986f2f57b098326e6d84e3df14de9bddd88a6501b44f5243da"
+  }
+ },
+ "carrada_test_read_before_freeze": false,
+ "carrada_validation_read": false,
+ "models_trained_before_freeze": 0
+}

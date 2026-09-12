@@ -1,0 +1,34 @@
+{
+  "shapes": [
+    [
+      1,
+      256,
+      64
+    ],
+    [
+      1,
+      256,
+      64
+    ]
+  ],
+  "finite": true,
+  "median": -4.356033286967431e-06,
+  "cache_matches_raw": true,
+  "orientation_gap_db": 11.366171966109311,
+  "receptive_field": [
+    21,
+    9
+  ],
+  "params": 5041,
+  "overfit": {
+    "loss_first": 0.7465123534202576,
+    "loss_last": 0.00019635567150544375,
+    "reduction": 3801.837490594517,
+    "n_blobs": 14,
+    "peaks_within_1_bin": 14
+  },
+  "measured_pos_weight_new_domain": 942.899424499863,
+  "pos_weight_used": 100.0,
+  "train_frames": 8400,
+  "val_frames": 1600
+}

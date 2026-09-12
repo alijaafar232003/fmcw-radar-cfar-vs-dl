@@ -1,0 +1,158 @@
+{
+ "generated_utc": "2026-09-12T17:37:38Z",
+ "copies": [
+  {
+   "file": "scripts_patched/train_tinycnn_ci.py",
+   "source": "scripts/train_tinycnn.py",
+   "source_sha256": "229c77147edc290aea9577d1b44dec37d6b4efec3e78092cf5620611ab7e653b",
+   "patched_sha256": "fb1180dc14564204520a92c3bfd0ad78b8b1c3cb5415d920bfe9ad2e99e358c1",
+   "radius": null,
+   "substitutions": [
+    {
+     "label": "ROOT pin",
+     "old": "ROOT = Path(__file__).resolve().parents[1]",
+     "new": "ROOT = Path(r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations\")   # CI PATCH: pinned; this copy is two levels deeper",
+     "count": 1
+    },
+    {
+     "label": "train split",
+     "old": "\"bench2_train\"",
+     "new": "\"carrada_informed_train\"",
+     "count": 4
+    },
+    {
+     "label": "val split",
+     "old": "\"bench2_val\"",
+     "new": "\"carrada_informed_val\"",
+     "count": 3
+    },
+    {
+     "label": "output dir",
+     "old": "out_dir = ROOT / \"results\" / \"dl\"",
+     "new": "out_dir = Path(r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations/experiments/carrada_informed_domain/checkpoints\")   # CI PATCH: never results/dl",
+     "count": 1
+    },
+    {
+     "label": "docstring",
+     "old": "Train the detector on `bench2_train`, validating on all of `bench2_val`.",
+     "new": "Train the detector on `carrada_informed_train`, validating on all of `carrada_informed_val`.",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "file": "scripts_patched/derive_thresholds_ci_r5.py",
+   "source": "experiments/r_carrada_real_data_validation/scripts/derive_tinycnn_thresholds.py",
+   "source_sha256": "492d5531ee5eb23d781f8a1618dd690976b12a182e014fe9b11e4e71799b4ced",
+   "patched_sha256": "eca5daf23a0402754fbd002b322b8062dff307bcac4f39f24d0084b841a280ec",
+   "radius": 5,
+   "substitutions": [
+    {
+     "label": "ROOT/EXP pin",
+     "old": "HERE = os.path.dirname(os.path.abspath(__file__))\nEXP = os.path.dirname(HERE)\nROOT = os.path.dirname(os.path.dirname(EXP))",
+     "new": "HERE = os.path.dirname(os.path.abspath(__file__))\nROOT = r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations\"          # CI PATCH: pinned\nEXP = os.path.join(ROOT, \"experiments\", \"r_carrada_real_data_validation\")   # read-only: detectors.py and src/ come from the original experiment",
+     "count": 1
+    },
+    {
+     "label": "split + explicit radius",
+     "old": "SPLIT = \"bench2_val\"          # the ONLY dataset this script may read",
+     "new": "SPLIT = \"carrada_informed_val\"   # the ONLY dataset this script may read\nNMS = 5                       # CI PATCH: explicit, see patch_scripts.py",
+     "count": 1
+    },
+    {
+     "label": "output path",
+     "old": "OUT = os.path.join(EXP, \"configs\", \"tinycnn_zero_shot_thresholds.json\")",
+     "new": "OUT = os.path.join(r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations/experiments/carrada_informed_domain/configs\", \"thresholds_r5.json\")",
+     "count": 1
+    },
+    {
+     "label": "checkpoint + explicit collect_split",
+     "old": "import detectors as det  # noqa: E402",
+     "new": "import detectors as det  # noqa: E402\n\n# ---------------- CI PATCH: this experiment's checkpoints, and an EXPLICIT radius.\n# `collect_split` calls `predict_points` without nms_size, and that default was bound\n# to dl.infer.NMS_SIZE (=5) when the function was defined, so setting det.NMS_SIZE\n# does NOT reach it. The radius is therefore threaded through a local re-implementation\n# of collect_split that differs from the original in exactly one argument.\n_CI_CKPT = r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations/experiments/carrada_informed_domain/checkpoints\"\ndet.NMS_SIZE = NMS_PLACEHOLDER\ndet.checkpoint_path = lambda seed: os.path.join(\n    _CI_CKPT, \"tinycnn_ci_s{}_ep021.pt\".format(seed))\n\nimport numpy as _np  # noqa: E402\nimport pandas as _pd  # noqa: E402\nfrom dl.dataset import RDDataset as _RDDataset  # noqa: E402\nfrom dl.infer import cfar_valid_mask as _valid_mask, predict_points as _pp  # noqa: E402\n\n\ndef _collect_split_at(model, split, nms_size, device=\"cpu\"):\n    \"\"\"`dl.infer.collect_split`, with nms_size passed through instead of defaulted.\"\"\"\n    ds = _RDDataset(split)\n    frames, snrs = [], []\n    for fd in ds.frame_dirs:\n        mag = _np.load(fd / \"rd_map_mag.npy\")\n        lab = _pd.read_csv(fd / \"labels.csv\")\n        truths = (lab[[\"range_bin\", \"velocity_bin\"]].to_numpy() if len(lab)\n                  else _np.zeros((0, 2)))\n        valid = _valid_mask(mag.shape)\n        points = _pp(model, mag, valid=valid, nms_size=nms_size, device=device)\n        frames.append((points, truths, mag.shape, valid))\n        snrs.append(lab[\"cell_snr_db\"].to_numpy() if len(lab) else _np.zeros(0))\n    return frames, snrs\n",
+     "count": 1
+    },
+    {
+     "label": "use explicit collector",
+     "old": "    frames, _ = collect_split(model, SPLIT)      # all 1600 frames = all 8 conditions, pooled",
+     "new": "    frames, _ = _collect_split_at(model, SPLIT, NMS)   # all 1600 frames, pooled, radius NMS",
+     "count": 1
+    },
+    {
+     "label": "rule string radius",
+     "old": "\"using frozen candidate extraction, frozen NMS radius 5 and the frozen valid \"",
+     "new": "\"using frozen candidate extraction, NMS radius {} and the frozen valid \".format(NMS) +\n                 \"\", ",
+     "count": 1
+    },
+    {
+     "label": "docstring radius",
+     "old": "is <= 1e-4, using the frozen candidate extraction, frozen NMS radius 5, and the frozen valid",
+     "new": "is <= 1e-4, using the frozen candidate extraction, NMS radius 5 (passed explicitly, not defaulted), and the frozen valid",
+     "count": 1
+    },
+    {
+     "label": "docstring split",
+     "old": "PREREGISTRATION \u00a78.1, final ruling 1: one threshold per frozen seed, from `bench2_val` only,",
+     "new": "Chapter 7 rule, applied to the CARRADA-INFORMED arm: one threshold per seed, from `carrada_informed_val` only,",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "file": "scripts_patched/derive_thresholds_ci_r2.py",
+   "source": "experiments/r_carrada_real_data_validation/scripts/derive_tinycnn_thresholds.py",
+   "source_sha256": "492d5531ee5eb23d781f8a1618dd690976b12a182e014fe9b11e4e71799b4ced",
+   "patched_sha256": "1e7d3699015378451ce7f81c53b04b47a675ff17eff0d16d5e26a6a038e555b6",
+   "radius": 2,
+   "substitutions": [
+    {
+     "label": "ROOT/EXP pin",
+     "old": "HERE = os.path.dirname(os.path.abspath(__file__))\nEXP = os.path.dirname(HERE)\nROOT = os.path.dirname(os.path.dirname(EXP))",
+     "new": "HERE = os.path.dirname(os.path.abspath(__file__))\nROOT = r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations\"          # CI PATCH: pinned\nEXP = os.path.join(ROOT, \"experiments\", \"r_carrada_real_data_validation\")   # read-only: detectors.py and src/ come from the original experiment",
+     "count": 1
+    },
+    {
+     "label": "split + explicit radius",
+     "old": "SPLIT = \"bench2_val\"          # the ONLY dataset this script may read",
+     "new": "SPLIT = \"carrada_informed_val\"   # the ONLY dataset this script may read\nNMS = 2                       # CI PATCH: explicit, see patch_scripts.py",
+     "count": 1
+    },
+    {
+     "label": "output path",
+     "old": "OUT = os.path.join(EXP, \"configs\", \"tinycnn_zero_shot_thresholds.json\")",
+     "new": "OUT = os.path.join(r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations/experiments/carrada_informed_domain/configs\", \"thresholds_r2.json\")",
+     "count": 1
+    },
+    {
+     "label": "checkpoint + explicit collect_split",
+     "old": "import detectors as det  # noqa: E402",
+     "new": "import detectors as det  # noqa: E402\n\n# ---------------- CI PATCH: this experiment's checkpoints, and an EXPLICIT radius.\n# `collect_split` calls `predict_points` without nms_size, and that default was bound\n# to dl.infer.NMS_SIZE (=5) when the function was defined, so setting det.NMS_SIZE\n# does NOT reach it. The radius is therefore threaded through a local re-implementation\n# of collect_split that differs from the original in exactly one argument.\n_CI_CKPT = r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations/experiments/carrada_informed_domain/checkpoints\"\ndet.NMS_SIZE = NMS_PLACEHOLDER\ndet.checkpoint_path = lambda seed: os.path.join(\n    _CI_CKPT, \"tinycnn_ci_s{}_ep021.pt\".format(seed))\n\nimport numpy as _np  # noqa: E402\nimport pandas as _pd  # noqa: E402\nfrom dl.dataset import RDDataset as _RDDataset  # noqa: E402\nfrom dl.infer import cfar_valid_mask as _valid_mask, predict_points as _pp  # noqa: E402\n\n\ndef _collect_split_at(model, split, nms_size, device=\"cpu\"):\n    \"\"\"`dl.infer.collect_split`, with nms_size passed through instead of defaulted.\"\"\"\n    ds = _RDDataset(split)\n    frames, snrs = [], []\n    for fd in ds.frame_dirs:\n        mag = _np.load(fd / \"rd_map_mag.npy\")\n        lab = _pd.read_csv(fd / \"labels.csv\")\n        truths = (lab[[\"range_bin\", \"velocity_bin\"]].to_numpy() if len(lab)\n                  else _np.zeros((0, 2)))\n        valid = _valid_mask(mag.shape)\n        points = _pp(model, mag, valid=valid, nms_size=nms_size, device=device)\n        frames.append((points, truths, mag.shape, valid))\n        snrs.append(lab[\"cell_snr_db\"].to_numpy() if len(lab) else _np.zeros(0))\n    return frames, snrs\n",
+     "count": 1
+    },
+    {
+     "label": "use explicit collector",
+     "old": "    frames, _ = collect_split(model, SPLIT)      # all 1600 frames = all 8 conditions, pooled",
+     "new": "    frames, _ = _collect_split_at(model, SPLIT, NMS)   # all 1600 frames, pooled, radius NMS",
+     "count": 1
+    },
+    {
+     "label": "rule string radius",
+     "old": "\"using frozen candidate extraction, frozen NMS radius 5 and the frozen valid \"",
+     "new": "\"using frozen candidate extraction, NMS radius {} and the frozen valid \".format(NMS) +\n                 \"\", ",
+     "count": 1
+    },
+    {
+     "label": "docstring radius",
+     "old": "is <= 1e-4, using the frozen candidate extraction, frozen NMS radius 5, and the frozen valid",
+     "new": "is <= 1e-4, using the frozen candidate extraction, NMS radius 2 (passed explicitly, not defaulted), and the frozen valid",
+     "count": 1
+    },
+    {
+     "label": "docstring split",
+     "old": "PREREGISTRATION \u00a78.1, final ruling 1: one threshold per frozen seed, from `bench2_val` only,",
+     "new": "Chapter 7 rule, applied to the CARRADA-INFORMED arm: one threshold per seed, from `carrada_informed_val` only,",
+     "count": 1
+    }
+   ]
+  }
+ ]
+}
