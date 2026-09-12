@@ -14,12 +14,11 @@ This chapter therefore states the candidate explanations and pairs each with an 
 of disproving it. Three were run. Each was pre-registered in its own directory before any result
 existed, each is isolated from the frozen artefacts, and none of them touched the held-out split.
 
-\textbf{A note on scope that applies to the whole chapter.} These three experiments were carried out
-before the post-processing revision of Appendix~\ref{app:prereg}, and they were scored at the
-superseded suppression radius of \ProtocolNmsOriginal{}. They have not been re-scored at the final
-radius. They are reported here as they were measured, and every result below should be read as a
-radius-\ProtocolNmsOriginal{} measurement on the validation split. Section~\ref{sec:attrib_scope}
-states what that does and does not permit.
+\textbf{A note on scope that applies to the whole chapter.} All three attribution experiments are
+reported under the final radius-\ProtocolNms{} post-processing protocol of
+Appendix~\ref{app:prereg}. They use the validation split only, and they do not alter the frozen
+benchmark of Chapter~\ref{chp:synthetic}. Section~\ref{sec:attrib_scope} states what that does and
+does not permit.
 
 \section{Motivation}
 
@@ -59,8 +58,7 @@ region, where it cannot contaminate the reference ring.
 \begin{table}[H]
 \centering
 \caption{Effect of replacing CFAR's single-cell test statistic with an integrated one, at matched
-measured $\Pfa$ on the validation split. Negative values mean integration lost.
-\textbf{Radius-\ProtocolNmsOriginal{} measurement.}}
+measured $\Pfa$ on the validation split. Negative values mean integration lost.}
 \label{tab:e2}
 \begin{tabular}{@{}lccc@{}}
 \toprule
@@ -107,8 +105,7 @@ arm}, so any difference between arms is attributable to the label alone.
 \begin{table}[H]
 \centering
 \caption{Label ablation, pooled over conditions on the validation split at epoch~\TinyEpochs{}.
-$\Pd$ and Doppler error are at the primary gate; the last column is exact-cell $\Pd$.
-\textbf{Radius-\ProtocolNmsOriginal{} measurement.}}
+$\Pd$ and Doppler error are at the primary gate; the last column is exact-cell $\Pd$.}
 \label{tab:e3}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
@@ -136,16 +133,19 @@ hold, so flat supervision does not merely cap exact-cell accuracy; more training
 \textbf{What it supports.} \textbf{Most of the frozen arm's localisation deficit is attributable to
 the supervision, and is largely removable.} Concentrating the label reduces Doppler error from
 \EthreeFlatDv{} bins to \EthreeGaussDv{} (weighted) and \EthreePointDv{} (point), while the weighted
-label costs \EthreeGaussDeltaPd{} in detection --- within seed noise. That converts a limitation of
+label moves detection by \EthreeGaussDeltaPd{} --- within seed noise. That converts a limitation of
 the benchmark configuration into a design choice with a measured alternative, and it retires two
 competing explanations: the deficit is not the network's capacity, and not the matching gate.
 
 \textbf{Caveat.} The point label was pre-registered as likely to train poorly at its extreme class
 imbalance, which would have vindicated the $3\times3$ choice. It trained stably on all
 \TinySeeds{} seeds and localised best, so that prediction failed. The $3\times3$ label's only
-advantage is \EthreePointDeltaPd{} of $\Pd$ over the point label at the primary gate, concentrated
-in the clutter-bearing conditions where sparser supervision gives less gradient signal. The weighted
-label avoids even that cost, and is the better choice on this evidence.
+advantage is \EthreePointPdGap{} of $\Pd$ at the primary gate, and even that is not uniform: the
+point label is significantly worse on \EthreePointWorseConds{} of \EthreeConds{} conditions, all of
+them clutter-bearing, where sparser supervision gives less gradient signal --- but significantly
+\emph{better} on \EthreePointBetterConds{}, the two resolution-limited conditions, where a response
+concentrated on one cell is what separates two targets that a broader one merges. The weighted label
+avoids the cost without incurring either, and is the better choice on this evidence.
 
 \section{Guard-masked patch network: is it information access?}
 
@@ -163,8 +163,7 @@ and cancel.
 \begin{table}[H]
 \centering
 \caption{Effect of denying the network its guard cells, on the validation split.
-$\Delta\Pd$ is unmasked minus masked, so a positive value means guard access helped.
-\textbf{Radius-\ProtocolNmsOriginal{} measurement.}}
+$\Delta\Pd$ is unmasked minus masked, so a positive value means guard access helped.}
 \label{tab:e4}
 \begin{tabular}{@{}lccc@{}}
 \toprule
@@ -178,9 +177,11 @@ Exact cell                       & \EfourDeltaZero & negative \EfourNZero{} of \
 \end{tabular}
 \end{table}
 
-At the primary gate guard access contributes, but the effect is small: removing those cells costs
-about one and a half percentage points of $\Pd$. At the exact-cell gate the sign reverses on every
-condition and the effect is far larger --- on isolated targets the masked model reaches
+At the primary gate guard access contributes, but the effect is small and not uniform: removing
+those cells costs under two percentage points of $\Pd$ on average, the sign is positive on
+\EfourPosOne{} of \EfourNOne{} conditions rather than all of them, and only \EfourSigOne{} reach
+significance. At the exact-cell gate the sign reverses on every condition and the effect is far
+larger --- on isolated targets the masked model reaches
 \EfourIsoMasked{} against the unmasked model's \EfourIsoUnmasked{}, nearly double. Mainlobe energy
 in the guard cells makes the network's response \emph{broad}: broad enough to match within one bin,
 not sharp enough to identify the peak. Deny those cells and the response sharpens.
@@ -216,15 +217,13 @@ Figure~\ref{fig:attribsummary} puts the three results side by side.
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter6/ch6_fig1_attribution_summary.png}
 \caption[Summary of the three attribution experiments]{Summary of the three attribution experiments
-on the validation split. \textbf{All values are radius-\ProtocolNmsOriginal{} measurements.}
+on the validation split under the final radius-\ProtocolNms{} post-processing protocol.
 \textbf{A}: giving CFAR the same integrated mainlobe energy moves $\Pd$ below zero for both kernels,
 so integration does not explain the learned advantage. \textbf{B}: concentrating the supervision
 reduces Doppler localisation error sharply, while detection probability at the primary gate
 (annotated in each bar) barely changes. \textbf{C}: denying the network its guard region helps
 slightly at the $\pm\ProtocolGate$-bin gate and costs a great deal at the exact cell --- the sign
-reverses. The small $\pm\ProtocolGate$-bin effect in panel~C is the one quantity in this chapter
-that the radius audit cannot vouch for, and it is not claimed as confirmed at radius
-\ProtocolNms{}.}
+reverses between the two gates, which is the finding.}
 \label{fig:attribsummary}
 \end{figure}
 
@@ -250,19 +249,18 @@ guard-region access was measured.
 Two limits bound everything in this chapter.
 
 \textbf{Validation split only.} No experiment here touched the held-out data, so none of these
-results changes any number in Chapter~\ref{chp:synthetic}. They explain that benchmark; they do not
-extend it.
+results changes any number in Chapter~\ref{chp:synthetic}. \textbf{This chapter explains that
+benchmark; it does not replace it.}
 
-\textbf{Superseded suppression radius.} All three were scored at radius
-\ProtocolNmsOriginal{}, before the revision of Appendix~\ref{app:prereg}, and none was re-scored at
-radius \ProtocolNms{}. The audit that motivated that revision found the radius to matter little for
-\emph{differences} measured on synthetic point targets, which is what every comparison in this
-chapter is --- but that was measured for the CFAR-versus-network contrast, not for these three, and
-it is not evidence about them. The effects reported here at the exact-cell gate are one to two
-orders of magnitude larger than any protocol effect that audit measured, so those conclusions are
-not in doubt. \textbf{The smaller tolerant-gate effects --- E4's \EfourDeltaOne{} in particular ---
-are not confirmed at the final radius}, and are reported as radius-\ProtocolNmsOriginal{}
-measurements. Re-scoring them remains outstanding work.
+\textbf{Interventions, not a general mechanism.} Each experiment removes or substitutes one thing
+and reports what that costs. That is enough to eliminate a candidate explanation and enough to
+locate a design choice, but it does not add up to a complete account of why the learned detector
+behaves as it does, and no such account is claimed.
+
+All three experiments are reported at the final suppression radius of \ProtocolNms{}. They were
+first analysed at the superseded radius \ProtocolNmsOriginal{} and re-scored from the same frozen
+checkpoints before submission, with no model retrained;
+Appendix~\ref{app:attribrescore} records what that involved and what it did not change.
 
 Chapter~\ref{chp:realdata} now asks whether any of this survives contact with real radar
 measurements.

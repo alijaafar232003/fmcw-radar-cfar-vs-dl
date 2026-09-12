@@ -1,0 +1,24 @@
+  gate 0 clutter done
+  gate 0 clutter_edge done
+  gate 0 isolated done
+  gate 0 masking done
+  gate 0 mixed done
+  gate 0 multi done
+  gate 0 unresolved done
+  gate 1 clutter done
+  gate 1 clutter_edge done
+  gate 1 isolated done
+  gate 1 masking done
+  gate 1 mixed done
+  gate 1 multi done
+  gate 1 unresolved done
+  gate 3 clutter done
+  gate 3 clutter_edge done
+  gate 3 isolated done
+  gate 3 masking done
+  gate 3 mixed done
+  gate 3 multi done
+  gate 3 unresolved done
+
+gate +/-1: mean dPd +0.0173, positive on 6/7, significant on 3/7
+wrote C:\Users\USER\Desktop\Radar-fyp\My work\Simulations\experiments\e6_nms_audit\results\p10_attribution\e4

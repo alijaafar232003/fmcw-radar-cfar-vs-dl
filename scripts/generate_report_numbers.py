@@ -471,14 +471,18 @@ def main():
         pass
 
     # ---------------------------------------------------------------- Chapter 6: attribution
-    # E2, E3 and E4 were run at the superseded suppression radius and are NOT re-scored here.
-    # Every value below is read from the original experiment's own artefacts, unchanged.
-    ICF = os.path.join(ROOT, "experiments", "integrated_cfar", "results")
-    LAB = os.path.join(ROOT, "experiments", "label_ablation", "results")
-    E4R = os.path.join(ROOT, "experiments", "e4_cut_guard_mask", "results")
+    # E2, E3 and E4 were first analysed at the superseded suppression radius. They were re-scored
+    # at the final radius before submission, from the SAME frozen checkpoints -- no model was
+    # retrained -- and every value below is read from those radius-2 artefacts. The originals keep
+    # their radius-5 values in `experiments/{integrated_cfar,label_ablation,e4_cut_guard_mask}/`
+    # and are not read here; Appendix B records the revision.
+    ATT = os.path.join(E6, "results", "p10_attribution")
+    ICF = os.path.join(ATT, "e2")
+    LAB = os.path.join(ATT, "e3")
+    E4R = os.path.join(ATT, "e4")
 
     lines.append("")
-    lines.append("% ---------- E2: integrated CFAR (bench2_val, radius 5) ----------")
+    lines.append("% ---------- E2: integrated CFAR (bench2_val, radius 2) ----------")
     cap = pd.read_csv(os.path.join(ICF, "psf_energy_capture.csv")).set_index("region")
     for reg, nm in (("1x1", "One"), ("3x3", "Three"), ("5x5", "Five")):
         macro("EtwoCap" + nm, pct(cap.loc[reg, "energy_fraction"], 1))
@@ -498,7 +502,7 @@ def main():
         macro("EtwoDvRatio" + nm, "{:.2f}".format(l2[l2.arm == arm].dv_bins.mean() / base))
 
     lines.append("")
-    lines.append("% ---------- E3: label ablation (bench2_val, radius 5) ----------")
+    lines.append("% ---------- E3: label ablation (bench2_val, radius 2) ----------")
     ec = pd.read_csv(os.path.join(LAB, "epoch_curve.csv"))
     arms = (("flat3x3", "Flat"), ("gaussian", "Gauss"), ("point", "Point"))
     g1 = ec[(ec.gate == 1) & (ec.epoch == 21)].set_index("arm")
@@ -515,9 +519,19 @@ def main():
               "{:+.4f}".format(g1.loc[arm, "pd"] - g1.loc["flat3x3", "pd"]))
     macro("EthreeFlatDvRatio",
           "{:.2f}".format(g1.loc["flat3x3", "dv_bins"] / g1.loc["point", "dv_bins"]))
+    # The point label's primary-gate cost, as a magnitude, so the prose can say "costs X" without
+    # a sign that contradicts the verb. Its per-condition breakdown is not one-sided: the deficit
+    # sits in the clutter-bearing conditions, and the point label significantly WINS on the two
+    # resolution-limited ones, so both counts are reported.
+    d3 = pd.read_csv(os.path.join(LAB, "deltas.csv"))
+    p3 = d3[(d3.gate == 1) & (d3.arm == "point")]
+    macro("EthreePointPdGap", f(abs(g1.loc["point", "pd"] - g1.loc["flat3x3", "pd"]), 4))
+    macro("EthreePointWorseConds", int(((p3.delta < 0) & p3.sig).sum()))
+    macro("EthreePointBetterConds", int(((p3.delta > 0) & p3.sig).sum()))
+    macro("EthreeConds", int(len(p3)))
 
     lines.append("")
-    lines.append("% ---------- E4: guard-masked patch network (bench2_val, radius 5) ----------")
+    lines.append("% ---------- E4: guard-masked patch network (bench2_val, radius 2) ----------")
     d4 = pd.read_csv(os.path.join(E4R, "deltas.csv"))
     for gt, nm in ((1, "One"), (0, "Zero")):
         x = d4[d4.gate == gt]

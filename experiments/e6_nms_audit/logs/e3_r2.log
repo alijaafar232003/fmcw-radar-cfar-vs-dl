@@ -1,0 +1,22 @@
+==============================================================================
+E3 LABEL ABLATION - radius 2 on bench2_val
+==============================================================================
+stage 1: 0 checkpoints to score at radius 2 (96 already cached)
+fast_eval verified bit-identical to evaluate_frame on 112 frame-threshold pairs
+
+stage 2: pooled Pd + localisation vs epoch (7 workers)
+    6.8 min
+
+stage 3: epoch 21 per condition
+    2.3 min
+
+stage 4: paired bootstrap vs flat3x3
+
+stage 5: CFAR localisation reference (radius-matched)
+    0.8 min
+
+  flat3x3    dv 0.3946   Pd(+/-1) 0.5949   Pd(exact) 0.1932
+  gaussian   dv 0.1719   Pd(+/-1) 0.5982   Pd(exact) 0.3376
+  point      dv 0.1116   Pd(+/-1) 0.5899   Pd(exact) 0.4018
+
+inference 0.0 min, total 10.0 min -> C:\Users\USER\Desktop\Radar-fyp\My work\Simulations\experiments\e6_nms_audit\results\p10_attribution\e3

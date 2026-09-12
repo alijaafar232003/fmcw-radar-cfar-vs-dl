@@ -1,0 +1,24 @@
+==============================================================================
+E2 INTEGRATED CFAR - analysis at radius 2 on bench2_val
+==============================================================================
+loaded 8 integrated arms, 4 CFAR baselines, 8 DL seeds (all radius 2)
+fast_eval verified bit-identical to evaluate_frame on 84 frame-threshold pairs
+  gate +/-1  clutter        done  (25.1 s)
+  gate +/-1  clutter_edge   done  (26.4 s)
+  gate +/-1  isolated       done  (25.6 s)
+  gate +/-1  masking        done  (30.6 s)
+  gate +/-1  mixed          done  (25.6 s)
+  gate +/-1  multi          done  (33.4 s)
+  gate +/-1  unresolved     done  (30.5 s)
+  gate +/-3  clutter        done  (24.4 s)
+  gate +/-3  clutter_edge   done  (25.9 s)
+  gate +/-3  isolated       done  (25.4 s)
+  gate +/-3  masking        done  (30.0 s)
+  gate +/-3  mixed          done  (25.2 s)
+  gate +/-3  multi          done  (33.1 s)
+  gate +/-3  unresolved     done  (30.5 s)
+
+gate +/-1  uniform   mean dPd -0.0376   negative on 7/7   significant on 4/7
+gate +/-1  psf       mean dPd -0.0237   negative on 7/7   significant on 4/7
+
+total 8.3 min -> C:\Users\USER\Desktop\Radar-fyp\My work\Simulations\experiments\e6_nms_audit\results\p10_attribution\e2

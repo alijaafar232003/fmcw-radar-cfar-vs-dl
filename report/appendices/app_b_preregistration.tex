@@ -177,6 +177,52 @@ original result was known. The original radius-\ProtocolNmsOriginal{} outputs ha
 overwritten or edited; they remain on disk beside the revised ones, along with the frozen selection
 rule and its hash.
 
+\subsection*{The attribution experiments were re-scored, not re-run}
+\label{app:attribrescore}
+
+The three attribution experiments of Chapter~\ref{chp:attribution} were designed, run and first
+analysed under the original radius, before the revision described above. Rather than report them
+under a protocol the rest of the thesis no longer uses, they were re-scored at radius
+\ProtocolNms{} before submission, and Chapter~\ref{chp:attribution} quotes only those re-scored
+values. What that involved, precisely:
+
+\begin{itemize}
+\itemsep2pt
+\item \textbf{No model was retrained.} Every checkpoint was loaded from its original experiment
+folder with its original weights. Nothing was retrained, fine-tuned, re-initialised or re-selected.
+E2 is a classical detector and has no weights at all.
+\item \textbf{Inference was regenerated only where it had to be.} Candidate extraction discards the
+score map once the local maxima are taken, and the maxima of a wider window are a strict subset of
+those of a narrower one, so a smaller radius cannot be recovered from a stored candidate list.
+E3's earlier checkpoints and both E4 arms were therefore passed through their frozen networks
+again. E2's integrated detections were re-extracted from the range--Doppler data.
+\item \textbf{Baselines were re-scored to match.} Each experiment compares against cached
+plain-CFAR and TinyCNN candidates. Those caches were rebuilt at radius \ProtocolNms{}; comparing
+revised detections against original-radius baselines would have been a mixed measurement.
+\item \textbf{Nothing else changed.} Split, seeds, epoch, operating-point definition, matching rule,
+tolerance gates, bootstrap seed and Bonferroni correction are all as originally registered. One
+post-processing constant changed, and nothing else.
+\item \textbf{No real data entered any of this.} All three experiments run on the synthetic
+validation split. No CARRADA data of any split was opened.
+\item \textbf{The frozen benchmark was not touched.} The held-out split of
+Chapter~\ref{chp:synthetic} is not read by any attribution experiment, at either radius.
+\end{itemize}
+
+The original outputs have not been deleted or overwritten. They remain, with their original values,
+in the three experiment folders:
+
+\begin{center}
+\small
+\begin{tabular}{@{}ll@{}}
+E2 & \texttt{experiments/integrated\_cfar/} \\
+E3 & \texttt{experiments/label\_ablation/} \\
+E4 & \texttt{experiments/e4\_cut\_guard\_mask/} \\
+\end{tabular}
+\end{center}
+
+\noindent The re-scored outputs were written alongside them, under the audit's own directory, so both
+readings of every experiment remain on disk and comparable.
+
 \subsection*{Why the change matters more on real data than on synthetic data}
 
 The synthetic conclusions are almost unaffected by the radius, and the reason is geometric. A

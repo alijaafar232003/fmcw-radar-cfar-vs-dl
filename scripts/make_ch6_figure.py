@@ -3,12 +3,12 @@
 Every value is read from the artefact that produced it, so the figure cannot drift from
 Tables 6.1--6.3 or from the macros in the prose:
 
-  E2  experiments/integrated_cfar/results/deltas.csv        mean delta_integration, gate 1
-  E3  experiments/label_ablation/results/epoch_curve.csv    dv_bins and pd, gate 1, epoch 21
-  E4  experiments/e4_cut_guard_mask/results/deltas.csv      mean delta_pd, gates 1 and 0
+  E2  .../p10_attribution/e2/deltas.csv        mean delta_integration, gate 1
+  E3  .../p10_attribution/e3/epoch_curve.csv    dv_bins and pd, gate 1, epoch 21
+  E4  .../p10_attribution/e4/deltas.csv      mean delta_pd, gates 1 and 0
 
-Nothing is recomputed and no experiment is re-run. All three were scored on the validation split
-at the SUPERSEDED suppression radius of 5, which the figure states on its face.
+Nothing is recomputed here and no experiment is re-run by this script. All three were scored on the
+validation split under the FINAL radius-2 post-processing protocol.
 
 Run:  venv/Scripts/python.exe scripts/make_ch6_figure.py
 Out:  report/figures/Chapter6/ch6_fig1_attribution_summary.png
@@ -24,9 +24,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ICF = os.path.join(ROOT, "experiments", "integrated_cfar", "results")
-LAB = os.path.join(ROOT, "experiments", "label_ablation", "results")
-E4R = os.path.join(ROOT, "experiments", "e4_cut_guard_mask", "results")
+ATT = os.path.join(ROOT, "experiments", "e6_nms_audit", "results", "p10_attribution")
+ICF = os.path.join(ATT, "e2")
+LAB = os.path.join(ATT, "e3")
+E4R = os.path.join(ATT, "e4")
 OUT = os.path.join(ROOT, "report", "figures", "Chapter6")
 os.makedirs(OUT, exist_ok=True)
 
@@ -101,11 +102,10 @@ def main():
 
     fig.tight_layout()
     fig.text(0.5, -0.055,
-             "All three experiments were scored on the validation split at the superseded "
-             "suppression radius of 5, and none has been re-scored at the final radius of 2.\n"
-             "The large exact-cell effects in panels A and C are far bigger than any protocol "
-             "effect measured by the radius audit; the small $+0.0150$ in panel C is not "
-             "confirmed at radius 2.",
+             "All three experiments were scored on the validation split under the final "
+             "radius-2 post-processing protocol, from the same frozen\ncheckpoints as the "
+             "original radius-5 analysis. No model was retrained, and the held-out benchmark "
+             "of Chapter 5 was not read.",
              ha="center", fontsize=7.6, color=GREY)
 
     p = os.path.join(OUT, "ch6_fig1_attribution_summary.png")
