@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-09-12T17:37:38Z",
+ "generated_utc": "2026-09-12T21:30:42Z",
  "copies": [
   {
    "file": "scripts_patched/train_tinycnn_ci.py",
@@ -44,7 +44,7 @@
    "file": "scripts_patched/derive_thresholds_ci_r5.py",
    "source": "experiments/r_carrada_real_data_validation/scripts/derive_tinycnn_thresholds.py",
    "source_sha256": "492d5531ee5eb23d781f8a1618dd690976b12a182e014fe9b11e4e71799b4ced",
-   "patched_sha256": "eca5daf23a0402754fbd002b322b8062dff307bcac4f39f24d0084b841a280ec",
+   "patched_sha256": "bc7df698d0e7229b97962204f311cee9a4262614b746a3789e5c485d628d83c3",
    "radius": 5,
    "substitutions": [
     {
@@ -63,6 +63,12 @@
      "label": "output path",
      "old": "OUT = os.path.join(EXP, \"configs\", \"tinycnn_zero_shot_thresholds.json\")",
      "new": "OUT = os.path.join(r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations/experiments/carrada_informed_domain/configs\", \"thresholds_r5.json\")",
+     "count": 1
+    },
+    {
+     "label": "pooled-ROC dump path",
+     "old": "pd.concat(curves).to_csv(os.path.join(EXP, \"results\", \"tinycnn_val_roc_pooled.csv\"),",
+     "new": "pd.concat(curves).to_csv(os.path.join(r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations/experiments/carrada_informed_domain\", \"results\", \"val_roc_pooled_r5.csv\"),",
      "count": 1
     },
     {
@@ -101,7 +107,7 @@
    "file": "scripts_patched/derive_thresholds_ci_r2.py",
    "source": "experiments/r_carrada_real_data_validation/scripts/derive_tinycnn_thresholds.py",
    "source_sha256": "492d5531ee5eb23d781f8a1618dd690976b12a182e014fe9b11e4e71799b4ced",
-   "patched_sha256": "1e7d3699015378451ce7f81c53b04b47a675ff17eff0d16d5e26a6a038e555b6",
+   "patched_sha256": "5185871f38bde6932d766962da15d6f2f527c0ea89ea9719603b3ade719f60a2",
    "radius": 2,
    "substitutions": [
     {
@@ -120,6 +126,12 @@
      "label": "output path",
      "old": "OUT = os.path.join(EXP, \"configs\", \"tinycnn_zero_shot_thresholds.json\")",
      "new": "OUT = os.path.join(r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations/experiments/carrada_informed_domain/configs\", \"thresholds_r2.json\")",
+     "count": 1
+    },
+    {
+     "label": "pooled-ROC dump path",
+     "old": "pd.concat(curves).to_csv(os.path.join(EXP, \"results\", \"tinycnn_val_roc_pooled.csv\"),",
+     "new": "pd.concat(curves).to_csv(os.path.join(r\"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations/experiments/carrada_informed_domain\", \"results\", \"val_roc_pooled_r2.csv\"),",
      "count": 1
     },
     {

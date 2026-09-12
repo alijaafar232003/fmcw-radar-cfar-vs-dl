@@ -1,10 +1,10 @@
 {
  "what": "Frozen specification of the CARRADA-informed follow-up, hashed before training and before any CARRADA test read.",
- "frozen_utc": "2026-09-12T17:40:35Z",
+ "frozen_utc": "2026-09-12T21:45:12Z",
  "frozen_config_sha256": "c6ca7f606ce494c7ad02fd95a4bd48b31ec06e123a6c611974d3a0c3e188595f",
  "pre_analysis_plan_sha256": "dd783e40f3c85ba727c6b683efeb667c1146856336226e50b12eb381636fc4de",
  "n_files": 22,
- "rolling_sha256": "2fe3716f828257ca3d5ff0bb476c59f54c57f29f970973983e3abbe5e694a78d",
+ "rolling_sha256": "7cad498f16314b363821be4a4c4ab181c38a4c8fcfa427c497b287f930729088",
  "files": {
   "FROZEN_CONFIG.yaml": {
    "sha256": "c6ca7f606ce494c7ad02fd95a4bd48b31ec06e123a6c611974d3a0c3e188595f",
@@ -79,20 +79,20 @@
    "bytes": 8263
   },
   "scripts/patch_scripts.py": {
-   "sha256": "a1ad2fdd0d0dfad1da5ec66a6930087214ca921f90439c8b04260006363fab2e",
-   "bytes": 12007
+   "sha256": "4a865fb4ccd9f84fb2244d3307e91e9a8112203dcaf2ffda9a3804c6218326c7",
+   "bytes": 12690
   },
   "scripts_patched/train_tinycnn_ci.py": {
    "sha256": "fb1180dc14564204520a92c3bfd0ad78b8b1c3cb5415d920bfe9ad2e99e358c1",
    "bytes": 14246
   },
   "scripts_patched/derive_thresholds_ci_r5.py": {
-   "sha256": "eca5daf23a0402754fbd002b322b8062dff307bcac4f39f24d0084b841a280ec",
-   "bytes": 9801
+   "sha256": "bc7df698d0e7229b97962204f311cee9a4262614b746a3789e5c485d628d83c3",
+   "bytes": 9883
   },
   "scripts_patched/derive_thresholds_ci_r2.py": {
-   "sha256": "1e7d3699015378451ce7f81c53b04b47a675ff17eff0d16d5e26a6a038e555b6",
-   "bytes": 9801
+   "sha256": "5185871f38bde6932d766962da15d6f2f527c0ea89ea9719603b3ade719f60a2",
+   "bytes": 9883
   }
  },
  "datasets": {

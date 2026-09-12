@@ -117,6 +117,16 @@ def patch_thresholds(radius, log):
             'OUT = os.path.join(r"%s", "thresholds_r%d.json")' % (CFGD, radius),
             1, "output path", log)
 
+    # The pooled-ROC dump is the script's SECOND write and its path is built inline from EXP,
+    # which this copy points at the original CARRADA experiment so that detectors.py and src/
+    # resolve. Left alone it would overwrite a Chapter 7 artefact -- which is exactly what
+    # happened on the first run, and what the isolation manifest caught. Redirected here.
+    t = sub(t, 'pd.concat(curves).to_csv(os.path.join(EXP, "results", '
+               '"tinycnn_val_roc_pooled.csv"),',
+            'pd.concat(curves).to_csv(os.path.join(r"%s", "results", '
+            '"val_roc_pooled_r%d.csv"),' % (EXP.replace("\\", "/"), radius),
+            1, "pooled-ROC dump path", log)
+
     # Point the loader at this experiment's checkpoints, and make candidate extraction use NMS.
     t = sub(t, "import detectors as det  # noqa: E402",
             "import detectors as det  # noqa: E402\n"

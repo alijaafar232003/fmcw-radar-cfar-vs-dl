@@ -183,7 +183,7 @@ def main():
             seed, rec["threshold"], rec["achieved_pooled_val_pfa_per_cell"],
             rec["derivation_seconds"]), flush=True)
 
-    pd.concat(curves).to_csv(os.path.join(EXP, "results", "tinycnn_val_roc_pooled.csv"),
+    pd.concat(curves).to_csv(os.path.join(r"C:/Users/USER/Desktop/Radar-fyp/My work/Simulations/experiments/carrada_informed_domain", "results", "val_roc_pooled_r5.csv"),
                              index=False)
 
     payload = {
