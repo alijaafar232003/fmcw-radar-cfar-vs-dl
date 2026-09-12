@@ -1,0 +1,127 @@
+{
+ "what": "Frozen Phase 2-3 domain-audit snapshot, taken BEFORE any generator change.",
+ "phase": "Stop Point A",
+ "frozen_utc": "2026-09-12T12:55:03Z",
+ "carrada_splits_read": [
+  "Train"
+ ],
+ "carrada_validation_read": false,
+ "carrada_test_read": false,
+ "detector_run": false,
+ "models_trained": 0,
+ "simulator_modified": false,
+ "n_files": 22,
+ "rolling_sha256": "c279924adda394d8cd604dddd106d85dac95e243b0a42a96309b64bccc4ce777",
+ "files": [
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/carrada_train_audit.md",
+   "sha256": "2b9b607290573a7f1f42000c1a3a25f392c32385aa395df3728b89a9f61869c5",
+   "bytes": 13453
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/carrada_train_blocks.csv",
+   "sha256": "4cb86bd66504b7a764179fa35e76e9d01a898abcaecd4c8a03d53db6b85664e7",
+   "bytes": 6996208
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/carrada_train_frames.csv",
+   "sha256": "b306df6aa3be377a9ec58302ef41c430113f6d17aba19d4166c3e9d95ac18590",
+   "bytes": 1632245
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/carrada_train_ridge.csv",
+   "sha256": "a93f9be705ede450b9a70fd18c583999f9ff858b4ab7cf715dae4d986a56a4c6",
+   "bytes": 559158
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/carrada_train_stats.csv",
+   "sha256": "c2223c621e48cceb2c6ed4193ed4be437957205cd41a92b3a81833927a4af58f",
+   "bytes": 9623
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/carrada_train_stats.json",
+   "sha256": "b27b5e2c26cc351b77b3048e5523aeb437debd98d1584c34d1592ba26696ec2d",
+   "bytes": 22950
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/domain_gap.csv",
+   "sha256": "a258cffdfe360fca532ea9cbe7479be1df46c8825189c13a46ff958f03cc4688",
+   "bytes": 6984
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/domain_gap.md",
+   "sha256": "6c36b77d230272837a8407e01e358b748b3fd41f57da2da9ea3d607e51a7dc9d",
+   "bytes": 9049
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/plots/fig1_distributions.png",
+   "sha256": "c7133a41ec526ad448643617ba0ea7e92426e9d0a7006678b54f5f9a125bb819",
+   "bytes": 77223
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/plots/fig2_profiles.png",
+   "sha256": "34c75cbf9a42d8a84aeb9313a61c04303162ea35164c15a0f50b437f976f95cf",
+   "bytes": 161824
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/plots/fig3_range_blocks.png",
+   "sha256": "3d744a19f693c931d8d325e9f8b5d286d15408eadeec640fa83dd323716e0673",
+   "bytes": 139587
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/plots/fig4_group_variability.png",
+   "sha256": "4303a88381531854a2c036904ec78e052a66c9dbde99a9244049f5b5cff7a66c",
+   "bytes": 92719
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/sim_bench2_train_blocks.csv",
+   "sha256": "d503f91110c1dcff640d2c2edaa01f891939377b61b7462b09971115c2811b90",
+   "bytes": 6913872
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/sim_bench2_train_frames.csv",
+   "sha256": "db3628d18500fa1fae7f5ec9e891b50fb5f216ec36ee11541c1910d8ce0d55af",
+   "bytes": 1630674
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/sim_bench2_train_ridge.csv",
+   "sha256": "2e3ed7f6d2e04af2cc0d24912c7c9d9219395901048ac22f5929aeeefb9d32eb",
+   "bytes": 536552
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/sim_bench2_train_stats.json",
+   "sha256": "ac5464735cffe7163794e8017c7683a3b43f309da808dc054b1cb5ce5720fbd1",
+   "bytes": 18016
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/sim_bench2_val_blocks.csv",
+   "sha256": "33829cad2af6e8a1c7ebc617e7610b04305fc2951b95261f68eb1b494f234822",
+   "bytes": 1320014
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/sim_bench2_val_frames.csv",
+   "sha256": "a1c1534b2bebb8cd75ad7c5db988ab500fc37d214ef5b56e04e963affd8a6bc3",
+   "bytes": 311360
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/sim_bench2_val_ridge.csv",
+   "sha256": "6cfe6262d2fcfbb664602fd646c428fe73d21681b5d82ad3e246d1efd747462a",
+   "bytes": 102986
+  },
+  {
+   "path": "experiments/carrada_informed_domain/domain_audit/sim_bench2_val_stats.json",
+   "sha256": "87c7368a6315375f71a46cd961dd9a89ec525a4269954ddabaaa97f165803b21",
+   "bytes": 18383
+  },
+  {
+   "path": "experiments/carrada_informed_domain/scripts/audit_domain.py",
+   "sha256": "4123d39fb7f42933ff6233580e0138411b60ffe4010ecedf2df2188357d8733c",
+   "bytes": 15455
+  },
+  {
+   "path": "experiments/carrada_informed_domain/scripts/compare_domains.py",
+   "sha256": "0d84b0659e7655628b29090e74dd0abe939fb4755c36b6b0f9fe8b4bf1886ed0",
+   "bytes": 14556
+  }
+ ]
+}

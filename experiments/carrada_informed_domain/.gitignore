@@ -1,0 +1,5 @@
+# Per-frame audit tables are large and regenerable from the scripts; the summaries are not.
+domain_audit/*_frames.csv
+domain_audit/*_blocks.csv
+domain_audit/*_ridge.csv
+logs/
