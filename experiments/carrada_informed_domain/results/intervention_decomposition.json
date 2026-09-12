@@ -1,0 +1,93 @@
+{
+ "what": "Component-wise decomposition of the CARRADA-informed background intervention.",
+ "carrada_train_reference": {
+  "db_std_frame": 2.2270104689152372,
+  "lag1_range_frame": 0.5570234386016766,
+  "lag1_doppler_frame": 0.22761473535265175,
+  "db_std_block_10_60": 1.6552945294237578,
+  "lag1_range_block_10_60": 0.459,
+  "lag1_doppler_block_10_60": 0.025,
+  "ridge_peak_over_floor_db": 23.045033857957495,
+  "ridge_halfpower_bins": 1.0
+ },
+ "arms": [
+  {
+   "arm": "original (1 look, no profile, no ridge)",
+   "looks": 1,
+   "range_profile": false,
+   "ridge_cnr_db": null,
+   "db_std": 5.567647200763026,
+   "lag1_range": 0.5708646148879962,
+   "lag1_doppler": 0.5790741399558108,
+   "cv": 1.0016067240291688,
+   "gamma_k_moment": 0.9968962964561543,
+   "looks_implied_from_db": 1.000588969279673,
+   "ridge_peak_over_floor_db": 0.5927080716426449,
+   "ridge_halfpower_bins": 56.0
+  },
+  {
+   "arm": "+ multi-look only",
+   "looks": 8,
+   "range_profile": false,
+   "ridge_cnr_db": null,
+   "db_std": 1.5891878372583188,
+   "lag1_range": 0.5663497084447313,
+   "lag1_doppler": 0.5818208730017184,
+   "cv": 0.35433009149256767,
+   "gamma_k_moment": 7.96497031439138,
+   "looks_implied_from_db": 7.957115921257765,
+   "ridge_peak_over_floor_db": 0.26951719176999894,
+   "ridge_halfpower_bins": 56.0
+  },
+  {
+   "arm": "+ multi-look + ridge",
+   "looks": 8,
+   "range_profile": false,
+   "ridge_cnr_db": 23.0,
+   "db_std": 1.5850051321700724,
+   "lag1_range": 0.5670602057865464,
+   "lag1_doppler": 0.5816593770220508,
+   "cv": 0.35412245449786695,
+   "gamma_k_moment": 7.974501563373511,
+   "looks_implied_from_db": 7.996642224767143,
+   "ridge_peak_over_floor_db": 23.194861310216446,
+   "ridge_halfpower_bins": 1.0
+  },
+  {
+   "arm": "+ multi-look + range profile",
+   "looks": 8,
+   "range_profile": true,
+   "ridge_cnr_db": null,
+   "db_std": 2.152388198876173,
+   "lag1_range": 0.6921050007360925,
+   "lag1_doppler": 0.7068151452707371,
+   "cv": 0.4326711295171096,
+   "gamma_k_moment": 5.341757672188907,
+   "looks_implied_from_db": 4.550994080568948,
+   "ridge_peak_over_floor_db": 0.31499786118862716,
+   "ridge_halfpower_bins": 56.0
+  },
+  {
+   "arm": "full intervention (all three)",
+   "looks": 8,
+   "range_profile": true,
+   "ridge_cnr_db": 23.0,
+   "db_std": 2.150040043621006,
+   "lag1_range": 0.6916688846286108,
+   "lag1_doppler": 0.7058226428930139,
+   "cv": 0.432539756796406,
+   "gamma_k_moment": 5.345015742901824,
+   "looks_implied_from_db": 4.5599349856076135,
+   "ridge_peak_over_floor_db": 23.24889168195164,
+   "ridge_halfpower_bins": 1.0
+  }
+ ],
+ "findings": {
+  "multilook_is_clean": "Multi-look averaging moves the background spread from ~5.57 dB to ~1.59 dB and leaves BOTH lag-1 correlations unchanged, as the theory requires: averaging independent looks divides the variance by L and preserves the correlation coefficient.",
+  "profile_causes_the_regression": "The range profile is the sole cause of the lag-1 increase, in both axes. It is also what lifts the frame-level dB spread from the within-block value to CARRADA's frame-level value, so the same component is responsible for a match and for a regression.",
+  "profile_inflation_is_real": "CARRADA shows the same inflation: its within-block lag-1 range is 0.459 against 0.557 at frame level, and its within-block lag-1 Doppler is 0.025 against 0.228. The profile's common-mode effect is a property of the real domain, not an artefact of the generator.",
+  "the_residual_is_the_baseline": "What the intervention cannot fix is the BASELINE speckle correlation, which the frozen Blackman windows set at 0.57 in both axes against CARRADA's 0.459 (range) and 0.025 (Doppler). Adding a correct profile on top of a baseline that is already too high overshoots.",
+  "ridge_is_orthogonal": "The ridge changes no background statistic, because the zero-Doppler band is excluded from the background population by the shared protocol."
+ },
+ "n_frames_per_arm": 14
+}
