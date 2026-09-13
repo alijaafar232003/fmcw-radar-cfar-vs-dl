@@ -228,8 +228,11 @@ Since the simulator synthesises signal amplitudes rather than powers, this is ap
 amplitude scaling of $1/R^2$, which is the same law expressed in amplitude. In decibels both
 readings coincide at a loss of $40\log_{10}(R/R_{\text{ref}})$, and this is how it is implemented,
 referenced to $R_{\text{ref}} = \SI{25}{\metre}$ so that a target at that range keeps its nominal
-amplitude. Propagation is enabled in every stratum, so the physics stays consistent across the
-benchmark. The consequence is that range and difficulty are coupled: a distant target is genuinely
+amplitude. $R_{\mathrm{ref}} = \SI{25}{\metre}$ was chosen as a neutral mid-range reference within
+the simulated operating region: targets nearer than it are strengthened by propagation and targets
+farther away are attenuated, rather than referencing the model to the \SI{50}{\metre} maximum range
+and amplifying almost every generated target. Propagation is enabled in every stratum, so the
+physics stays consistent across the benchmark. The consequence is that range and difficulty are coupled: a distant target is genuinely
 harder, as it is in practice.
 
 \textbf{Clutter.} The zero-Doppler ridge is modelled as a band of elevated return around zero
@@ -369,26 +372,6 @@ so it acts as a sanity check \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig3_strata_zoom.png}
-\caption[The eight strata]{What each stratum actually contains. One frame per stratum, centred on
-the strongest target, with white circles marking the annotated targets: the weak partner beside a
-strong one in \texttt{masking}; two targets sharing a single mainlobe in \texttt{unresolved};
-well-separated returns in \texttt{multi}; a target inside the ridge in \texttt{clutter} against one
-beside it in \texttt{clutter\_edge}; and clutter with multipath in \texttt{mixed}. Window sizes
-differ per stratum so that the relevant structure is visible, and the \texttt{noise} stratum is
-omitted because it contains no target to centre on. Figure~\ref{fig:strata} in
-Appendix~\ref{app:tables} shows the same frames at full map scale.}
-\label{fig:stratazoom}
-\end{figure}
-
-The frame shown for each stratum is chosen by a fixed rule: the frame whose target count is closest
-to that stratum's median target count, with ties broken by frame index. The rule depends only on the
-scene composition, never on appearance and never on how any detector performed on the frame. At full
-map scale most targets are not obvious by eye, which is by design --- the benchmark places them near
-the detection transition.
-
 Two design points in that table are worth drawing out.
 
 The \texttt{clutter\_edge} stratum exists specifically because the literature review of
@@ -410,6 +393,26 @@ the range--Doppler representation used here, so the detectors evaluated in this 
 expected to separate them reliably. It is retained as a sanity check: a method reporting high $\Pd$
 on this stratum would point to a fault in the evaluation rather than to a capable detector, and
 this is what exposed one such fault during development.
+
+The frame shown for each stratum is chosen by a fixed rule: the frame whose target count is closest
+to that stratum's median target count, with ties broken by frame index. The rule depends only on the
+scene composition, never on appearance and never on how any detector performed on the frame. At full
+map scale most targets are not obvious by eye, which is by design --- the benchmark places them near
+the detection transition.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig3_strata_zoom.png}
+\caption[The eight strata]{What each stratum actually contains. One frame per stratum, centred on
+the strongest target, with white circles marking the annotated targets: the weak partner beside a
+strong one in \texttt{masking}; two targets sharing a single mainlobe in \texttt{unresolved};
+well-separated returns in \texttt{multi}; a target inside the ridge in \texttt{clutter} against one
+beside it in \texttt{clutter\_edge}; and clutter with multipath in \texttt{mixed}. Window sizes
+differ per stratum so that the relevant structure is visible, and the \texttt{noise} stratum is
+omitted because it contains no target to centre on. Figure~\ref{fig:strata} in
+Appendix~\ref{app:tables} shows the same frames at full map scale.}
+\label{fig:stratazoom}
+\end{figure}
 
 \subsection{Splits}
 
@@ -439,7 +442,10 @@ suppression radius and the network's operating point are all selected quantities
 them on the same data that sets the other arm's threshold would introduce exactly the asymmetry
 Section~\ref{sec:problem} identified. Chapter~\ref{chp:detectors} describes those selections.
 
-The final row needs explaining. The benchmark of Chapter~\ref{chp:synthetic} is scored on
+The final row needs explaining. \textbf{The final holdout is a separate test set kept completely
+out of model training, parameter selection and threshold tuning, and used only for the final
+synthetic evaluation.} Separate random seeds ensure that it contains no generated frame shared with
+the training or development splits. The benchmark of Chapter~\ref{chp:synthetic} is scored on
 \texttt{holdout}, which was generated after the evaluation protocol was finalised and verified to
 share no frame content with any earlier split. \texttt{bench2\_test} was the corresponding
 read under the superseded post-processing protocol; it is kept on disk as part of the record but no

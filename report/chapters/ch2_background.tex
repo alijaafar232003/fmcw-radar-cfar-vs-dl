@@ -281,7 +281,7 @@ interferer, the more effectively it hides its neighbour.
 Figure~\ref{fig:cfarfail} illustrates both mechanisms on a one-dimensional cut, using the same
 guard and reference counts per side as the window used in the rest of this work.
 
-\begin{figure}[htbp]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig5_cfar_failure_modes.png}
 \caption[The two dominant CFAR failure modes]{\textbf{An illustrative simulation of the two
@@ -355,55 +355,25 @@ the network's depth and kernel sizes.
 \subsection{CA-CFAR as a convolution}
 \label{sec:cfar_as_conv}
 
-There is a closer relationship between the two approaches than the difference in vocabulary
-suggests. Liu et al.~\cite{liu2024cacfarconv} showed that CA-CFAR can be written exactly as a
-convolution followed by a thresholding nonlinearity. Substituting $Z_{\mathrm{CA}}$ into
-equation~\eqref{eq:cfar}, the decision $x > \alpha Z$ is equivalent to testing whether
-\begin{equation}
-x - \frac{\alpha}{N} \sum_{i=1}^{N} x_i > 0 ,
-\end{equation}
-which is a linear filter with weight $+1$ on the cell under test, $0$ on each guard cell, and
-$-\alpha/N$ on each reference cell, followed by a comparison against zero --- that is, a
-convolution followed by a rectifier. Their purpose was practical: writing the detector this way
-allows it to run on machine-learning hardware.
+CA-CFAR can be expressed as a fixed convolutional operation followed by
+thresholding~\cite{liu2024cacfarconv, banerjee2025rctd}. This provides a useful interpretation for
+the comparison in this thesis: both CFAR and TinyCNN map a local neighbourhood to a score, but CFAR
+uses a hand-derived fixed rule whereas TinyCNN learns that rule from data. TinyCNN is a richer
+nonlinear function rather than a single equivalent CFAR kernel, so the comparison asks whether
+learning the local decision rule provides an advantage when spatial context is kept comparable.
 
-Banerjee et al.~\cite{banerjee2025rctd} restate this result and draw the consequence that matters
-here. If CA-CFAR is a convolution with \emph{fixed} weights, then convolutional layers with
-\emph{learned} weights are the data-driven extension of the same idea. Both detectors compute a
-score for a cell from a local neighbourhood of that cell. The difference is how the rule that maps
-neighbourhood to score is obtained:
-\begin{center}
-CFAR $=$ a \textbf{fixed} local decision rule \qquad CNN $=$ a \textbf{learned} local
-decision rule.
-\end{center}
-
-One qualification should be stated now, because it is easy to lose. The equivalence above is exact
-for CA-CFAR and a \emph{single} linear filter. The network used in this work is not a single filter
-of that size: it is a stack of small convolutional layers with non-linearities between them, whose
-\emph{composed} receptive field covers the footprint. It is therefore a strictly richer function
-than any single kernel over that footprint, which is precisely why it might learn something CFAR
-cannot express. Figure~\ref{fig:cfarconv} contrasts the two, and
-Chapter~\ref{chp:detectors} gives the architecture.
-
-\begin{figure}[h!]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig6_cfar_as_convolution.png}
 \caption[A fixed and a learned decision rule over the same footprint]{Both detectors decide from
-the same local footprint, but obtain their rule differently. Left: CA-CFAR is one fixed weight per
-cell --- $+1$ on the cell under test, $0$ on the guard cells, $-\alpha/N$ on each reference cell.
-The colour scale is set by the reference weights, so the cell under test saturates and is labelled
-instead. Right: a convolutional network reaches the same footprint by composing several small
-convolutions, the receptive field growing layer by layer. \textbf{That footprint is the composed
-receptive field of the whole stack, not a single learned kernel.} The network used in this work is
-specified in Chapter~\ref{chp:detectors}.}
+the same local footprint, but obtain their rule differently. Left: CA-CFAR as one fixed weight per
+cell --- $+1$ on the cell under test, $0$ on the guard cells, $-\alpha/N$ on each reference cell
+(the colour scale is set by the reference weights, so the cell under test saturates and is labelled
+instead). Right: a convolutional network reaches the same footprint by composing several small
+convolutions. \textbf{That footprint is the composed receptive field of the whole stack, not a
+single learned kernel.}}
 \label{fig:cfarconv}
 \end{figure}
-
-This is the theoretical basis for the comparison made in this report. It allows the learned and
-classical arms to be treated as a controlled experiment in which the decision rule is varied while
-the available local context is held comparable, rather than as an unstructured contest between two
-arbitrary systems. It also identifies what the experiment is testing: whether learning the rule
-from data buys anything over deriving it analytically.
 
 \subsection{Label representation and supervision}
 

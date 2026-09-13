@@ -79,6 +79,11 @@ as described in Section~\ref{sec:cfar_failures}. OS uses a rank fraction of \Cfa
 never swept --- a stated limitation, since a better-tuned OS might do better than the one reported
 here.
 
+Implementation uses vectorised two-dimensional filtering rather than explicit Python loops over every
+cell under test. CA-CFAR uses box-filtered reference sums, GO/SO use separate half-window sums split
+along the Doppler axis, and OS-CFAR uses a rank filter. The vectorised outputs were checked against
+direct brute-force window calculations before evaluation.
+
 \subsection{Threshold calibration}
 \label{sec:alphacal}
 
@@ -140,15 +145,11 @@ OS & \CfarAlphaOS & \CfarAlphaOSAnalytic & first approximation only \\
 \end{tabular}
 \end{table}
 
-For CA, the one case where the reference is exact, the calibrated multiplier is about
-\SI{10}{\percent} higher --- roughly \SI{0.4}{\deci\bel} of extra threshold.
-Equation~\eqref{eq:alpha_ca} assumes the \CfarNRef{} reference cells are statistically independent,
-whereas the window functions of Chapter~\ref{chp:simulator} correlate neighbouring cells, so the
-effective number of independent samples is smaller and a higher multiplier is needed to hold the
-rate. \textbf{This is not itself a measurement of CFAR loss}: it is a threshold difference on
-noise-only data, whereas CFAR loss is a \emph{detection} penalty relative to a detector that knows
-the true background power. The two are related but different quantities, and the detection penalty is
-measured separately against a clairvoyant reference in Chapter~\ref{chp:synthetic}.
+For CA-CFAR, the empirically calibrated multiplier is slightly higher than the ideal closed-form
+value because neighbouring RD cells are correlated rather than independent. This calibration
+difference should not be confused with CFAR loss, which is the detection penalty caused by estimating
+the background from finite reference data and is measured separately in
+Chapter~\ref{chp:synthetic}.
 
 \section{The learned arm}
 
@@ -212,8 +213,13 @@ nominal receptive field, which \emph{was} measured.
 \subsection{Input representation}
 \label{sec:inputrep}
 
-The input transform is a fixed part of the detector, applied identically during training and
-inference: each map is expressed in decibels relative to \emph{its own frame median power},
+Raw range--Doppler power spans a very large dynamic range and its absolute scale can vary between
+frames. TinyCNN therefore receives power in decibels relative to the frame median. This compresses
+the numerical range and removes irrelevant global scale changes while preserving the local
+target-to-background contrast used for detection. CFAR obtains a related scale invariance naturally
+through its CUT-to-background ratio.
+
+The transform is a fixed part of the detector, applied identically during training and inference:
 \begin{equation}
 X = \frac{1}{20}\,\mathrm{clip}\!\left(10 \log_{10}
 \frac{P}{\operatorname{median}(P)},\; -10,\; +60\right),
@@ -221,15 +227,12 @@ X = \frac{1}{20}\,\mathrm{clip}\!\left(10 \log_{10}
 \end{equation}
 where $P$ is the range--Doppler power map.
 
-The frame median is used as the reference level rather than the frame maximum, because peak
-normalisation would rescale every frame by its brightest target and destroy the absolute
-signal-to-noise information the detector needs. The median is a robust measure of the frame's
-background scale: in the homogeneous synthetic frames of Chapter~\ref{chp:simulator} it tracks the
-noise level closely, but it is a statistic of the frame, not a measurement of physical noise power,
-and the two need not coincide in cluttered scenes or in real data. Chapter~\ref{chp:realdata} returns
-to this, since the same fixed transform must then be applied to frames whose background statistics
-differ from those it was fitted on. As noted above, this transform has no counterpart in the
-classical arm, which works from power directly.
+The median is used rather than the frame maximum because peak normalisation would rescale every
+frame by its brightest target and destroy the absolute signal-to-noise information the detector
+needs. It is nonetheless a statistic of the frame, not a measurement of physical noise power, and the
+two need not coincide in cluttered scenes or in real data; Chapter~\ref{chp:realdata} returns to this,
+since the same fixed transform must then be applied to frames whose background statistics differ from
+those it was fitted on.
 
 \subsection{Labels}
 \label{sec:labels}
@@ -324,30 +327,16 @@ development data only --- the tuning split for selection, the validation split f
 Neither the held-out benchmark of Chapter~\ref{chp:synthetic} nor any real data of
 Chapter~\ref{chp:realdata} contributed to the choice. Radii \NmsRadiiTested{} were compared at
 matched measured $\Pfa$, with the threshold re-derived at each radius so that a drifting false-alarm
-rate could not confound the comparison. The outcome was simple:
+rate could not confound the comparison.
 
-\begin{quote}
-\textbf{Radius 1 left duplicate in-gate detections; radii 2, 3 and 5 removed them. Radius
-\ProtocolNms{} was selected as the smallest clean setting.}
-\end{quote}
+A radius of 1 left duplicate peaks around individual targets, while radii 2, 3 and 5 removed them.
+Larger radii increasingly suppress nearby genuine targets, so radius \ProtocolNms{} was selected as
+the smallest clean setting. This corresponds to a
+$\ProtocolNmsWin \times \ProtocolNmsWin$ local-maximum neighbourhood. The full sensitivity sweep is
+reported in Appendix~\ref{app:tables}.
 
-Two supporting measurements fix what ``clean'' means, and the full sweep is
-Figure~\ref{fig:nmssel} in Appendix~\ref{app:tables}. At $r = 1$, between \NmsDupOneMin{} and
-\NmsDupOneMax{} of the network's matched truths receive a second in-gate detection, and up to
-\NmsDupOneCFAR{} of CA-CFAR's, against \NmsDupOther{} at every larger radius; Section~\ref{sec:matching}
-explains how such duplicates can be credited to two different truths. Going the other way, a large
-radius merges nearby real targets: on the masking stratum the network's $\Pd$ falls steadily from
-\NmsMaskingOne{} at $r = 1$ to \NmsMaskingFive{} at $r = 5$, because a window of side
-$\ProtocolNmsOriginalWin$ is far wider than the measured point-target mainlobe and removes genuine
-responses from neighbouring targets. Detection itself is almost insensitive to the choice:
-isolated-target $\Pd$ varies by less than \NmsIsolatedSpread{} across the whole range, for every arm.
-Suppression sets how densely candidates are spaced; the threshold sets how strong they must be.
-
-That is a statement about this evaluator on this benchmark, not a claim of a universal optimum. One
-limitation remains: a $\ProtocolNmsWin \times \ProtocolNmsWin$ window is still wider than a single
-point-target mainlobe, so it bounds how close two targets can be and still be reported separately.
-Chapter~\ref{chp:realdata} returns to this, because real annotated objects are \emph{larger} than the
-suppression window --- a regime the synthetic benchmark never exercises.
+Because CARRADA objects are spatially extended, this point-target suppression rule is revisited in
+Chapter~\ref{chp:realdata}.
 
 \subsubsection*{The valid region and the candidate floor}
 
@@ -381,17 +370,23 @@ Two consequences follow for detections landing near a real target.
 isolated target's gate, exactly one is matched and the rest are ignored --- neither credited nor
 charged as false alarms. Cells inside a truth's gate also leave the false-alarm denominator, so the
 detector is not credited for correctly rejecting them either.
-\item \textbf{Two nearby truths are different.} If their gates overlap, or one physical response
-spans both, the assignment may give one peak to each truth. Several peaks from a \emph{single}
-response can then be counted as \emph{two} detections. Since surplus in-gate detections cost nothing,
-a detector that emits many close peaks gets extra attempts for free.
+\item \textbf{Two nearby truths are different.} When two truths are very close, their matching
+regions can overlap. Several peaks from one broad physical response may then be assigned to different
+truths, allowing one unresolved response to be credited more than once. NMS limits this effect by
+reducing each local response to a single candidate peak.
 \end{itemize}
 
-That second case is the free-attempt behaviour the suppression sweep found at $r = 1$, and it is why
-the radius was not chosen on detection probability alone. The rule is applied identically to both
-arms.
+That second case is why the suppression radius was not chosen on detection probability alone. The
+rule is applied identically to both arms.
 
-\begin{figure}[htbp]
+Two shaded regions appear in this chapter and they are easy to confuse. The \textbf{CFAR guard cells}
+of Figure~\ref{fig:window} belong to the detector: they keep a target's own energy out of the
+background estimate. The \textbf{near-target exclusion region} of Figure~\ref{fig:matching} belongs to
+the evaluator: it decides which unmatched detections count as near misses rather than false alarms.
+One is built from the CFAR window geometry, the other from the matching tolerance, and they need not
+have the same extent.
+
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter4/ch4_fig7_matching.png}
 \caption[Matching and tolerance on a worked example]{How the gate, one-to-one matching and the two
@@ -405,13 +400,6 @@ near-target exclusion region, drawn from the matching gate --- \textbf{not} the 
 Figure~\ref{fig:window}.}
 \label{fig:matching}
 \end{figure}
-
-Two shaded regions appear in this chapter and they are easy to confuse. The \textbf{CFAR guard cells}
-of Figure~\ref{fig:window} belong to the detector: they keep a target's own energy out of the
-background estimate. The \textbf{near-target exclusion region} of Figure~\ref{fig:matching} belongs to
-the evaluator: it decides which unmatched detections count as near misses rather than false alarms.
-One is built from the CFAR window geometry, the other from the matching tolerance, and they need not
-have the same extent.
 
 \subsection{Operating point}
 \label{sec:opoint}
@@ -450,8 +438,12 @@ Differences are assessed by a paired bootstrap with \ProtocolBootstrap{} resampl
 resampling unit is the frame.} Frames are drawn with replacement, and within each resample both arms
 are re-scored on exactly the same frames, so frame difficulty cancels instead of adding noise.
 Resampling whole frames also preserves the dependence among targets belonging to the same frame.
-Seven conditions are scored, so significance uses a Bonferroni correction: a per-condition threshold
-of $\alpha = \ProtocolBonf$ against a family-wise $0.05$.
+
+Seven conditions are tested, so using $p < 0.05$ separately for each would increase the chance of a
+false positive across the full set. A Bonferroni correction therefore uses
+$0.05/7 = \ProtocolBonf$ as the significance threshold. A condition is called statistically
+significant only when $p < \ProtocolBonf$. This is why the unresolved result
+($p = \SynUnresolvedP$) is not considered significant despite being below $0.05$.
 
 One limitation should be noted. The operating threshold is computed once per condition and held fixed
 across resamples, so the intervals capture sampling error in $\Pd$ at a fixed operating point. They

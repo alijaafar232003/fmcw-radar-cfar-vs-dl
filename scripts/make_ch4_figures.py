@@ -242,7 +242,7 @@ def fig_protocol():
     ax.text(14.5, 18.2, "own fixed transform", ha="center", fontsize=6.6, color=RED)
 
     stages = [
-        (34, "Peak\nextraction", "local maxima,\n$11\\times11$ NMS"),
+        (34, "Peak\nextraction", "local maxima,\n$5\\times5$ NMS"),
         (54, "Threshold", "swept to matched\nMEASURED $P_{fa}$"),
         (74, "Matching", "one-to-one,\nHungarian, $\\pm$%d bin" % FZ["evaluation"]["gate"]),
     ]

@@ -116,23 +116,16 @@ Validation             & \CarradaValSeq   & \CarradaValFrames   & 1,483 & \Carra
 Two checks were needed before either detector could be run, and both were passed without modifying
 any detector.
 
-\textbf{The representation transfers.} CARRADA publishes each frame in several forms; regressing the
-logarithm of one against another across 240 frames spanning all \CarradaSequences{} sequences gives
-a slope of \RzeroSlope{} $\pm$ \RzeroSlopeSD{} with a residual standard deviation of
-\RzeroResidual{}\,dB and no dependence on signal level or map position --- the signature of a
-$20\log_{10}$ transform, identifying one array as an amplitude and the other as a power in decibels.
-The absolute power scale remains unknown, and it does not need to be known: CFAR is a ratio test, in
-which the unknown constant cancels exactly, and the network's frozen transform
-$10\log_{10}(P/\operatorname{median}P)$ cancels it as well, reducing to
-%
-\begin{equation}
-x \;=\; \operatorname{clip}\!\left(D - \operatorname{median} D,\; -10,\; +60\right) / 20 ,
-\label{eq:cnn_input}
-\end{equation}
-%
-where $D$ is the published decibel array. \textbf{No detector-specific preprocessing was redesigned
-for real data}: both arms run the code they were frozen with, and the numerical agreement between
-the analytic reduction and the unmodified frozen code was verified before any frame was scored.
+\textbf{The representation transfers.} CARRADA publishes more than one numerical representation of
+each range--Doppler frame. A cross-check over 240 frames confirmed that the published decibel array
+is consistent with a logarithmic representation of the radar amplitude/power
+data.\footnote{Regressing the logarithm of one representation against another gives a slope of
+\RzeroSlope{} $\pm$ \RzeroSlopeSD{} with a residual standard deviation of \RzeroResidual{}\,dB and
+no dependence on signal level or map position --- the signature of a $20\log_{10}$ transform.} This
+is sufficient for both detectors: CFAR uses power ratios, so an unknown constant scale cancels,
+while TinyCNN subtracts the frame-median level during preprocessing, which removes the same
+constant. Absolute sensor calibration is therefore not required, and \textbf{no detector-specific
+preprocessing was redesigned for real data}: both arms run the code they were frozen with.
 
 \textbf{The grid transfers exactly.} Every one of the \CarradaFrames{} frames is a
 $256 \times 64$ array matching the simulator's map dimensions, and the annotation coordinates index
@@ -245,11 +238,10 @@ and the network leads in the remaining one. The interval does not license a clai
 wins. \textbf{The synthetic ordering is not reproduced on real data, and it is not cleanly reversed
 either: it disappears.}
 
-Two figures describe the gap and should be kept apart. The raw pooled recall difference is
-\RonePooledDelta{}, obtained by pooling all eligible objects. The pre-specified sequence-balanced
-paired estimate, used for inference, is \RoneDelta{}, which weights each test sequence equally so
-that the longest sequence cannot dominate. Everything that follows uses the sequence-balanced figure
-for inference.
+The raw pooled recall difference is \RonePooledDelta{} when all eligible objects are counted
+together. For statistical inference, the sequence-balanced estimate is \RoneDelta{}, which gives
+each of the \RoneNseq{} test sequences equal weight so that a long sequence cannot dominate the
+result. Confidence intervals and conclusions therefore use the sequence-balanced estimate.
 
 The second half of the result is on a different axis. \textbf{At their frozen operating points the
 network emits \RoneBurdenRatio{} times CA-CFAR's unmatched output} for statistically
@@ -274,11 +266,25 @@ OS-CFAR & \RoneBurdenCFAROS & \RoneCFAROS \\
 \end{tabular}
 \end{table}
 
-The wider table also shows that this trade is not peculiar to the learned arm. The secondary CFAR
-variants reach higher recall than CA --- \RoneCFARGO{}, \RoneCFARSO{} and \RoneCFAROS{} --- and emit
-two and a half times as much output to do it. \textbf{On this dataset recall and output density move
-together for every detector tested}, which is precisely why recall alone cannot rank them. CA
-remains the primary comparator as fixed in advance; no variant was promoted after the fact.
+The secondary CFAR variants are important to the interpretation. GO-CFAR reaches \RoneCFARGO{}
+recall, SO-CFAR \RoneCFARSO{} and OS-CFAR \RoneCFAROS{}, all above the frozen TinyCNN's
+\RoneTinyCNN{}. Their higher recall comes with substantially higher unmatched output, around
+\RoneBurdenCFARGO{}--\RoneBurdenCFAROS{} detections per frame rather than TinyCNN's
+\RoneBurdenTinyCNN{} and CA-CFAR's \RoneBurdenCFARCA{}. Thus the zero-shot TinyCNN does not dominate
+the classical family: several CFAR variants achieve substantially higher raw recall, albeit at
+greater output burden. \textbf{On this dataset recall and output density move together for every
+detector tested}, which is precisely why recall alone cannot rank them. CA remains the primary
+comparator as fixed in advance; no variant was promoted after the fact.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.88\textwidth]{figures/Chapter7/ch7_fig_alldetector.png}
+\caption[All detector arms on the CARRADA test split]{The robust CFAR variants achieve the highest
+raw recall, while CA-CFAR gives the lowest output burden. TinyCNN lies between these regimes and
+does not dominate the classical family under zero-shot transfer. Each point is one detector at its
+frozen operating point; labels give recall and unmatched detections per frame.}
+\label{fig:alldetector}
+\end{figure}
 
 \begin{figure}[htbp]
 \centering
@@ -309,15 +315,14 @@ whatever the detectors then did could be read against a measured baseline rather
 No detector was involved in any measurement in this section. Its purpose here is to explain the
 result above and to motivate the interventions of Chapter~\ref{chp:domaingap}.
 
-A single background definition was fixed and applied identically to both domains. A cell is eligible
-background if it survives three exclusions: annotated object support dilated by three bins in each
-direction, so that target skirts do not leak in; a band of $\pm 4$ Doppler bins about zero, since the
-ridge there is structure rather than speckle; and the outer border that a $21 \times 9$ CFAR window
-cannot test, leaving the same $236 \times 56 = 13{,}216$ cells the detectors themselves see. No
-percentile trimming is applied at any point. Uncertainty is taken across groups --- the
-\CarradaSequences{} CARRADA sequences and the eight simulator scenario conditions --- never across
-frames, because frames within a sequence are strongly correlated and treating millions of cells as
-independent would produce meaninglessly narrow intervals.
+To compare background statistics fairly, the same background mask was used in both domains. Cells
+were excluded if they were close to an annotated target, inside the strong zero-Doppler ridge, or
+inside the border where the $21 \times 9$ detector window cannot operate ($\pm 3$-bin target
+dilation and $\pm 4$-bin zero-Doppler exclusion, leaving the same
+$236 \times 56 = 13{,}216$ cells the detectors themselves see). Statistics were then computed only
+from the remaining background cells, with no percentile trimming at any point. Uncertainty was
+measured across independent groups --- CARRADA sequences and simulator conditions --- rather than
+treating neighbouring frames or millions of correlated cells as independent samples.
 
 \begin{table}[H]
 \centering
@@ -410,16 +415,10 @@ pooled number would have hidden both halves of this. Chapter~\ref{chp:domaingap}
 near-range block directly, because it is the pre-specified test of whether the domain intervention
 worked.
 
-The other two pre-specified strata behave differently and neither carries much weight.
-\RoneNearZeroFrac{} of eligible test objects have support intersecting the $\pm 4$-bin band around
-zero Doppler, and it was reasonable to expect the network's loss to concentrate there, since the
-simulator's ridge is much weaker and broader. \textbf{It does not}: within that stratum the network
-reaches \RoneNearZeroTinyCNN{} against CA-CFAR's \RoneNearZeroCFAR{}, and clear of it
-\RoneAwayZeroTinyCNN{} against \RoneAwayZeroCFAR{} --- shortfalls of the same small size. The ridge
-remains a measured domain difference; on this evidence it is not the site of a detection deficit.
-Class recall, meanwhile, is confounded: both detectors rank the classes in the order of mask size, so
-a larger annotated support is simply a larger area in which a peak can land and be counted correct.
-The full stratum table, with difference columns, is Table~\ref{tab:appStrata} in
+Performance near and away from the zero-Doppler ridge is similar between TinyCNN and CA-CFAR, so
+the transfer difference is not concentrated there. Class-wise recall is difficult to interpret
+because CARRADA classes have different annotation-mask sizes, which directly changes the area in
+which a detection can count as correct. Detailed stratified results are therefore left to
 Appendix~\ref{app:tables}.
 
 \begin{quote}
@@ -611,11 +610,12 @@ detector finds, not what it invents. Unmatched detections are an output-density 
 false-alarm rate. This bounds the chapter's central trade-off rather than resolving it, since the
 network's larger output cannot be priced against its recall on this dataset.
 
-\item \textbf{Post-processing and data imbalance.} A point-target suppression radius applied to
-extended objects inflates the unmatched burden for both arms, and the ranking measured here is
-sensitive to that radius in a way the synthetic benchmark is not. Separately,
-\RoneNearZeroFrac{} of test objects lie in the zero-Doppler band, so the headline describes that
-regime more than it describes the map uniformly.
+\item \textbf{Post-processing and data imbalance.} The post-processing was designed for synthetic
+point targets, whereas a real CARRADA object can cover many range--Doppler cells. A single object
+can therefore produce several surviving peaks; after one is matched, the others contribute to the
+unmatched-output count. The burden metric is therefore partly sensitive to the chosen NMS radius. In
+addition, \RoneNearZeroFrac{} of test objects overlap the zero-Doppler region, so the headline
+result mainly reflects performance in that part of the map.
 
 \item \textbf{Transfer scope.} No real-data training was performed \emph{in this chapter}, so its
 result is a zero-shot bound and not a ceiling. CFAR is also zero-shot here: its multipliers were
@@ -642,6 +642,12 @@ statistically indistinguishable; the synthetic advantage is neither retained nor
 absent.} And comparable recall is bought with substantially more output: \RoneBurdenTinyCNN{}
 unmatched detections per frame against CA-CFAR's \RoneBurdenCFARCA{}. \textbf{The two arms are
 separable on output density even where they are not separable on recall.}
+
+The classical family as a whole deserves its due here. \textbf{On real zero-shot transfer, the
+learned detector's synthetic advantage disappears. CA-CFAR provides the cleaner low-burden baseline,
+while SO- and OS-CFAR achieve the highest raw recall at the cost of denser output.} The learned arm
+occupies neither position: it emits roughly twice CA-CFAR's output without matching the recall of
+the robust variants.
 
 Two qualifications complete that statement. The tolerance ladder favours the network --- more of its
 misses are near misses --- but that is tolerance around an annotated region rather than localisation

@@ -97,10 +97,16 @@ def fig_headline():
 
 # ----------------------------------------------------------------------- Fig 5.2
 def fig_pd_vs_snr():
-    """The result in the currency the comparable literature uses."""
+    """Both empirical detectors against the clairvoyant reference, in the currency the
+    comparable literature uses. Reads the FINAL radius-2 sweep only."""
     sweep = pd.read_csv(os.path.join(DLR, "pd_vs_snr_final_r2.csv"))
     PFA = 1e-4
-    theory = 10.0 * math.log10(math.log(PFA) / math.log(0.5) - 1.0)
+    snr50_theory = 10.0 * math.log10(math.log(PFA) / math.log(0.5) - 1.0)
+
+    # Clairvoyant square-law detector that knows the true noise power:
+    #   Pd = Pfa ** (1 / (1 + SNR)),  SNR linear.
+    sl = np.linspace(-2.0, 24.0, 400)
+    theory = PFA ** (1.0 / (1.0 + 10.0 ** (sl / 10.0)))
 
     def snr50(sub):
         sub = sub.sort_values("snr")
@@ -110,40 +116,90 @@ def fig_pd_vs_snr():
                 return x[i - 1] + (0.5 - y[i - 1]) * (x[i] - x[i - 1]) / (y[i] - y[i - 1])
         return float("nan")
 
-    fig, ax = plt.subplots(1, 2, figsize=(7.4, 3.1), sharey=True)
-    cols = {"CA": RED, "GO": GOLD, "OS": GREEN, "SO": "#8e44ad", "DL": BLUE}
+    fig, ax = plt.subplots(1, 2, figsize=(7.6, 3.3), sharey=True)
+    # TinyCNN and CA-CFAR are the two arms the comparison is about; the secondary CFAR
+    # variants are drawn thin so the three principal curves stay readable.
+    principal = {"DL": ("TinyCNN", BLUE, 2.0, "-"), "CA": ("CA-CFAR", RED, 1.7, "-")}
+    secondary = {"GO": GOLD, "OS": GREEN, "SO": "#8e44ad"}
 
     for a, gate, ttl in ((ax[0], 1, "Primary gate: $\\pm1$ bin"),
                          (ax[1], 0, "Exact cell: $\\pm0$ bins")):
-        for m, c in cols.items():
-            s = sweep[(sweep.gate == gate) & (sweep.method == m)].sort_values("snr")
-            a.plot(s.snr, s.pd, color=c, lw=1.6 if m == "DL" else 1.1,
-                   ls="-" if m == "DL" else "--",
-                   label="TinyCNN" if m == "DL" else m, zorder=5 if m == "DL" else 2)
-            v = snr50(s)
+        a.plot(sl, theory, ls=(0, (5, 2)), color=INK, lw=1.5, zorder=6,
+               label="clairvoyant reference")
+        for m, c in secondary.items():
+            d = sweep[(sweep.gate == gate) & (sweep.method == m)].sort_values("snr")
+            a.plot(d.snr, d.pd, color=c, lw=0.9, ls=":", alpha=0.85,
+                   label="%s-CFAR" % m, zorder=2)
+        for m, (lbl, c, lw, ls) in principal.items():
+            d = sweep[(sweep.gate == gate) & (sweep.method == m)].sort_values("snr")
+            a.plot(d.snr, d.pd, color=c, lw=lw, ls=ls, label=lbl, zorder=5)
+            v = snr50(d)
             if not math.isnan(v):
-                a.plot(v, 0.5, "o", color=c, ms=4.5, zorder=6)
+                a.plot(v, 0.5, "o", color=c, ms=5.5, mec="white", mew=1.0, zorder=7)
         a.axhline(0.5, color=GREY, lw=0.8, ls=":")
-        a.axvline(theory, color=INK, lw=1.0, ls="-.")
         a.set_xlabel("Cell SNR [dB]")
         a.set_title(ttl, fontsize=9.5, loc="left")
         a.set_xlim(-2, 24)
+        a.set_ylim(0, 1.02)
         a.spines[["top", "right"]].set_visible(False)
-    ax[0].set_ylabel("$P_d$ at matched measured $P_{fa}=10^{-4}$")
-    ax[0].legend(frameon=False, fontsize=7.4, loc="lower right", ncol=2)
-    ax[0].annotate("clairvoyant\nbound", xy=(theory, 0.16), xytext=(theory - 8.4, 0.20),
+
+    d1 = sweep[(sweep.gate == 1)]
+    dl1, ca1 = snr50(d1[d1.method == "DL"]), snr50(d1[d1.method == "CA"])
+    ax[0].annotate("%.2f dB" % dl1, xy=(dl1, 0.5), xytext=(dl1 - 5.6, 0.60),
+                   fontsize=7.4, color=BLUE,
+                   arrowprops=dict(arrowstyle="->", color=BLUE, lw=0.9))
+    ax[0].annotate("%.2f dB" % ca1, xy=(ca1, 0.5), xytext=(ca1 + 1.6, 0.30),
+                   fontsize=7.4, color=RED,
+                   arrowprops=dict(arrowstyle="->", color=RED, lw=0.9))
+    d0 = sweep[(sweep.gate == 0)]
+    ca0 = snr50(d0[d0.method == "CA"])
+    ax[1].annotate("clairvoyant: %.2f dB" % snr50_theory,
+                   xy=(snr50_theory, 0.5), xytext=(snr50_theory - 12.2, 0.70),
                    fontsize=7.2, color=INK,
                    arrowprops=dict(arrowstyle="->", color=INK, lw=0.9))
+    ax[1].annotate("CA-CFAR: %.2f dB\n(%.2f dB of CFAR loss)" % (ca0, ca0 - snr50_theory),
+                   xy=(ca0, 0.5), xytext=(ca0 + 1.2, 0.20),
+                   fontsize=7.2, color=RED,
+                   arrowprops=dict(arrowstyle="->", color=RED, lw=0.9))
 
+    ax[0].set_ylabel("$P_d$ at matched measured $P_{fa}=10^{-4}$")
+    ax[0].legend(frameon=False, fontsize=7.2, loc="lower right", ncol=2)
     fig.tight_layout()
-    fig.text(0.5, -0.06,
-             "Markers show where each detector reaches $P_d=0.5$. The dash-dotted line is a "
-             "detector that knows the true noise power.\nLeft: at the primary gate the network "
-             "reaches the half-detection point at a lower SNR than any CFAR variant. Right: at "
-             "the exact-cell\ngate it never reaches it at all — the same asymmetry the "
-             "localization measurements show.",
-             ha="center", fontsize=7.4, color=GREY)
     save(fig, "ch5_fig2_pd_vs_snr.png")
+
+
+# ----------------------------------------------------------------------- Fig 5.2 (ROC)
+def fig_roc():
+    """One representative ROC on the final holdout, under the final radius-2 protocol."""
+    roc = pd.read_csv(os.path.join(DLR, "roc_final_r2_tol1.csv"))
+    fig, ax = plt.subplots(figsize=(6.4, 3.9))
+
+    order = [("CA", "CA-CFAR", RED, 1.7, "-"),
+             ("GO", "GO-CFAR", GOLD, 1.0, ":"),
+             ("OS", "OS-CFAR", GREEN, 1.0, ":"),
+             ("SO", "SO-CFAR", "#8e44ad", 1.0, ":"),
+             ("DL", "TinyCNN", BLUE, 2.0, "-")]
+    for m, lbl, c, lw, ls in order:
+        d = roc[roc.method == m].sort_values("pfa_per_cell")
+        d = d[d.pfa_per_cell > 0]
+        ax.plot(d.pfa_per_cell, d.pd, color=c, lw=lw, ls=ls, label=lbl,
+                zorder=5 if m in ("DL", "CA") else 2)
+
+    ax.axvline(1e-4, color=GREY, lw=1.0, ls="--")
+    ax.axvspan(5e-5, 2e-4, color=GREY, alpha=0.12, lw=0)
+    ax.text(1.1e-4, 0.06, "headline operating\nregion, $P_{fa}=10^{-4}$",
+            fontsize=7.2, color=GREY)
+
+    ax.set_xscale("log")
+    ax.set_xlim(1e-7, 5e-2)
+    ax.set_ylim(0, 0.92)
+    ax.set_xlabel("measured per-cell $P_{fa}$")
+    ax.set_ylabel("$P_d$ (pooled over the seven scored conditions)")
+    ax.grid(alpha=0.2, which="both")
+    ax.legend(frameon=False, fontsize=7.6, loc="upper left")
+    ax.spines[["top", "right"]].set_visible(False)
+    fig.tight_layout()
+    save(fig, "ch5_fig2b_roc.png")
 
 
 # ----------------------------------------------------------------------- Fig 5.3
@@ -268,6 +324,7 @@ def fig_operating_point():
 def main():
     print("Chapter 5 figures ->", os.path.relpath(OUT, ROOT))
     fig_headline()
+    fig_roc()
     fig_pd_vs_snr()
     fig_tolerance()
     fig_localization()

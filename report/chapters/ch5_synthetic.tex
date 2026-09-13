@@ -53,6 +53,23 @@ Every value lies between \PfaRatioMin{} and \PfaRatioMax{} --- within two per ce
 comparison that follows is therefore at a genuinely common measured operating point, not at an
 assumed one.
 
+Figure~\ref{fig:roc} puts that operating point in context by sweeping the score threshold across
+its whole usable range, pooled over the seven scored conditions.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{figures/Chapter5/ch5_fig2b_roc.png}
+\caption[Detection probability against measured false-alarm rate]{Each point corresponds to a
+different score threshold; higher $\Pd$ at the same measured $\Pfa$ is better. Pooled over the
+seven scored conditions of the held-out split under the final radius-\ProtocolNms{} protocol, with
+TinyCNN the mean over \TinySeeds{} seeds. The shaded band marks the $10^{-4}$ operating region used
+for the headline comparison --- which sweeps each condition separately, so a pooled value here need
+not equal the per-condition mean of Table~\ref{tab:synresults}. The network's curve stops near
+$8 \times 10^{-4}$ because the shared extractor keeps only positive logits
+(Section~\ref{sec:opoint}), which truncates its high-$\Pfa$ tail.}
+\label{fig:roc}
+\end{figure}
+
 \section{Detection probability by condition}
 
 Figure~\ref{fig:headline} gives the headline measurement: detection probability for the frozen
@@ -130,23 +147,16 @@ target in clean noise with the reference window reaching into the ridge --- is w
 threshold is set from the wrong background. The network gains \SynClutterEdgeDiff{} there, roughly
 three times its next largest margin.
 
-The two unestablished conditions are unestablished for different reasons, and grouping them would
-misrepresent both.
+The two unestablished conditions are unestablished for different reasons.
 
-\textbf{Unresolved: a small difference under a construction that leaves little room for one.} This
-stratum places two truths inside a single resolvable response, so the intended detection ceiling is
-near $\Pd = 0.5$ for either arm --- not because the detectors are weak, but because the stratum was
-built to remove the separate response a second detection would need. The measured difference of
-\SynUnresolvedDiff{} has a bootstrap $p$-value of \SynUnresolvedP{} and does not survive correction
-for seven comparisons. The limit here is one of resolution and peak extraction rather than of
-detector sensitivity.
+\textbf{Unresolved.} The unresolved-pair condition is primarily a protocol and physics sanity check:
+it places two truths inside a single resolvable response, so the intended detection ceiling is near
+$\Pd = 0.5$ for either arm. Its small TinyCNN--CFAR difference (\SynUnresolvedDiff{},
+$p = \SynUnresolvedP{}$) does not survive the Bonferroni correction, so no detector advantage is
+claimed.
 
-\textbf{Homogeneous clutter: a tie, and nothing more should be read into it.} The difference is
-\SynClutterDiff{}, with a bootstrap $p$-value of \SynClutterP{}. This is \emph{not} a
-physics-limited condition --- both arms detect a substantial fraction of targets in it, and there is
-no structural ceiling in play. It is simply the one scored condition on which the learned detector
-establishes no advantage at all. Section~\ref{sec:tolerance} shows that widening the tolerance moves
-it against the network.
+\textbf{Homogeneous clutter.} In homogeneous clutter the two approaches are effectively tied at the
+primary operating point (\SynClutterDiff{}, $p = \SynClutterP{}$).
 
 \section{The result in decibels}
 
@@ -157,36 +167,31 @@ currency, using the dedicated SNR-sweep split.
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter5/ch5_fig2_pd_vs_snr.png}
-\caption[Detection probability against cell SNR]{Detection probability as a function of measured
-cell SNR at matched measured $\Pfa$. Left: the primary gate. Right: the same detectors scored on
-the exact cell. The dash-dotted line marks a clairvoyant detector that knows the true noise power.}
+\caption[Detection probability against cell SNR]{Both empirical detectors against the clairvoyant
+reference. Detection probability as a function of measured cell SNR at matched measured $\Pfa$;
+TinyCNN and CA-CFAR are drawn solid, the secondary CFAR variants dotted, and the dashed curve is a
+clairvoyant detector that knows the true noise power. Left, the primary gate: TinyCNN reaches
+$\Pd = 0.5$ at \SI{\SynSnrFiftyDL}{\deci\bel} against CA-CFAR's \SI{\SynSnrFiftyCA}{\deci\bel}, and
+both sit above the clairvoyant curve --- the $\pm1$-bin gate is more permissive than the exact-cell
+problem that curve describes, so it is not a bound there. Right, the exact cell, where the
+comparison is like for like: CA-CFAR crosses at \SI{\SynSnrFiftyExactCA}{\deci\bel},
+\SI{\SynCfarLossCA}{\deci\bel} above the clairvoyant reference, while TinyCNN never reaches
+$\Pd = 0.5$.}
 \label{fig:pdsnr}
 \end{figure}
 
-At the primary gate the network reaches $\Pd = 0.5$ at a cell SNR of
-\SI{\SynSnrFiftyDL}{\deci\bel}, against \SI{\SynSnrFiftyCA}{\deci\bel} for CA-CFAR and between
-\SI{\SynSnrFiftyGO}{\deci\bel} and \SI{\SynSnrFiftySO}{\deci\bel} for the other variants. The
-margin is therefore \SI{\SynSnrGainDL}{\deci\bel}: the network tolerates a target roughly
-\SI{\SynSnrGainDL}{\deci\bel} weaker for the same detection rate.
+The same result can be expressed as an SNR margin. TinyCNN reaches $\Pd = 0.5$ at
+\SI{\SynSnrFiftyDL}{\deci\bel}, compared with \SI{\SynSnrFiftyCA}{\deci\bel} for CA-CFAR, giving a
+\SI{\SynSnrGainDL}{\deci\bel} advantage at this detection level. The corresponding CA-CFAR
+exact-cell crossing lies \SI{\SynCfarLossCA}{\deci\bel} above the clairvoyant reference, indicating
+that CFAR loss explains only part of the observed margin.
 
-The right-hand panel is the qualification, and it is a substantial one. Scored on the exact cell
-rather than within one bin, the network never reaches $\Pd = 0.5$ at all, peaking at
-\SynPdMaxExactDL{}, while every CFAR variant crosses it between
-\SI{\SynSnrFiftyExactCA}{\deci\bel} and \SI{\SynSnrFiftyExactOS}{\deci\bel}. \textbf{The network's
-advantage exists at the $\pm1$-bin gate and reverses at the exact cell.} This strongly suggests
-that localisation contributes substantially to the difference between the two gates. It does not
-isolate it: exact-cell scoring asks two things at once --- whether the target was found at all, and
-whether the surviving peak landed on its centre cell --- and a single crossing point cannot
-separate them. Section~\ref{sec:localization} measures placement directly, and
-Chapter~\ref{chp:attribution} tests the mechanism.
-
-One further quantity is available from this figure. CA-CFAR crosses $\Pd = 0.5$ at
-\SI{\SynSnrFiftyExactCA}{\deci\bel} on the exact cell, against the clairvoyant bound of
-\SI{\SynSnrTheory}{\deci\bel}. The difference, \SI{\SynCfarLossCA}{\deci\bel}, is the CFAR loss of
-Section~\ref{sec:cfar_loss} measured as a detection penalty --- the quantity
-Section~\ref{sec:alphacal} was careful \emph{not} to conflate with the threshold-multiplier
-difference. It is smaller than the \SI{\SynSnrGainDL}{\deci\bel} margin, so it cannot by itself
-account for the network's advantage; Chapter~\ref{chp:attribution} takes that further.
+The right-hand panel carries one qualification. Scored on the exact cell rather than within one bin,
+the network never reaches $\Pd = 0.5$, peaking at \SynPdMaxExactDL{}, while every CFAR variant
+crosses it. \textbf{The network's advantage exists at the $\pm1$-bin gate and reverses at the exact
+cell}, which points to localisation without isolating it.
+Section~\ref{sec:localization} measures placement directly, and Chapter~\ref{chp:attribution} tests
+the mechanism.
 
 \section{Sensitivity to matching tolerance}
 \label{sec:tolerance}
@@ -209,20 +214,13 @@ stratum, marginal at the primary gate, becomes significant at the wider one. The
 the network leads on those conditions does not depend on the tolerance chosen, which is what the
 robustness gate was included to establish.
 
-The exception is homogeneous clutter. The difference there moves from \SynClutterDiff{} at the
-primary gate --- effectively a tie --- to \SynTolThreeClutterDiff{} at the wider one, changing
-sign. Its confidence interval is $[\SynTolThreeClutterCIlo,\ \SynTolThreeClutterCIhi]$ and the
-bootstrap $p$-value is \SynTolThreeClutterP{}. That is nowhere near the corrected significance
-threshold, so this report does not claim the classical arm wins there.
-
-What can be said is narrower, and still worth stating. The one condition where the network gains
-nothing is also the one where relaxing the localisation demand moves the comparison \emph{against}
-it. A purely detection-driven difference would not behave that way: giving both arms more room to
-be right should help the arm that finds more targets. This is a second indication that localisation
-contributes to the observed difference. It is not an independent one --- both indications are
-computed from the same detections on the same frames, so they are not statistically independent
-tests --- and neither establishes the mechanism. Section~\ref{sec:localization} measures placement
-directly.
+The exception is homogeneous clutter, where the difference moves from \SynClutterDiff{} at the
+primary gate to \SynTolThreeClutterDiff{} at the wider one, changing sign. The bootstrap $p$-value
+there is \SynTolThreeClutterP{}, nowhere near the corrected significance threshold, so this report
+does not claim the classical arm wins in that condition either. It is a second indication that
+localisation contributes to the observed difference --- not an independent one, since both
+indications come from the same detections on the same frames.
+Section~\ref{sec:localization} measures placement directly.
 
 \section{Localisation}
 \label{sec:localization}
