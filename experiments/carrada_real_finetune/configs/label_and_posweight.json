@@ -1,0 +1,78 @@
+{
+ "label_definition": "union of the provided CARRADA dense segmentation masks, restricted to the detector-valid interior; annotation-empty frames kept as all-background examples; nothing invented",
+ "input_adapter": "carrada_input.to_tinycnn_magnitude then the frozen dl.dataset.normalize_rd (= D - median(D), clipped [-10,+60] dB, /20)",
+ "supervision_change": "extended real object masks, NOT the synthetic flat 3x3 point labels. This is real-domain adaptation, not a continuation of the original point-target task.",
+ "pos_weight_rule": "round(N_neg / N_pos) over the 15 FIT sequences inside the valid interior, capped at 100; cap and reason declared before computing",
+ "fit": {
+  "n_frames": 6338,
+  "valid_cells_per_frame": 13216,
+  "positive_cells": 623364,
+  "negative_cells": 83139644,
+  "total_cells": 83763008,
+  "positive_rate": 0.007441996352375502,
+  "neg_over_pos": 133.37254637739747
+ },
+ "dev_reported_not_used": {
+  "n_frames": 1750,
+  "positive_cells": 126025,
+  "positive_rate": 0.005449022829470771
+ },
+ "pos_weight": 100.0,
+ "cap_applied": true,
+ "cap_value": 100.0,
+ "synthetic_reference": {
+  "frozen_pos_weight": 100.0,
+  "synthetic_measured_ratio_approx": 943,
+  "note": "the synthetic label was a 3x3 block around a point target; CARRADA masks are extended, so the positive density is far higher and the ratio far lower"
+ },
+ "access_report": {
+  "mode": "train",
+  "n_allowed": 18,
+  "sequences_opened": [
+   "2019-09-16-12-52-12",
+   "2019-09-16-12-55-51",
+   "2019-09-16-12-58-42",
+   "2019-09-16-13-03-38",
+   "2019-09-16-13-11-12",
+   "2019-09-16-13-14-29",
+   "2019-09-16-13-20-20",
+   "2019-09-16-13-25-35",
+   "2020-02-28-12-12-16",
+   "2020-02-28-12-16-05",
+   "2020-02-28-12-22-05",
+   "2020-02-28-13-05-44",
+   "2020-02-28-13-06-53",
+   "2020-02-28-13-09-58",
+   "2020-02-28-13-10-51",
+   "2020-02-28-13-12-42",
+   "2020-02-28-13-13-43",
+   "2020-02-28-13-15-36"
+  ],
+  "n_opened": 18,
+  "opened_train": [
+   "2019-09-16-12-52-12",
+   "2019-09-16-12-55-51",
+   "2019-09-16-12-58-42",
+   "2019-09-16-13-03-38",
+   "2019-09-16-13-11-12",
+   "2019-09-16-13-14-29",
+   "2019-09-16-13-20-20",
+   "2019-09-16-13-25-35",
+   "2020-02-28-12-12-16",
+   "2020-02-28-12-16-05",
+   "2020-02-28-12-22-05",
+   "2020-02-28-13-05-44",
+   "2020-02-28-13-06-53",
+   "2020-02-28-13-09-58",
+   "2020-02-28-13-10-51",
+   "2020-02-28-13-12-42",
+   "2020-02-28-13-13-43",
+   "2020-02-28-13-15-36"
+  ],
+  "opened_validation": [],
+  "opened_test": [],
+  "test_opened": false,
+  "validation_opened": false
+ },
+ "sha256": "73244c446e4fdf5bec6e7a5cac8464de96fdd5409755cc92e75b5648257222b8"
+}

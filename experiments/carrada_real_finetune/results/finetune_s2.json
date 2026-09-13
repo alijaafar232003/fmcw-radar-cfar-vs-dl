@@ -1,0 +1,90 @@
+{
+ "seed": 2,
+ "lr": 0.0001,
+ "fallback_lr_used": false,
+ "pos_weight": 100.0,
+ "selected_epoch": 10,
+ "best_dev_loss": 0.07136876770428249,
+ "start_dev_loss": 3.20587659236363,
+ "epochs_run": 10,
+ "history": [
+  {
+   "epoch": 0,
+   "train_loss": null,
+   "dev_loss": 3.20587659236363,
+   "note": "arm B checkpoint before any fine-tuning"
+  },
+  {
+   "epoch": 1,
+   "train_loss": 0.760416425876881,
+   "dev_loss": 0.18584578471524374,
+   "seconds": 473.109809600006
+  },
+  {
+   "epoch": 2,
+   "train_loss": 0.1951387445606179,
+   "dev_loss": 0.12433205355916704,
+   "seconds": 506.4375064000051
+  },
+  {
+   "epoch": 3,
+   "train_loss": 0.15705750946273755,
+   "dev_loss": 0.10591360364641463,
+   "seconds": 517.5376044999866
+  },
+  {
+   "epoch": 4,
+   "train_loss": 0.1397917343668602,
+   "dev_loss": 0.09784492494378771,
+   "seconds": 513.5081787999952
+  },
+  {
+   "epoch": 5,
+   "train_loss": 0.12715666542700188,
+   "dev_loss": 0.08797721452372415,
+   "seconds": 512.7343764999823
+  },
+  {
+   "epoch": 6,
+   "train_loss": 0.11871516771951512,
+   "dev_loss": 0.08258194661991937,
+   "seconds": 511.92101689998526
+  },
+  {
+   "epoch": 7,
+   "train_loss": 0.11280590161007253,
+   "dev_loss": 0.07910550460645131,
+   "seconds": 498.7969548999972
+  },
+  {
+   "epoch": 8,
+   "train_loss": 0.10865207362789006,
+   "dev_loss": 0.07646077414069857,
+   "seconds": 516.6585271000222
+  },
+  {
+   "epoch": 9,
+   "train_loss": 0.10558052857092877,
+   "dev_loss": 0.07482906517812184,
+   "seconds": 509.67886099999305
+  },
+  {
+   "epoch": 10,
+   "train_loss": 0.10138937020346747,
+   "dev_loss": 0.07136876770428249,
+   "seconds": 495.74025180001627
+  }
+ ],
+ "checkpoint_sha256": "960b02df6030ca20bbce86626beb615fb04e57881592d81dc5d926f2168935cd",
+ "access_report": {
+  "mode": "train",
+  "n_allowed": 18,
+  "sequences_opened": [],
+  "n_opened": 0,
+  "opened_train": [],
+  "opened_validation": [],
+  "opened_test": [],
+  "test_opened": false,
+  "validation_opened": false
+ }
+}

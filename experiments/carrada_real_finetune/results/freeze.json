@@ -1,0 +1,149 @@
+{
+ "what": "Frozen specification of the CARRADA real-data fine-tuning follow-up, hashed before official CARRADA Validation was opened.",
+ "frozen_utc": "2026-09-13T00:31:40Z",
+ "n_files": 26,
+ "rolling_sha256": "352caa35c8bafb7c3b5cad807c91a995584cb30a470e4f1eef899452ff3855ad",
+ "files": {
+  "configs/internal_split.json": {
+   "sha256": "10fbfd1e52f916f77ec3128e9aa55070ab3fc2471e77bad8dc2f8689b60a26dc",
+   "bytes": 6549
+  },
+  "configs/label_and_posweight.json": {
+   "sha256": "cb3f749aca017d24d00a6aa44f6d2133e960b5b6ee0df3921c18e8572720ed03",
+   "bytes": 2678
+  },
+  "configs/thresholds_ft.json": {
+   "sha256": "1b75c1912f81b9235f9e9f0c86d46703238ee378cfc65a800cd5ae7e4e24af61",
+   "bytes": 260858
+  },
+  "checkpoints/tinycnn_ft_s0.pt": {
+   "sha256": "f3c2280154e75189d2812e0412b647c9076e66de055d9124ed8d0e377adc3204",
+   "bytes": 28620
+  },
+  "checkpoints/tinycnn_ft_s1.pt": {
+   "sha256": "6ba29b50de65ae46a4354328dc9a2320536ec7fe3fb68a47e7dde9a3cda18393",
+   "bytes": 28620
+  },
+  "checkpoints/tinycnn_ft_s2.pt": {
+   "sha256": "960b02df6030ca20bbce86626beb615fb04e57881592d81dc5d926f2168935cd",
+   "bytes": 28620
+  },
+  "checkpoints/tinycnn_ft_s3.pt": {
+   "sha256": "330a45cf5d7c91134b8bd81db44b1bad4a1ae17a69ce5f11f7a4deafb66cf3c2",
+   "bytes": 28620
+  },
+  "checkpoints/tinycnn_ft_s4.pt": {
+   "sha256": "46d5e658b08ff1459234de8ae2d06671c65c61e5ed068dce341f7178691d7701",
+   "bytes": 28620
+  },
+  "checkpoints/tinycnn_ft_s5.pt": {
+   "sha256": "b675adc20ea9ddd30a21efb306ab2aa6bce8a8828990644a57e102e273d8dbca",
+   "bytes": 28620
+  },
+  "checkpoints/tinycnn_ft_s6.pt": {
+   "sha256": "17fdfe8b5c94299cb71b9331707d03a6f3f8f828737dfb1cbabfab27cc225b0c",
+   "bytes": 28620
+  },
+  "checkpoints/tinycnn_ft_s7.pt": {
+   "sha256": "75b77379321ed2611b58b3c9287893feb4b624b7ecae08efb08a2c772ec923a1",
+   "bytes": 28620
+  },
+  "scripts/build_cache.py": {
+   "sha256": "f96caec2bfef8ecf61a465fa3fb6f90c8838446797f0a704d9618bd48d3358e9",
+   "bytes": 8236
+  },
+  "scripts/finetune.py": {
+   "sha256": "e636a50f51fd8ec5e2b1dfccba4ed6da9169d4f50ae5c100610d7040814c8cc6",
+   "bytes": 8486
+  },
+  "scripts/freeze.py": {
+   "sha256": "8a23f29c3b383a485a3f0aa860b4cf20968dac6d72f851c65fe656a62f743b59",
+   "bytes": 4406
+  },
+  "scripts/guard.py": {
+   "sha256": "3a415af5ddbb916d8d66988835fc24e7a9a934cdf5df1d7ec1e106e20c5be6fa",
+   "bytes": 5764
+  },
+  "scripts/isolation.py": {
+   "sha256": "5b5a0e25a24be5d1bc18ba09dcb0461d398b48e6f9e59026aec38ed73c7ee7bd",
+   "bytes": 8619
+  },
+  "scripts/make_split.py": {
+   "sha256": "7d69a0997141310c4c157413e217d25887b4ae49cb9fb14289669ba58de58a71",
+   "bytes": 9433
+  },
+  "scripts/pick_thresholds.py": {
+   "sha256": "d1992ad9d8ebf829cc99cdeaced8615abfc2d7ab693a1091493d2bff9b69f5eb",
+   "bytes": 8998
+  },
+  "results/finetune_s0.json": {
+   "sha256": "efe2bc4df496f3c7ef05e07ae56b09b061d05c1d2de481497b8586d582d4f31e",
+   "bytes": 2055
+  },
+  "results/finetune_s1.json": {
+   "sha256": "7f487a0bee16ed13d717db51982c60c83f7d9b734f174b438eb90631cf0bdd31",
+   "bytes": 2060
+  },
+  "results/finetune_s2.json": {
+   "sha256": "f823c0bc1efa4cc39d3959b1201e15f4c6b1e4d137079d82e621ed2563149770",
+   "bytes": 2053
+  },
+  "results/finetune_s3.json": {
+   "sha256": "45cd8109a7bf23838fb08277c351008d2f6e90426cb61fc54764ac9e7a623169",
+   "bytes": 2055
+  },
+  "results/finetune_s4.json": {
+   "sha256": "bbb1223403d086dd3fcb13fb6ef69fde34a3613d9229549f293df4a495081046",
+   "bytes": 2060
+  },
+  "results/finetune_s5.json": {
+   "sha256": "ca5b9d98365e4f1cc768220654dc2c054f568a3db6f543560a741a5eff8e072e",
+   "bytes": 2059
+  },
+  "results/finetune_s6.json": {
+   "sha256": "b59cb028f4aafaa9c3eca3ecb1116a143f71ac442ccdd3b72e6a8880c4545de6",
+   "bytes": 2054
+  },
+  "results/finetune_s7.json": {
+   "sha256": "172f0dd7cd01d071a1cb28abb4e7f0d7818b751793e24b9793b46f9c6fcdee86",
+   "bytes": 2054
+  }
+ },
+ "fit_sequences": [
+  "2019-09-16-12-52-12",
+  "2019-09-16-12-55-51",
+  "2019-09-16-13-03-38",
+  "2019-09-16-13-11-12",
+  "2019-09-16-13-20-20",
+  "2019-09-16-13-25-35",
+  "2020-02-28-12-12-16",
+  "2020-02-28-12-16-05",
+  "2020-02-28-13-05-44",
+  "2020-02-28-13-06-53",
+  "2020-02-28-13-09-58",
+  "2020-02-28-13-10-51",
+  "2020-02-28-13-12-42",
+  "2020-02-28-13-13-43",
+  "2020-02-28-13-15-36"
+ ],
+ "dev_sequences": [
+  "2019-09-16-12-58-42",
+  "2019-09-16-13-14-29",
+  "2020-02-28-12-22-05"
+ ],
+ "pos_weight": 100.0,
+ "thresholds": {
+  "0": 0.032775437409007874,
+  "1": 0.021866741500305854,
+  "2": 2.0116567611694336e-05,
+  "3": 0.2662779633603041,
+  "4": 0.03779813359602998,
+  "5": 0.22238695356836652,
+  "6": 0.2659674476702701,
+  "7": 0.00026742368936538696
+ },
+ "ca_dev_burden": 9.000571428571428,
+ "carrada_validation_opened_before_freeze": false,
+ "carrada_test_opened": false,
+ "nothing_changes_after_validation": "The eight checkpoints, the eight thresholds, the split, the label definition and the pos_weight are all hashed above. The evaluation script reads them and cannot alter them; no re-tuning, re-selection or re-thresholding happens after Validation is opened."
+}

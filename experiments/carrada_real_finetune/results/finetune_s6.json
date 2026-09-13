@@ -1,0 +1,90 @@
+{
+ "seed": 6,
+ "lr": 0.0001,
+ "fallback_lr_used": false,
+ "pos_weight": 100.0,
+ "selected_epoch": 10,
+ "best_dev_loss": 0.0788307745882443,
+ "start_dev_loss": 2.422495410374233,
+ "epochs_run": 10,
+ "history": [
+  {
+   "epoch": 0,
+   "train_loss": null,
+   "dev_loss": 2.422495410374233,
+   "note": "arm B checkpoint before any fine-tuning"
+  },
+  {
+   "epoch": 1,
+   "train_loss": 0.7733174820042136,
+   "dev_loss": 0.24781033376285008,
+   "seconds": 477.74913349999406
+  },
+  {
+   "epoch": 2,
+   "train_loss": 0.2523154325820693,
+   "dev_loss": 0.15404959385735648,
+   "seconds": 502.14915520000795
+  },
+  {
+   "epoch": 3,
+   "train_loss": 0.19297890776964888,
+   "dev_loss": 0.12482974469661713,
+   "seconds": 519.0747792000184
+  },
+  {
+   "epoch": 4,
+   "train_loss": 0.16618798749905137,
+   "dev_loss": 0.11065518803255898,
+   "seconds": 514.9558733000013
+  },
+  {
+   "epoch": 5,
+   "train_loss": 0.15020635806435917,
+   "dev_loss": 0.10176291756119046,
+   "seconds": 509.56379819998983
+  },
+  {
+   "epoch": 6,
+   "train_loss": 0.13835355871586344,
+   "dev_loss": 0.0956501277770315,
+   "seconds": 508.4005867999804
+  },
+  {
+   "epoch": 7,
+   "train_loss": 0.12968315932918434,
+   "dev_loss": 0.08960665538481304,
+   "seconds": 498.7110190000094
+  },
+  {
+   "epoch": 8,
+   "train_loss": 0.12250352107999313,
+   "dev_loss": 0.08599822532279151,
+   "seconds": 519.9379104000109
+  },
+  {
+   "epoch": 9,
+   "train_loss": 0.11762598243041254,
+   "dev_loss": 0.08045883109739849,
+   "seconds": 507.5377654999902
+  },
+  {
+   "epoch": 10,
+   "train_loss": 0.1137916824251563,
+   "dev_loss": 0.0788307745882443,
+   "seconds": 497.5545509000076
+  }
+ ],
+ "checkpoint_sha256": "17fdfe8b5c94299cb71b9331707d03a6f3f8f828737dfb1cbabfab27cc225b0c",
+ "access_report": {
+  "mode": "train",
+  "n_allowed": 18,
+  "sequences_opened": [],
+  "n_opened": 0,
+  "opened_train": [],
+  "opened_validation": [],
+  "opened_test": [],
+  "test_opened": false,
+  "validation_opened": false
+ }
+}

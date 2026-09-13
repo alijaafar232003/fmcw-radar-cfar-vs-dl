@@ -1,0 +1,278 @@
+{
+ "rule": "RULE 2 (adopted): exhaustive enumeration of all C(18,3)=816 sequence triples, taking the minimum of sum_c |p_dev(c)-p_train(c)| + |obj_dev/obj_train - 1/6| + 1.0 if the triple does not span both recording campaigns; ties broken lexicographically. Counts only -- no detector output of any kind.",
+ "rule_1_superseded": {
+  "rule": "one draw of 3 from 18, numpy.random.default_rng(20260913)",
+  "seed": 20260913,
+  "dev_sequences": [
+   "2019-09-16-12-58-42",
+   "2019-09-16-13-03-38",
+   "2020-02-28-13-15-36"
+  ],
+  "class_counts": {
+   "car": 681,
+   "cyclist": 70
+  },
+  "why_superseded": "contained zero pedestrians, the majority object class in real CARRADA, so early stopping and the burden-matched threshold rule would have been fixed on a car-only development sample. The switch was made on annotation counts alone; no detector had been run."
+ },
+ "balance_objective": 0.06289771370664055,
+ "level": "sequence (never frame)",
+ "fit_sequences": [
+  "2019-09-16-12-52-12",
+  "2019-09-16-12-55-51",
+  "2019-09-16-13-03-38",
+  "2019-09-16-13-11-12",
+  "2019-09-16-13-20-20",
+  "2019-09-16-13-25-35",
+  "2020-02-28-12-12-16",
+  "2020-02-28-12-16-05",
+  "2020-02-28-13-05-44",
+  "2020-02-28-13-06-53",
+  "2020-02-28-13-09-58",
+  "2020-02-28-13-10-51",
+  "2020-02-28-13-12-42",
+  "2020-02-28-13-13-43",
+  "2020-02-28-13-15-36"
+ ],
+ "dev_sequences": [
+  "2019-09-16-12-58-42",
+  "2019-09-16-13-14-29",
+  "2020-02-28-12-22-05"
+ ],
+ "summary": {
+  "fit": {
+   "n_sequences": 15,
+   "n_frames": 6338,
+   "n_annotated_frames": 3467,
+   "n_eligible_objects": 4283,
+   "classes": {
+    "car": 2120,
+    "pedestrian": 1146,
+    "cyclist": 1017
+   },
+   "dates": [
+    "2019-09",
+    "2020-02"
+   ]
+  },
+  "dev": {
+   "n_sequences": 3,
+   "n_frames": 1750,
+   "n_annotated_frames": 852,
+   "n_eligible_objects": 1034,
+   "classes": {
+    "car": 512,
+    "pedestrian": 299,
+    "cyclist": 223
+   },
+   "dates": [
+    "2019-09",
+    "2020-02"
+   ]
+  }
+ },
+ "per_sequence": {
+  "2019-09-16-12-52-12": {
+   "n_frames": 1017,
+   "n_annotated_frames": 286,
+   "n_eligible_objects": 286,
+   "classes": {
+    "car": 286
+   },
+   "median_object_range_bin": 110.0,
+   "date": "2019-09"
+  },
+  "2019-09-16-12-55-51": {
+   "n_frames": 627,
+   "n_annotated_frames": 273,
+   "n_eligible_objects": 273,
+   "classes": {
+    "car": 273
+   },
+   "median_object_range_bin": 109.0,
+   "date": "2019-09"
+  },
+  "2019-09-16-12-58-42": {
+   "n_frames": 921,
+   "n_annotated_frames": 304,
+   "n_eligible_objects": 304,
+   "classes": {
+    "car": 304
+   },
+   "median_object_range_bin": 115.0,
+   "date": "2019-09"
+  },
+  "2019-09-16-13-03-38": {
+   "n_frames": 834,
+   "n_annotated_frames": 327,
+   "n_eligible_objects": 327,
+   "classes": {
+    "car": 327
+   },
+   "median_object_range_bin": 116.0,
+   "date": "2019-09"
+  },
+  "2019-09-16-13-11-12": {
+   "n_frames": 380,
+   "n_annotated_frames": 219,
+   "n_eligible_objects": 219,
+   "classes": {
+    "car": 219
+   },
+   "median_object_range_bin": 86.0,
+   "date": "2019-09"
+  },
+  "2019-09-16-13-14-29": {
+   "n_frames": 457,
+   "n_annotated_frames": 208,
+   "n_eligible_objects": 208,
+   "classes": {
+    "car": 208
+   },
+   "median_object_range_bin": 73.0,
+   "date": "2019-09"
+  },
+  "2019-09-16-13-20-20": {
+   "n_frames": 259,
+   "n_annotated_frames": 174,
+   "n_eligible_objects": 227,
+   "classes": {
+    "car": 227
+   },
+   "median_object_range_bin": 101.0,
+   "date": "2019-09"
+  },
+  "2019-09-16-13-25-35": {
+   "n_frames": 355,
+   "n_annotated_frames": 235,
+   "n_eligible_objects": 235,
+   "classes": {
+    "car": 235
+   },
+   "median_object_range_bin": 107.0,
+   "date": "2019-09"
+  },
+  "2020-02-28-12-12-16": {
+   "n_frames": 492,
+   "n_annotated_frames": 442,
+   "n_eligible_objects": 635,
+   "classes": {
+    "pedestrian": 635
+   },
+   "median_object_range_bin": 86.0,
+   "date": "2020-02"
+  },
+  "2020-02-28-12-16-05": {
+   "n_frames": 774,
+   "n_annotated_frames": 656,
+   "n_eligible_objects": 842,
+   "classes": {
+    "cyclist": 474,
+    "pedestrian": 368
+   },
+   "median_object_range_bin": 78.0,
+   "date": "2020-02"
+  },
+  "2020-02-28-12-22-05": {
+   "n_frames": 372,
+   "n_annotated_frames": 340,
+   "n_eligible_objects": 522,
+   "classes": {
+    "pedestrian": 299,
+    "cyclist": 223
+   },
+   "median_object_range_bin": 74.0,
+   "date": "2020-02"
+  },
+  "2020-02-28-13-05-44": {
+   "n_frames": 208,
+   "n_annotated_frames": 108,
+   "n_eligible_objects": 182,
+   "classes": {
+    "cyclist": 108,
+    "car": 74
+   },
+   "median_object_range_bin": 90.75,
+   "date": "2020-02"
+  },
+  "2020-02-28-13-06-53": {
+   "n_frames": 227,
+   "n_annotated_frames": 129,
+   "n_eligible_objects": 168,
+   "classes": {
+    "cyclist": 87,
+    "car": 81
+   },
+   "median_object_range_bin": 75.0,
+   "date": "2020-02"
+  },
+  "2020-02-28-13-09-58": {
+   "n_frames": 227,
+   "n_annotated_frames": 143,
+   "n_eligible_objects": 219,
+   "classes": {
+    "pedestrian": 143,
+    "car": 76
+   },
+   "median_object_range_bin": 56.0,
+   "date": "2020-02"
+  },
+  "2020-02-28-13-10-51": {
+   "n_frames": 250,
+   "n_annotated_frames": 104,
+   "n_eligible_objects": 195,
+   "classes": {
+    "car": 102,
+    "cyclist": 93
+   },
+   "median_object_range_bin": 70.0,
+   "date": "2020-02"
+  },
+  "2020-02-28-13-12-42": {
+   "n_frames": 300,
+   "n_annotated_frames": 149,
+   "n_eligible_objects": 171,
+   "classes": {
+    "cyclist": 102,
+    "car": 69
+   },
+   "median_object_range_bin": 85.0,
+   "date": "2020-02"
+  },
+  "2020-02-28-13-13-43": {
+   "n_frames": 218,
+   "n_annotated_frames": 124,
+   "n_eligible_objects": 184,
+   "classes": {
+    "cyclist": 83,
+    "car": 101
+   },
+   "median_object_range_bin": 91.5,
+   "date": "2020-02"
+  },
+  "2020-02-28-13-15-36": {
+   "n_frames": 170,
+   "n_annotated_frames": 98,
+   "n_eligible_objects": 120,
+   "classes": {
+    "car": 50,
+    "cyclist": 70
+   },
+   "median_object_range_bin": 65.0,
+   "date": "2020-02"
+  }
+ },
+ "carrada_validation_referenced": false,
+ "carrada_test_referenced": false,
+ "access_report": {
+  "mode": "train",
+  "n_allowed": 18,
+  "sequences_opened": [],
+  "n_opened": 0,
+  "opened_train": [],
+  "opened_validation": [],
+  "opened_test": [],
+  "test_opened": false,
+  "validation_opened": false
+ },
+ "sha256": "764d49884f6e8d5bb1710d2edd59ffe73c81d113ebb43bbea704429fd2630553"
+}

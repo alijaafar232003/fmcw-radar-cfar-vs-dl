@@ -1,0 +1,90 @@
+{
+ "seed": 4,
+ "lr": 0.0001,
+ "fallback_lr_used": false,
+ "pos_weight": 100.0,
+ "selected_epoch": 10,
+ "best_dev_loss": 0.07384245949132102,
+ "start_dev_loss": 2.1530451447623116,
+ "epochs_run": 10,
+ "history": [
+  {
+   "epoch": 0,
+   "train_loss": null,
+   "dev_loss": 2.1530451447623116,
+   "note": "arm B checkpoint before any fine-tuning"
+  },
+  {
+   "epoch": 1,
+   "train_loss": 0.7741330212833893,
+   "dev_loss": 0.22019823128836497,
+   "seconds": 475.89102979999734
+  },
+  {
+   "epoch": 2,
+   "train_loss": 0.22499470352827006,
+   "dev_loss": 0.1450073046684265,
+   "seconds": 503.95791830000235
+  },
+  {
+   "epoch": 3,
+   "train_loss": 0.1749265023212337,
+   "dev_loss": 0.11953356955732618,
+   "seconds": 523.7315870999882
+  },
+  {
+   "epoch": 4,
+   "train_loss": 0.14819004835008676,
+   "dev_loss": 0.10393959558010102,
+   "seconds": 514.2931196999853
+  },
+  {
+   "epoch": 5,
+   "train_loss": 0.13163895407064477,
+   "dev_loss": 0.09472582862206867,
+   "seconds": 510.2969086999947
+  },
+  {
+   "epoch": 6,
+   "train_loss": 0.12126749038846049,
+   "dev_loss": 0.0886050741672516,
+   "seconds": 507.6382994999876
+  },
+  {
+   "epoch": 7,
+   "train_loss": 0.11432685542046725,
+   "dev_loss": 0.08379451407705034,
+   "seconds": 500.43959300001734
+  },
+  {
+   "epoch": 8,
+   "train_loss": 0.10886843684106016,
+   "dev_loss": 0.08209775623253414,
+   "seconds": 523.2163865999901
+  },
+  {
+   "epoch": 9,
+   "train_loss": 0.10421536342900752,
+   "dev_loss": 0.07832117281641279,
+   "seconds": 509.34221120001166
+  },
+  {
+   "epoch": 10,
+   "train_loss": 0.10081268352779311,
+   "dev_loss": 0.07384245949132102,
+   "seconds": 494.50168929999927
+  }
+ ],
+ "checkpoint_sha256": "46d5e658b08ff1459234de8ae2d06671c65c61e5ed068dce341f7178691d7701",
+ "access_report": {
+  "mode": "train",
+  "n_allowed": 18,
+  "sequences_opened": [],
+  "n_opened": 0,
+  "opened_train": [],
+  "opened_validation": [],
+  "opened_test": [],
+  "test_opened": false,
+  "validation_opened": false
+ }
+}

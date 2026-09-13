@@ -1,0 +1,90 @@
+{
+ "seed": 3,
+ "lr": 0.0001,
+ "fallback_lr_used": false,
+ "pos_weight": 100.0,
+ "selected_epoch": 10,
+ "best_dev_loss": 0.07322210283790316,
+ "start_dev_loss": 2.402565538951329,
+ "epochs_run": 10,
+ "history": [
+  {
+   "epoch": 0,
+   "train_loss": null,
+   "dev_loss": 2.402565538951329,
+   "note": "arm B checkpoint before any fine-tuning"
+  },
+  {
+   "epoch": 1,
+   "train_loss": 0.7426524595474479,
+   "dev_loss": 0.17679824331828525,
+   "seconds": 479.3859078999958
+  },
+  {
+   "epoch": 2,
+   "train_loss": 0.1989259218900048,
+   "dev_loss": 0.13146777542999813,
+   "seconds": 506.38540179999836
+  },
+  {
+   "epoch": 3,
+   "train_loss": 0.16518970616349024,
+   "dev_loss": 0.11252940596852984,
+   "seconds": 518.1532542000059
+  },
+  {
+   "epoch": 4,
+   "train_loss": 0.14535584911030142,
+   "dev_loss": 0.09940683319738933,
+   "seconds": 513.4476635000028
+  },
+  {
+   "epoch": 5,
+   "train_loss": 0.13248371055827068,
+   "dev_loss": 0.0914262587428093,
+   "seconds": 513.9031654999999
+  },
+  {
+   "epoch": 6,
+   "train_loss": 0.1229539966238803,
+   "dev_loss": 0.08637211002622332,
+   "seconds": 505.7859850000241
+  },
+  {
+   "epoch": 7,
+   "train_loss": 0.11589691224484587,
+   "dev_loss": 0.08191572710445949,
+   "seconds": 501.07439120000345
+  },
+  {
+   "epoch": 8,
+   "train_loss": 0.11037760637887759,
+   "dev_loss": 0.07754816882099425,
+   "seconds": 518.4363835999975
+  },
+  {
+   "epoch": 9,
+   "train_loss": 0.10625096491009146,
+   "dev_loss": 0.07499563487086977,
+   "seconds": 511.9705366999842
+  },
+  {
+   "epoch": 10,
+   "train_loss": 0.10223598944856294,
+   "dev_loss": 0.07322210283790316,
+   "seconds": 494.8403576000128
+  }
+ ],
+ "checkpoint_sha256": "330a45cf5d7c91134b8bd81db44b1bad4a1ae17a69ce5f11f7a4deafb66cf3c2",
+ "access_report": {
+  "mode": "train",
+  "n_allowed": 18,
+  "sequences_opened": [],
+  "n_opened": 0,
+  "opened_train": [],
+  "opened_validation": [],
+  "opened_test": [],
+  "test_opened": false,
+  "validation_opened": false
+ }
+}
