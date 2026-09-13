@@ -1016,12 +1016,17 @@ sensitive to that radius in a way the synthetic benchmark is not; a single radiu
 the dependence is documented. Separately, \RoneNearZeroFrac{} of test objects lie in the
 zero-Doppler band, so the headline describes that regime more than it describes the map uniformly.
 
-\item \textbf{Transfer scope.} No real-data training was performed, so this is a zero-shot bound
-and not a ceiling --- a fine-tuned network might close the gap, and that experiment has not been
-run. CFAR is also zero-shot here: its multipliers were calibrated for single-look statistics, so its
-operating point on real data is not the designed one, and that it transferred well is an
-observation rather than evidence its calibration was correct. Finally, no causal intervention was
-performed, so no measured domain difference can be said to have caused the result.
+\item \textbf{Transfer scope.} No real-data training was performed \emph{in this chapter}, so its
+result is a zero-shot bound and not a ceiling. Two follow-up experiments in
+Chapter~\ref{chp:domaingap} test exactly what this bound leaves open --- first by rebuilding the
+synthetic training domain from target-domain statistics, then by permitting real-domain
+fine-tuning --- and both raise real-data recall well above the figure reported here. Nothing in this
+chapter anticipated those results, and they are reported as follow-up work rather than folded back
+into this evaluation. CFAR is also zero-shot here: its multipliers were calibrated for single-look
+statistics, so its operating point on real data is not the designed one, and that it transferred
+well is an observation rather than evidence its calibration was correct. Finally, this chapter
+performs no causal intervention, so none of the measured domain differences can be said, on its
+evidence alone, to have caused the result.
 
 \end{enumerate}
 
@@ -1069,3 +1074,14 @@ detector's measured advantage was specific to its training domain and did not tr
 classical detector whose threshold adapts to local statistics by construction reached comparable
 recall from a far sparser output. That is a narrower claim than the synthetic result alone would
 have supported, and it is the claim the evidence sustains.
+
+\textbf{The disappearance of the synthetic advantage shifts the question from detector capacity to
+domain alignment.} The audit of Section~\ref{sec:r0} was run to decide whether this comparison was
+fair, but it also measured something else: the simulator and the real sensor differ in background
+smoothness, spread, ridge structure and range behaviour by margins far larger than any constant
+tuned anywhere in this project. A detector whose decision rule is fixed by weights fitted to one of
+those distributions was never guaranteed to carry to the other.
+
+That turns a negative result into a testable hypothesis --- that the training distribution, not the
+architecture, is what failed to transfer --- and it is the hypothesis Chapter~\ref{chp:domaingap}
+sets out to test.

@@ -100,9 +100,40 @@ adapting in whatever domain it is used. A conventionally frozen feed-forward net
 mechanism to re-estimate its decision rule when the deployment distribution changes: its behaviour
 is fixed by weights fitted to the training distribution.
 
-This shapes the central question of the project. The purpose is not only to determine whether a small
-convolutional detector can outperform CFAR, but to determine what a small learned local decision
-rule adds when both detectors operate over comparable range--Doppler context.
+This shapes the central question of the project, and it is deliberately not ``is a CNN better than
+CFAR?''. A single ranking would hide the thing that turns out to matter most. The question this
+thesis answers is:
+
+\begin{quote}
+\textbf{When does a learned local radar detector actually provide an advantage over classical CFAR,
+and what is required for that advantage to survive transfer from controlled simulation to real radar
+data?}
+\end{quote}
+
+\section{Research questions}
+\label{sec:rqs}
+
+Five questions follow, each answered by one stage of the work.
+
+\begin{description}
+\itemsep4pt
+\item[RQ1 --- The controlled comparison.] Under controlled synthetic conditions, with comparable
+local range--Doppler context and a matched measured operating point, what detection advantage does a
+small learned local decision rule provide over classical CFAR?
+\item[RQ2 --- The mechanism.] What detector characteristics explain the learned gains and their
+trade-offs? Three are tested: energy integration over the mainlobe, the role of supervision in
+localisation, and access to the guard region.
+\item[RQ3 --- Transfer.] Does the learned advantage survive zero-shot transfer from simulated FMCW
+data to real range--Doppler measurements?
+\item[RQ4 --- The training domain.] If it does not, does reducing the \emph{measured}
+synthetic-to-real background mismatch improve transfer, without any real radar frame entering neural
+optimisation?
+\item[RQ5 --- Real adaptation.] With real-domain supervision permitted, can the learned detector
+beat CA-CFAR at a comparable output burden, on real sequences it has never been scored on?
+\end{description}
+
+RQ1 and RQ2 concern the detector. RQ3, RQ4 and RQ5 concern the distribution it was trained on, and
+they are the reason this thesis does not end with its synthetic benchmark.
 
 \section{Objectives}
 
@@ -136,6 +167,17 @@ own.
 \item[O4 --- Test external validity.] Evaluate both frozen detectors, with no retraining or
 recalibration of any kind, on real automotive radar data taken from a public dataset, under a
 protocol registered and hash-frozen before the test data were scored.
+
+\item[O5 --- Test whether the training domain is the limiting factor.] If the transfer result is
+negative, measure the difference between the simulated and real domains, rebuild the synthetic
+training background from target-domain statistics alone, and re-measure transfer --- while keeping
+every real radar frame out of neural optimisation. This separates ``the detector cannot transfer''
+from ``it was trained on the wrong distribution''.
+
+\item[O6 --- Test what real supervision adds.] Permit real-domain adaptation, finally, and ask
+whether the same small network can exceed the classical baseline on previously unscored real
+sequences at a comparable output burden --- with the operating point fixed on training data before
+the evaluation split is opened.
 \end{description}
 
 One objective is deliberately excluded. This project does not aim to produce a state-of-the-art
@@ -177,11 +219,33 @@ development data and the real data re-scored under it, so the reported figures c
 disclosed re-run rather than from the original one-shot read. Appendix~\ref{app:prereg} carries the
 full history.
 
+\item \textbf{A target-domain-informed synthetic intervention.} The simulated background was rebuilt
+from statistics measured on the CARRADA \emph{training} split alone --- smoothness, range
+dependence and zero-Doppler ridge structure --- with no real frame entering neural optimisation or
+threshold calibration. Exact real-data recall rose from \CiTestOrig{} to \CiTestNew{}, showing that a
+substantial part of the transfer failure was a property of the training distribution rather than of
+the detector. The same experiment shows the limit of that reading: the recovery came with
+\CiTestBurdenRatio{} times the output density, and did not survive burden matching against CA-CFAR.
+
+\item \textbf{A real-domain adaptation result.} Fine-tuned on CARRADA training sequences with its
+operating point fixed on training data alone, the same \TinyParams{}-parameter network reached exact
+recall \FtValFt{} against CA-CFAR's \FtValCFAR{} on previously unscored validation sequences, at a
+slightly \emph{lower} unmatched-detection burden. Within the reviewed corpus, no directly comparable
+experiment was identified that carries one small detector through controlled synthetic comparison,
+zero-shot transfer, domain-informed retraining and real adaptation under a single evaluation
+protocol.
+
 \item \textbf{A protocol-sensitivity finding about extended objects.} The real-data comparison
 proved to depend not only on the two score maps but on the fixed rule that converts a dense score
 map into object candidates. On synthetic point targets the choice of that rule moved the reported
 margins by an order of magnitude less than the published confidence intervals; on annotated objects
 larger than the suppression window it moved the headline result.
+
+\item \textbf{An empirical argument against single-number detector comparisons.} Across the five
+stages, detection probability alone would have supported three different and partly contradictory
+conclusions. Output burden, training domain, tolerance and operating point each changed the answer,
+and the strongest learned result in the thesis is one where recall and burden had to be read
+together.
 
 \item \textbf{A reproducibility framework supporting these claims:} frozen model and detector
 artefacts, isolation manifests that prevent completed experiments from being modified later, raw
@@ -226,8 +290,16 @@ from and reports the experiments that separate the competing explanations.
 detectors zero-shot on real automotive radar data under the pre-registered protocol, with the one
 later post-processing revision it records explicitly. It audits the difference between the two
 domains before any scoring, reports what survives the transfer and what does not, and places both
-halves of the project against the published literature.
+halves of the project against the published literature. Its result is negative, and that is what
+makes the next chapter necessary.
 
-The \textbf{General Conclusion} states what the evidence supports, what it does not, and which
-directions follow naturally from it. Three appendices record the corrections log, the frozen
-pre-registration and the supporting tables.
+\textbf{Chapter~\ref{chp:domaingap}, \emph{Closing the Domain Gap}}, takes the measured
+synthetic-to-real differences and turns them into two interventions. The first rebuilds the
+synthetic training background from target-domain statistics with no real frame entering neural
+optimisation; the second permits supervised real-domain fine-tuning and evaluates it on sequences no
+detector in this project had scored. Both are follow-up experiments carried out after the
+pre-registered transfer result, and the chapter says so plainly.
+
+The \textbf{General Conclusion} answers the five research questions in turn, states what the
+evidence supports and what it does not, and sets out the directions that follow. Three appendices
+record the corrections log, the frozen pre-registration and the supporting tables.

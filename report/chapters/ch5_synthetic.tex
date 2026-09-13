@@ -329,7 +329,17 @@ block label this arm was trained with, not of learned detection in general:
 Chapter~\ref{chp:attribution} varies the label and removes most of the gap.
 \end{itemize}
 
-Two questions follow, and the next two chapters take one each.
-Chapter~\ref{chp:attribution} asks where the detection margin comes from and how much of the
-placement behaviour is set by supervision. Chapter~\ref{chp:realdata} asks whether any of this
-survives contact with real radar measurements.
+\textbf{What this chapter does and does not establish.} It establishes that a learned local decision
+rule \emph{can} improve on CFAR under controlled conditions: five challenge-condition gains, one
+practical tie in homogeneous clutter, and one resolution-limited stress case whose small difference
+does not survive correction. That is a statement about potential, measured on the simulator that
+produced the training data. It is \textbf{not} a statement about real-world superiority, and nothing
+in this chapter licenses one.
+
+The controlled benchmark therefore establishes that the learned detector can improve the local
+decision rule. The question it leaves open is whether that improvement is a property of the detector
+or of the distribution it was trained on. The next chapters take one piece each:
+Chapter~\ref{chp:attribution} asks where the margin comes from and how much of the placement
+behaviour is set by supervision; Chapter~\ref{chp:realdata} freezes the detectors and asks whether
+any of it survives contact with real radar measurements; and Chapter~\ref{chp:domaingap} asks what
+would have to change for it to.

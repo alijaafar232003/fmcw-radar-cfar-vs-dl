@@ -2,35 +2,49 @@
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-Constant false-alarm rate (CFAR) detection remains a standard approach to radar target detection,
-while recent work increasingly reports improvements from learned detectors. Such comparisons can be
-difficult to interpret when methods observe different inputs, use different spatial context, or are
-evaluated at unmatched false-alarm rates. This work compares a lightweight
-\TinyParams{}-parameter convolutional detector (TinyCNN) with CA-, GO-, SO- and OS-CFAR on
-simulated FMCW range--Doppler maps using comparable $\TinyRFR \times \TinyRFD$ local context and a
-shared downstream evaluation pipeline. Performance is compared at a matched measured false-alarm
-rate across isolated, multi-target, masking, clutter-edge, mixed and homogeneous-clutter conditions,
-with an additional unresolved-target condition used as a resolution and protocol stress test.
+Constant false-alarm rate (CFAR) detection remains the standard approach to radar target detection,
+while learned detectors increasingly report improvements over it. Such comparisons are hard to
+interpret when the methods observe different inputs, use different spatial context, or are scored at
+unmatched false-alarm rates --- and they rarely test whether a gain measured in simulation survives
+deployment on real measurements. This thesis therefore asks not whether a learned detector beats
+CFAR, but \emph{under what conditions} it does.
 
-On a fresh held-out synthetic test set, the network establishes statistically significant gains
-across the five resolvable challenge conditions, while homogeneous clutter is a practical tie and
-the unresolved stress test shows no significant difference after multiple-comparison correction. The
-network reaches $\Pd = 0.5$ at a signal-to-noise ratio \SI{\SynSnrGainDL}{\deci\bel} below CA-CFAR.
+A \TinyParams{}-parameter convolutional detector (TinyCNN) is compared with CA-, GO-, SO- and
+OS-CFAR on simulated FMCW range--Doppler maps, using comparable $\TinyRFR \times \TinyRFD$ local
+context, a shared candidate-extraction and evaluation pipeline, and a matched measured false-alarm
+rate. The comparison is then carried through four further stages: attribution experiments that
+isolate what the learned gain is and is not; zero-shot transfer to the CARRADA automotive radar
+dataset; a target-domain-informed synthetic intervention; and supervised real-domain fine-tuning.
 
-Attribution experiments show that the learned advantage is not explained by simple mainlobe-energy
-integration and that access to guard-region information modestly affects the network response. They
-also show that localisation behaviour is strongly influenced by supervision design: replacing the
-original flat $3\times3$ label with more spatially concentrated supervision substantially improves
-localisation with negligible impact on tolerant detection performance.
+On a fresh held-out synthetic test set the network establishes significant gains in five challenge
+conditions, with homogeneous clutter a practical tie and an unresolved-target stress case showing no
+significant difference after correction. Attribution shows the advantage is not simple
+mainlobe-energy integration, and that the network's localisation behaviour is largely a consequence
+of how it is supervised rather than an inherent limitation.
 
-Finally, zero-shot evaluation on the CARRADA automotive radar dataset, without retraining or
-real-data tuning, finds no statistically significant difference between TinyCNN and CA-CFAR at exact
-annotated support, while the network produces approximately \RoneBurdenRatio{} times more unmatched
-detections per frame. These results show that a lightweight learned detector can provide meaningful
-advantages over CFAR under controlled synthetic conditions, but that those gains do not transfer
-cleanly to real radar measurements, highlighting the importance of evaluation protocol, supervision
-design and domain generalisation.
+Transfer changes the picture. Evaluated zero-shot on CARRADA, the synthetic-trained network and
+CA-CFAR are statistically indistinguishable in exact dense-mask recall, while the network emits
+roughly \RoneBurdenRatio{} times more unmatched detections per frame. A domain audit measured large
+differences between the simulator and the real sensor in background smoothness, spread, zero-Doppler
+ridge structure and range non-stationarity. Rebuilding the synthetic training background from
+CARRADA \emph{training}-split statistics alone --- with no real frame entering neural optimisation
+--- raised exact test recall from \CiTestOrig{} to \CiTestNew{} (sequence-balanced difference
+\CiTestDelta{}, 95\,\% CI [\CiTestCIlo{}, \CiTestCIhi{}]), but at roughly
+\CiTestBurdenRatio{} times the output density, which burden-matched analysis showed did not
+establish superiority over CA-CFAR.
+
+Finally, fine-tuning that network on CARRADA training sequences, with the operating point fixed on
+training data alone, gave exact recall \FtValFt{} against CA-CFAR's \FtValCFAR{} on previously
+unscored validation sequences --- a difference of \FtDelta{} (95\,\% CI [\FtCIlo{}, \FtCIhi{}]) at a
+slightly \emph{lower} output burden (\FtValBurdenFt{} against \FtValBurdenCFAR{} unmatched
+detections per frame). Against the synthetic-only arm, fine-tuning established no recall gain; its
+effect was selectivity, cutting output by about an order of magnitude at equal recall.
+
+The evidence supports a conditional conclusion rather than a ranking. CFAR is the stronger
+out-of-the-box detector: training-free, interpretable, and transferable without adaptation. The
+learned detector has the higher observed performance ceiling, but reaches it only when the
+deployment domain is represented during training.
 
 \vspace{0.4em}
-\noindent\textbf{Keywords:} FMCW radar, CFAR detection, convolutional neural networks, domain
-shift.
+\noindent\textbf{Keywords:} FMCW radar, CFAR detection, convolutional neural networks, domain shift,
+domain adaptation.

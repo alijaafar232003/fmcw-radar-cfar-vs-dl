@@ -544,6 +544,80 @@ def main():
     macro("EfourIsoUnmasked", f(iso.loc["unmasked", "pd"], 3))
     macro("EfourIsoMasked", f(iso.loc["masked", "pd"], 3))
 
+    # ------------------------------------------------ Chapter 8: the two follow-up experiments
+    # STAGE 4, the CARRADA-informed synthetic intervention, evaluated on the CARRADA TEST split.
+    # STAGE 5, real-domain fine-tuning, evaluated on the CARRADA VALIDATION split.
+    # These are DIFFERENT real splits and their raw values are not paired measurements; every
+    # macro name says which split it comes from, and the prose never differences across them.
+    CID = os.path.join(ROOT, "experiments", "carrada_informed_domain")
+    FTD = os.path.join(ROOT, "experiments", "carrada_real_finetune")
+
+    lines.append("")
+    lines.append("% ---------- STAGE 4: CARRADA-informed synthetic training (CARRADA TEST) ------")
+    S4 = json.load(open(os.path.join(CID, "results", "test_analysis_r5.json")))
+    macro("CiTestObjects", "{:,}".format(S4["eligible_objects"]))
+    macro("CiTestOrig", f(S4["pooled_exact_recall"]["A"], 4))
+    macro("CiTestNew", f(S4["pooled_exact_recall"]["B"], 4))
+    macro("CiTestCFAR", f(S4["pooled_exact_recall"]["C"], 4))
+    P4 = S4["primary_B_minus_A"]
+    macro("CiTestDelta", "{:+.4f}".format(P4["mean_delta"]))
+    macro("CiTestCIlo", "{:+.4f}".format(P4["ci_lo"]))
+    macro("CiTestCIhi", "{:+.4f}".format(P4["ci_hi"]))
+    ps4 = S4["per_sequence_exact_recall"]
+    macro("CiTestSeqAhead", sum(1 for k in ps4["B"] if ps4["B"][k] > ps4["A"][k]))
+    macro("CiTestNseq", len(ps4["A"]))
+    for a, nm in (("A", "Orig"), ("B", "New"), ("C", "CFAR")):
+        macro("CiTestBurden" + nm, f(S4["unmatched_per_frame"][a]["mean"], 2))
+    macro("CiTestBurdenRatio",
+          "{:.1f}".format(S4["unmatched_per_frame"]["B"]["mean"]
+                          / S4["unmatched_per_frame"]["A"]["mean"]))
+    for a, nm in (("A", "Orig"), ("B", "New"), ("C", "CFAR")):
+        macro("CiTestNear" + nm, f(S4["by_range"][a]["10-60"]["recall"], 4))
+    # the r=2 threshold sensitivity check, quoted once so the defect note can cite it
+    S4b = json.load(open(os.path.join(CID, "results", "test_analysis_r2.json")))
+    macro("CiTestDeltaRtwo", "{:+.4f}".format(S4b["primary_B_minus_A"]["mean_delta"]))
+
+    lines.append("")
+    lines.append("% ---------- STAGE 5: real-domain fine-tuning (CARRADA VALIDATION) -----------")
+    S5 = json.load(open(os.path.join(FTD, "results", "validation_analysis.json")))
+    macro("FtValFrames", "{:,}".format(S5["n_frames"]))
+    macro("FtValObjects", "{:,}".format(S5["eligible_objects"]))
+    for a, nm in (("A", "Orig"), ("B", "Ci"), ("C", "Ft"), ("D", "CFAR")):
+        macro("FtVal" + nm, f(S5["pooled_exact_recall"][a], 4))
+        macro("FtValBurden" + nm, f(S5["unmatched_per_frame"][a]["mean"], 2))
+    P5 = S5["primary_C_minus_D"]
+    macro("FtDelta", "{:+.4f}".format(P5["mean_delta"]))
+    macro("FtCIlo", "{:+.4f}".format(P5["ci_lo"]))
+    macro("FtCIhi", "{:+.4f}".format(P5["ci_hi"]))
+    macro("FtNseq", P5["n_sequences"])
+    ps = S5["per_sequence_exact_recall"]
+    macro("FtSeqAhead", sum(1 for k in ps["C"] if ps["C"][k] > ps["D"][k]))
+    A5 = S5["adaptation_C_minus_B"]
+    macro("FtVsCiDelta", "{:+.4f}".format(A5["mean_delta"]))
+    macro("FtVsCiCIlo", "{:+.4f}".format(A5["ci_lo"]))
+    macro("FtVsCiCIhi", "{:+.4f}".format(A5["ci_hi"]))
+    macro("FtBurdenDrop", "{:.1f}".format(S5["unmatched_per_frame"]["B"]["mean"]
+                                          / S5["unmatched_per_frame"]["C"]["mean"]))
+    for t, nm in ((0, "Exact"), (1, "TolOne"), (3, "TolThree")):
+        for a, an in (("C", "Ft"), ("D", "CFAR"), ("B", "Ci"), ("A", "Orig")):
+            macro("FtTol" + nm + an, f(S5["tolerance"]["tol%d" % t][a], 4))
+    rb = S5["recall_at_matched_burden"]
+    macro("FtMatchedBurden", f(rb["CA_frozen_burden"], 2))
+    for a, nm in (("A", "Orig"), ("B", "Ci"), ("C", "Ft"), ("D", "CFAR")):
+        v = rb["at_CA_burden"].get(a)
+        if v is not None:
+            macro("FtMatched" + nm, f(v, 4))
+    for a, nm in (("A", "Orig"), ("B", "Ci"), ("C", "Ft"), ("D", "CFAR")):
+        macro("FtNear" + nm, f(S5["by_range"][a]["10-60"]["recall"], 4))
+        macro("FtPed" + nm, f(S5["by_class"][a]["pedestrian"]["recall"], 4))
+    for a, nm in (("A", "Orig"), ("B", "Ci"), ("C", "Ft")):
+        macro("FtSeedSD" + nm, "{:.4f}".format(S5["seed_variability"][a]["sd"]))
+    FZ = json.load(open(os.path.join(FTD, "results", "freeze.json")))
+    macro("FtPosWeight", "{:g}".format(FZ["pos_weight"]))
+    macro("FtCaDevBurden", f(FZ["ca_dev_burden"], 2))
+    macro("FtFitSeq", len(FZ["fit_sequences"]))
+    macro("FtDevSeq", len(FZ["dev_sequences"]))
+
     # ---------------------------------------------------------------- provenance
     FR = json.load(open(os.path.join(EXP, "results", "preregistration_freeze.json")))
     lines.append("")

@@ -177,7 +177,32 @@ original result was known. The original radius-\ProtocolNmsOriginal{} outputs ha
 overwritten or edited; they remain on disk beside the revised ones, along with the frozen selection
 rule and its hash.
 
-\subsection*{The attribution experiments were re-scored, not re-run}
+\subsection*{A defect in the threshold-derivation code, and what it does and does not affect}
+\label{app:thrdefect}
+
+The follow-up work of Chapter~\ref{chp:domaingap} re-read the threshold-derivation code before
+reusing it, and found a defect worth recording.
+
+\texttt{predict\_points} declares its suppression radius as a default argument, and a Python default
+binds once, when the function is defined --- not when it is called. The module-level constant it
+binds to is the original radius. The routine that collects a whole split calls
+\texttt{predict\_points} without passing a radius, so it always extracts candidates at the
+\emph{original} radius regardless of what a caller sets afterwards. The revised-radius copy sets the
+constant on a different module, which reaches the per-frame helpers but not that collector.
+
+\textbf{Consequence.} The zero-shot thresholds published as radius-\ProtocolNms{} were in fact
+derived at radius \ProtocolNmsOriginal{}, which is why they are byte-identical to the
+radius-\ProtocolNmsOriginal{} set. Candidate extraction during the evaluation itself was unaffected:
+that path passes the radius explicitly. So the reported evaluation ran at radius \ProtocolNms{} with
+thresholds derived at radius \ProtocolNmsOriginal{}. Because the smaller radius keeps a superset of
+candidates, the rule-correct threshold would have been slightly higher, and the arm therefore
+operated slightly above its intended output level.
+
+\textbf{Size of the effect, measured rather than argued.} The domain intervention of
+Section~\ref{sec:stage4} derived its thresholds \emph{both} ways and ran the comparison twice. The
+primary difference was \CiTestDelta{} under the original code path and \CiTestDeltaRtwo{} under the
+corrected one --- the same conclusion, the same sign, the same significance. The defect is recorded
+because it is real, not because it changes an interpretation.
 \label{app:attribrescore}
 
 The three attribution experiments of Chapter~\ref{chp:attribution} were designed, run and first
