@@ -1,146 +1,28 @@
 % !TEX root = ../main.tex
-\chapter{Pre-registration and Provenance}
+\chapter{Protocol Revisions and Sensitivity Checks}
 \label{app:prereg}
 
-This appendix records the provenance of the real-data experiment: what was fixed in advance, the
-hashes that prove when, the commit chain, and the one protocol field that was later revised.
-
-\section{The R1 pre-registration}
-
-\subsection*{What the document fixes}
-
-The pre-registration settles every choice that could otherwise have been made after seeing a result.
-Table~\ref{tab:prereg} in Chapter~\ref{chp:realdata} summarises the substance and is not repeated
-here. In outline the document fixes: the ground-truth definition (the dense segmentation support,
-with centroid, box-centre, brightest-cell and sparse-centroid alternatives explicitly rejected); the
-eligible region and the definition of an eligible object; the matching rule and its tie-breaking
-order; the primary metric and the secondary tolerance ladder; the strata to be reported; the
-statistical plan, including the sequence-balanced bootstrap; the threshold rule for the learned arm;
-which CFAR variant is primary; and the wording permitted when describing unmatched detections.
-
-Two rulings were applied at the final freeze and are recorded because they changed the protocol
-after the draft:
-
-\begin{itemize}
-\itemsep2pt
-\item The learned detector's global threshold rule was approved as proposed --- derived per seed,
-from synthetic validation data only, as the lowest threshold whose pooled measured per-cell
-$\Pfa$ does not exceed the target.
-\item The primary CFAR comparator was changed from OS to CA.
-\end{itemize}
-
-\subsection*{Freeze record}
-
-\begin{table}[H]
-\centering
-\caption{Pre-registration freeze metadata, read from the freeze record itself.}
-\label{tab:freeze}
-\begin{tabular}{@{}p{0.32\textwidth}p{0.58\textwidth}@{}}
-\toprule
-\textbf{Field} & \textbf{Value} \\
-\midrule
-Document            & {\footnotesize\ttfamily \PreregFile} \\
-SHA-256             & {\footnotesize\ttfamily \PreregHashA\newline\PreregHashB} \\
-Size                & \PreregBytes{} bytes \\
-Frozen              & \PreregFrozen{} \\
-Status              & \PreregStatus \\
-Supersedes draft    & \texttt{\PreregDraftHashShort\ldots} \\
-R0 baseline commit  & \texttt{\PreregRzeroCommit} \\
-Detector scoring performed at freeze & \PreregScored \\
-CARRADA labels used for any choice   & \PreregCarradaUsed \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The last two fields are the ones that matter. At the moment of the freeze no detection statistic of
-any kind had been computed on real data, and no CARRADA label had informed any decision. The
-document was not edited afterwards; the draft it supersedes is retained under its own hash.
-
-\subsection*{Adapter equivalence checks}
-
-Two numerical checks confirm that the frozen detectors receive real data without any preprocessing
-being redesigned, as Section~\ref{sec:r0} states.
-
-\begin{itemize}
-\itemsep2pt
-\item \textbf{CFAR scale invariance.} Scaling the input by factors from $10^{-2}$ to $10^{6}$ left
-the CFAR statistic unchanged to $1.5 \times 10^{-11}$ and produced identical peak sets, confirming
-that the unknown constant relating the published array to absolute power cancels in the ratio test.
-\item \textbf{Network preprocessing.} Feeding $10^{\,D/20}$ to the unmodified frozen preprocessing
-code reproduces the analytic reduction of Equation~\ref{eq:cnn_input} to $2.4 \times 10^{-7}$,
-about two units in the last place of the single-precision output.
-\end{itemize}
-
-\subsection*{Dataset reduction check}
-
-The CARRADA distribution stores every annotation twice: as dense per-frame arrays and as a compact
-coordinate file. Before the redundant arrays were deleted, masks reconstructed from the coordinate
-file were compared against the stored arrays on \textbf{360 sampled frame--annotation-type pairs}
-spanning all \CarradaSequences{} sequences. Every pair was byte-identical, so the reduction
-described in Chapter~\ref{chp:realdata} discards no annotation content.
-
-\subsection*{Isolation manifest}
-
-Before any real data was processed, a manifest recorded the SHA-256 hash, size and protection
-category of \textbf{628 files}: the eight frozen network checkpoints and their training
-configurations; the network, CFAR, evaluation and radar source modules; the frozen configuration
-file; the calibrated threshold table; the dataset configurations and caches; the headline result
-tables; the CFAR baseline outputs; and the complete outputs of the three attribution experiments.
-The manifest was re-verified at the end of every phase, and no protected file changed at any point.
-
-Every test-split access event is recorded with its timestamp, the repository commit, the
-pre-registration hash, the run-manifest hash, the environment, and the hash of every model
-checkpoint used. Raw detector output was written to disk and hashed before any summary statistic was
-computed, so every table and figure in Chapter~\ref{chp:realdata} is traceable to immutable
-evidence.
-
-\subsection*{Phase and commit chain}
-
-Each phase was committed before the next began, so the order cannot be reconstructed favourably
-after the fact. Phases~1--6 are the original pre-registered experiment; phases~7--8 are the revision
-recorded below.
-
-\begin{table}[H]
-\centering\small
-\caption{Phases of the real-data experiment, with the commit at which each was fixed.}
-\label{tab:phases}
-\begin{tabular}{@{}clll@{}}
-\toprule
-\textbf{Phase} & \textbf{Content} & \textbf{Detector run?} & \textbf{Commit} \\
-\midrule
-\multicolumn{4}{@{}l}{\emph{Original pre-registered experiment}} \\
-1 & Isolation and dataset integrity        & no  & \texttt{15f3aab} \\
-2 & Domain audit (R0)                      & no  & \texttt{a3a3b88} \\
-3 & Pre-registration frozen                & no  & \texttt{9c9a3e2} \\
-4 & Implementation, adapters, thresholds   & synthetic / train only & \texttt{30936d6} \\
-5 & One-shot test evaluation (R1)          & \textbf{yes, once}     & \texttt{9bfa805} \\
-6 & Documentation and closeout             & no  & \texttt{8c0d826} \\
-\addlinespace
-\multicolumn{4}{@{}l}{\emph{Later post-processing revision}} \\
-7 & Suppression-radius rule frozen      & no                     & \texttt{8f38dd8} \\
-8 & Radius reselected, test re-scored   & \textbf{yes, re-run}   & \texttt{fe5e790} \\
-\bottomrule
-\end{tabular}
-\end{table}
+Every substantive choice in this project --- ground truth, eligibility, matching, metrics, the
+statistical plan, the threshold rule and the primary classical comparator --- was written down and
+frozen before the corresponding evaluation data were scored. Two things changed afterwards, and both
+affect how the final evidence should be read. They are recorded here in full. Everything else that
+supports them --- freeze records with their hashes, the file manifests that protect completed
+experiments from later modification, the commit chain, environment fingerprints and the complete
+corrections log kept during development --- is retained in the accompanying project repository, along
+with the raw detector outputs from which every table and figure in this report is derived.
 
 \section{Revision of the post-processing protocol}
 \label{app:nmsrevision}
 
-The results reported in Chapters~\ref{chp:synthetic} and~\ref{chp:realdata} were produced at a
-non-maximum-suppression radius of \ProtocolNms{}. An earlier version of this work used radius
-\ProtocolNmsOriginal{}. That change is recorded here in full, because the real-data comparison of
-Chapter~\ref{chp:realdata} is sensitive to it and the reader is entitled to know when the choice was
-made.
-
 \subsection*{What happened}
 
-The frozen configuration fixed the suppression radius at \ProtocolNmsOriginal{}
+The frozen configuration fixed the non-maximum-suppression radius at \ProtocolNmsOriginal{}
 ($\ProtocolNmsOriginalWin \times \ProtocolNmsOriginalWin$ cells) before the synthetic benchmark was
-scored, on the basis of a development observation that Appendix~\ref{app:corrections} now records as
-Correction~C9. When that justification was checked against a controlled sweep it did not hold. The
-sweep was therefore run properly, on development data only, under a selection rule written and
-hash-frozen \emph{before} any measurement was taken, and it selected radius \ProtocolNms{}: the
-smallest radius tested that produced no duplicate in-gate detections.
+scored, on the basis of a development observation. When that justification was checked against a
+controlled sweep it did not hold. The sweep was therefore run properly, on development data only,
+under a selection rule written and frozen \emph{before} any measurement was taken, and it selected
+radius \ProtocolNms{}: the smallest radius tested that produced no duplicate in-gate detections.
+\textbf{Every result in this report is at radius \ProtocolNms{}.}
 
 \subsection*{What was re-measured, and on what data}
 
@@ -153,108 +35,97 @@ selection, the validation split for confirmation. The final synthetic holdout wa
 \SynHoldoutFrames{} frames, produced from a new seed after the radius was fixed, and verified to
 share no frame content with any previously generated split. The superseded test split was not
 re-used, so the revised benchmark is a genuine one-shot read rather than a second look at data whose
-answer was already known.
+answer was already known. This is why Chapters~\ref{chp:simulator} and~\ref{chp:synthetic} describe a
+new holdout rather than a re-scored one.
 \item \textbf{The real-data evaluation was re-run} under the revised protocol, on the same official
 CARRADA test sequences, with thresholds re-derived from synthetic validation data alone.
-\end{itemize}
-
-\subsection*{What did not change}
-
-The detector itself is untouched. The same eight checkpoints at epoch \TinyEpochs{} were loaded,
-with the same weights; nothing was retrained, fine-tuned, re-initialised or re-selected. The CFAR
-window geometry, the threshold multipliers, the input transform, the label definition, the matching
-rule, the operating-point definition, the tolerance ladder and the statistical treatment are all as
-specified in Chapter~\ref{chp:detectors}. \textbf{One post-processing constant changed, and nothing
-else.}
-
-\subsection*{What the reader should not conclude}
-
-The real-data evaluation reported in Chapter~\ref{chp:realdata} remains zero-shot in the sense that
-matters: no real measurement was used for training, fine-tuning, threshold calibration or radius
-selection. It is \textbf{not}, however, the original untouched pre-registered run. It is a re-run of
-the pre-registered protocol with one post-processing field revised, and it was performed after the
-original result was known. The original radius-\ProtocolNmsOriginal{} outputs have not been deleted,
-overwritten or edited; they remain on disk beside the revised ones, along with the frozen selection
-rule and its hash.
-
-\subsection*{A defect in the threshold-derivation code, and what it does and does not affect}
-\label{app:thrdefect}
-
-The follow-up work of Chapter~\ref{chp:domaingap} re-read the threshold-derivation code before
-reusing it, and found a defect worth recording.
-
-\texttt{predict\_points} declares its suppression radius as a default argument, and a Python default
-binds once, when the function is defined --- not when it is called. The module-level constant it
-binds to is the original radius. The routine that collects a whole split calls
-\texttt{predict\_points} without passing a radius, so it always extracts candidates at the
-\emph{original} radius regardless of what a caller sets afterwards. The revised-radius copy sets the
-constant on a different module, which reaches the per-frame helpers but not that collector.
-
-\textbf{Consequence.} The zero-shot thresholds published as radius-\ProtocolNms{} were in fact
-derived at radius \ProtocolNmsOriginal{}, which is why they are byte-identical to the
-radius-\ProtocolNmsOriginal{} set. Candidate extraction during the evaluation itself was unaffected:
-that path passes the radius explicitly. So the reported evaluation ran at radius \ProtocolNms{} with
-thresholds derived at radius \ProtocolNmsOriginal{}. Because the smaller radius keeps a superset of
-candidates, the rule-correct threshold would have been slightly higher, and the arm therefore
-operated slightly above its intended output level.
-
-\textbf{Size of the effect, measured rather than argued.} The domain intervention of
-Section~\ref{sec:stage4} derived its thresholds \emph{both} ways and ran the comparison twice. The
-primary difference was \CiTestDelta{} under the original code path and \CiTestDeltaRtwo{} under the
-corrected one --- the same conclusion, the same sign, the same significance. The defect is recorded
-because it is real, not because it changes an interpretation.
+\item \textbf{The three attribution experiments were re-scored} at radius \ProtocolNms{} from their
+original checkpoints. No model was retrained, fine-tuned, re-initialised or re-selected; because a
+wider window's local maxima are a strict subset of a narrower one's, a smaller radius cannot be
+recovered from a stored candidate list, so inference was regenerated and the cached CFAR and TinyCNN
+baselines were rebuilt at the same radius. Split, seeds, epoch, operating-point definition, matching
+rule, tolerance gates, bootstrap seed and Bonferroni correction are unchanged. No CARRADA data of any
+split was opened, and the held-out synthetic split was not read.
 \label{app:attribrescore}
-
-The three attribution experiments of Chapter~\ref{chp:attribution} were designed, run and first
-analysed under the original radius, before the revision described above. Rather than report them
-under a protocol the rest of the thesis no longer uses, they were re-scored at radius
-\ProtocolNms{} before submission, and Chapter~\ref{chp:attribution} quotes only those re-scored
-values. What that involved, precisely:
-
-\begin{itemize}
-\itemsep2pt
-\item \textbf{No model was retrained.} Every checkpoint was loaded from its original experiment
-folder with its original weights. Nothing was retrained, fine-tuned, re-initialised or re-selected.
-E2 is a classical detector and has no weights at all.
-\item \textbf{Inference was regenerated only where it had to be.} Candidate extraction discards the
-score map once the local maxima are taken, and the maxima of a wider window are a strict subset of
-those of a narrower one, so a smaller radius cannot be recovered from a stored candidate list.
-E3's earlier checkpoints and both E4 arms were therefore passed through their frozen networks
-again. E2's integrated detections were re-extracted from the range--Doppler data.
-\item \textbf{Baselines were re-scored to match.} Each experiment compares against cached
-plain-CFAR and TinyCNN candidates. Those caches were rebuilt at radius \ProtocolNms{}; comparing
-revised detections against original-radius baselines would have been a mixed measurement.
-\item \textbf{Nothing else changed.} Split, seeds, epoch, operating-point definition, matching rule,
-tolerance gates, bootstrap seed and Bonferroni correction are all as originally registered. One
-post-processing constant changed, and nothing else.
-\item \textbf{No real data entered any of this.} All three experiments run on the synthetic
-validation split. No CARRADA data of any split was opened.
-\item \textbf{The frozen benchmark was not touched.} The held-out split of
-Chapter~\ref{chp:synthetic} is not read by any attribution experiment, at either radius.
 \end{itemize}
 
-The original outputs have not been deleted or overwritten. They remain, with their original values,
-in the three experiment folders:
+\subsection*{What did not change, and what the reader should conclude}
 
-\begin{center}
-\small
-\begin{tabular}{@{}ll@{}}
-E2 & \texttt{experiments/integrated\_cfar/} \\
-E3 & \texttt{experiments/label\_ablation/} \\
-E4 & \texttt{experiments/e4\_cut\_guard\_mask/} \\
-\end{tabular}
-\end{center}
+The detectors are untouched. The same eight checkpoints at epoch \TinyEpochs{} were loaded with the
+same weights. The CFAR window geometry, the threshold multipliers, the input transform, the label
+definition, the matching rule, the operating-point definition, the tolerance ladder and the
+statistical treatment are all as specified in Chapter~\ref{chp:detectors}. \textbf{One
+post-processing constant changed, and nothing else.}
 
-\noindent The re-scored outputs were written alongside them, under the audit's own directory, so both
-readings of every experiment remain on disk and comparable.
+The real-data evaluation of Chapter~\ref{chp:realdata} therefore remains zero-shot in the sense that
+matters: no real measurement was used for training, fine-tuning, threshold calibration or radius
+selection. It is \textbf{not}, however, the original untouched run. It is a re-run of the frozen
+protocol with one post-processing field revised, performed after the original result was known. The
+original radius-\ProtocolNmsOriginal{} outputs remain on disk beside the revised ones, together with
+the frozen selection rule.
 
 \subsection*{Why the change matters more on real data than on synthetic data}
 
 The synthetic conclusions are almost unaffected by the radius, and the reason is geometric. A
 simulated target is a point scatterer whose response spans about two bins, so any reasonable
-suppression window contains exactly one maximum per target and shrinking it changes little. A
-CARRADA road user is an extended region whose annotated support has a median extent of roughly
+suppression window contains exactly one maximum per target and shrinking it changes little. A CARRADA
+road user is an extended region whose annotated support has a median extent of roughly
 $18 \times 13$ bins --- \emph{larger than the suppression window itself}. There the window operates
 inside a single object, and which local maximum survives is close to arbitrary. That is why the
-real-data comparison moved and the synthetic one did not, and it is reported in
-Chapter~\ref{chp:realdata} as a finding in its own right rather than as an inconvenience.
+real-data comparison moved and the synthetic one did not, and Chapter~\ref{chp:realdata} reports it
+as a finding in its own right rather than as an inconvenience.
+
+\section{A defect in the threshold-derivation code}
+\label{app:thrdefect}
+
+\subsection*{What happened}
+
+\texttt{predict\_points} declares its suppression radius as a default argument, and a Python default
+binds once, when the function is defined --- not when it is called. The module-level constant it
+binds to is the original radius. The routine that collects a whole split calls
+\texttt{predict\_points} without passing a radius, so it always extracted candidates at the
+\emph{original} radius regardless of what a caller set afterwards. The revised-radius copy sets the
+constant on a different module, which reaches the per-frame helpers but not that collector.
+
+\textbf{Consequence.} The zero-shot thresholds published as radius-\ProtocolNms{} were in fact
+derived at radius \ProtocolNmsOriginal{}, which is why they are byte-identical to the
+radius-\ProtocolNmsOriginal{} set. Candidate extraction during the evaluation itself was unaffected,
+because that path passes the radius explicitly. The reported evaluation therefore ran at radius
+\ProtocolNms{} with thresholds derived at radius \ProtocolNmsOriginal{}. Because the smaller radius
+keeps a superset of candidates, the rule-correct threshold would have been slightly higher, and the
+learned arm operated slightly above its intended output level.
+
+\subsection*{Sensitivity analysis}
+
+The size of the effect was measured rather than argued. The domain intervention of
+Section~\ref{sec:stage4} derived its thresholds \emph{both} ways and ran the comparison twice. The
+primary difference was \CiTestDelta{} under the original code path and \CiTestDeltaRtwo{} under the
+corrected one --- the same conclusion, the same sign, the same significance.
+
+\textbf{Conclusion: the defect is real and the interpretation is materially unchanged.} It is
+recorded because the published thresholds were not derived under the rule they were described by,
+not because it changes any result in this report.
+
+\section{Chronology of the follow-up experiments}
+
+Chapters~\ref{chp:synthetic} to~\ref{chp:realdata} report the work as originally planned: the
+synthetic benchmark, the attribution experiments, and one evaluation of the CARRADA test split under
+a protocol frozen beforehand. The two experiments of Chapter~\ref{chp:domaingap} came afterwards, in
+response to that result, and are reported as follow-up work rather than folded back into it.
+
+\begin{itemize}
+\itemsep2pt
+\item \textbf{Stage~4} (Section~\ref{sec:stage4}) calibrated a revised synthetic background from the
+18 official CARRADA \emph{training} sequences and evaluated the resulting networks on the CARRADA
+test split --- a split whose original zero-shot result was already known, which is why Stage~4 is
+described as a domain intervention and not as a fresh external validation. No real frame entered
+neural optimisation or threshold calibration.
+\item \textbf{Stage~5} (Section~\ref{sec:stage5}) fine-tuned on CARRADA training sequences, fixed its
+operating point on three held-out training sequences, and then read the official CARRADA
+\emph{validation} split once. Those sequences had never been scored by any detector in this project,
+which is why they are described as \emph{previously unscored} rather than unseen: the domain audit of
+Section~\ref{sec:r7audit} read their frames to measure background statistics, with no detector
+involved and no label used.
+\item \textbf{The CARRADA test split was not opened during Stage~5}, and the validation split was not
+opened during Stages~1--4.
+\end{itemize}

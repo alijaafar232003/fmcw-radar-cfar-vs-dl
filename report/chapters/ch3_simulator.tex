@@ -110,24 +110,16 @@ B_{\text{eff}} = \frac{c \, N_{\text{bins}}}{2 R_{\max}} \approx \SI{\CarradaBef
 \end{equation}
 which is the value adopted, rounded to \SI{\RadarB}{\mega\hertz}.
 
-Two cross-checks support reading the published table this way.
-
-First, the same table quotes an angular resolution of \ang{0.70}, while \ang{180} divided by 256
-angle bins is \ang{0.703}. The entries labelled ``FFT resolution'' therefore appear to be bin
-spacings rather than physical resolutions, and reading the range entry the same way makes it
-self-consistent.
-
-Second, the velocity axis is consistent throughout. The quoted velocity resolution implies a frame
-time of \SI{4.635}{\milli\second}; divided by 64 chirps this gives a chirp interval of
-\SI{\RadarTc}{\micro\second}, which reproduces the quoted maximum velocity to within
-\SI{0.01}{\metre\per\second}. Only the range side requires interpretation.
-
-One possible explanation for the \SI{\CarradaQuotedB}{\giga\hertz} figure is that it refers to the
-configured radio-frequency sweep of the front end, of which only the portion falling inside the
-sampled beat band contributes to the range transform. \textbf{This is an inference from the
-published numbers, not something stated in the dataset documentation}, and nothing in this report
-depends on it. What matters here is only that the simulator reproduces the grid geometry the
-dataset actually exhibits.
+Two cross-checks support reading the published table this way. The same table quotes an angular
+resolution of \ang{0.70}, while \ang{180} divided by 256 angle bins is \ang{0.703}: the entries
+labelled ``FFT resolution'' therefore appear to be bin spacings rather than physical resolutions, and
+reading the range entry the same way makes it self-consistent. The velocity axis, meanwhile, is
+consistent throughout --- the quoted velocity resolution implies a frame time of
+\SI{4.635}{\milli\second}, which divided by 64 chirps gives a chirp interval of
+\SI{\RadarTc}{\micro\second} and reproduces the quoted maximum velocity to within
+\SI{0.01}{\metre\per\second}. Only the range side requires interpretation, and nothing in this report
+depends on why: what matters is that the simulator reproduces the grid geometry the dataset actually
+exhibits.
 
 \subsection{Resulting parameters}
 
@@ -219,7 +211,7 @@ each axis --- emerges from the signal processing rather than being modelled or d
 
 Figure~\ref{fig:simchain} shows the additions that turn this chain into a benchmark generator.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig1_simulator_chain.png}
 \caption[Simulator structure]{The upper row is the processing chain of
@@ -288,7 +280,7 @@ analysis in this report uses.
 
 Figure~\ref{fig:snrdist} shows the resulting distribution across the test split.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=0.92\textwidth]{figures/Chapter3/ch3_fig5_snr_distribution.png}
 \caption[Cell SNR distribution]{Measured cell SNR for every target in the reported holdout of
@@ -340,9 +332,9 @@ prediction of average field performance.
 
 \subsection{The eight strata}
 
-Table~\ref{tab:strata} lists them, and Figure~\ref{fig:strata} shows one frame from each.
+Table~\ref{tab:strata} lists them, and Figure~\ref{fig:stratazoom} shows one frame from each.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{The eight strata. Each is generated in equal quantity. Seven contain targets and are
 scored; \texttt{noise} contains none and supports false-alarm measurement.}
@@ -377,35 +369,25 @@ so it acts as a sanity check \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig2_strata_montage.png}
-\caption[The eight strata]{One frame from each stratum, at full map scale. Red circles mark the
-annotated targets. Several are not obvious by eye, which is by design: the benchmark places targets
-near the detection transition. Frames are selected deterministically as described in the text.}
-\label{fig:strata}
+\includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig3_strata_zoom.png}
+\caption[The eight strata]{What each stratum actually contains. One frame per stratum, centred on
+the strongest target, with white circles marking the annotated targets: the weak partner beside a
+strong one in \texttt{masking}; two targets sharing a single mainlobe in \texttt{unresolved};
+well-separated returns in \texttt{multi}; a target inside the ridge in \texttt{clutter} against one
+beside it in \texttt{clutter\_edge}; and clutter with multipath in \texttt{mixed}. Window sizes
+differ per stratum so that the relevant structure is visible, and the \texttt{noise} stratum is
+omitted because it contains no target to centre on. Figure~\ref{fig:strata} in
+Appendix~\ref{app:tables} shows the same frames at full map scale.}
+\label{fig:stratazoom}
 \end{figure}
 
 The frame shown for each stratum is chosen by a fixed rule: the frame whose target count is closest
-to that stratum's median target count, with ties broken by frame index. The rule depends only on
-the scene composition, never on appearance and never on how any detector performed on the frame.
-
-At full map scale the differences between strata are hard to see, because most targets sit close to
-the detection transition. Figure~\ref{fig:stratazoom} shows the same frames zoomed onto the target
-regions, which is where the distinctions become visible.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig3_strata_zoom.png}
-\caption[The strata, zoomed]{Zoomed companion to Figure~\ref{fig:strata}, using the same frames and
-the same selection rule. Each panel is centred on the strongest target in its frame, and white
-circles mark the annotated targets. Window sizes differ per stratum so that the relevant structure
-is visible: the weak partner beside a strong one in \texttt{masking}; two targets sharing a single
-mainlobe in \texttt{unresolved}; well-separated returns in \texttt{multi}; a target inside the ridge
-in \texttt{clutter} against one beside it in \texttt{clutter\_edge}; and clutter with multipath in
-\texttt{mixed}. The \texttt{noise} stratum is omitted because it contains no target to centre on.}
-\label{fig:stratazoom}
-\end{figure}
+to that stratum's median target count, with ties broken by frame index. The rule depends only on the
+scene composition, never on appearance and never on how any detector performed on the frame. At full
+map scale most targets are not obvious by eye, which is by design --- the benchmark places them near
+the detection transition.
 
 Two design points in that table are worth drawing out.
 
@@ -476,7 +458,7 @@ approximately two bins, which is what fixes the guard-cell count of the CFAR win
 Chapter~\ref{chp:detectors}: the guard region must cover a target's own spread, or a target would
 inflate its own threshold.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig4_psf.png}
 \caption[Measured point spread function]{Response of an isolated target along each axis, measured

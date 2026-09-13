@@ -2,49 +2,40 @@
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-Constant false-alarm rate (CFAR) detection remains the standard approach to radar target detection,
-while learned detectors increasingly report improvements over it. Such comparisons are hard to
-interpret when the methods observe different inputs, use different spatial context, or are scored at
-unmatched false-alarm rates --- and they rarely test whether a gain measured in simulation survives
-deployment on real measurements. This thesis therefore asks not whether a learned detector beats
-CFAR, but \emph{under what conditions} it does.
+\begin{spacing}{1.12}
+Constant false-alarm rate (CFAR) detection remains the radar standard, while learned detectors
+increasingly report improvements over it. Such comparisons are hard to interpret when the methods
+observe different inputs, use different spatial context or are scored at unmatched false-alarm rates,
+and rarely test whether a simulated gain survives on real data. This thesis therefore asks not
+whether a learned detector beats CFAR, but \emph{under what conditions} it does.
 
 A \TinyParams{}-parameter convolutional detector (TinyCNN) is compared with CA-, GO-, SO- and
 OS-CFAR on simulated FMCW range--Doppler maps, using comparable $\TinyRFR \times \TinyRFD$ local
-context, a shared candidate-extraction and evaluation pipeline, and a matched measured false-alarm
-rate. The comparison is then carried through four further stages: attribution experiments that
-isolate what the learned gain is and is not; zero-shot transfer to the CARRADA automotive radar
-dataset; a target-domain-informed synthetic intervention; and supervised real-domain fine-tuning.
+context, one shared evaluation pipeline and a matched measured false-alarm rate. It is then carried
+through four further stages: attribution, zero-shot transfer to the CARRADA automotive radar dataset,
+target-domain-informed synthetic training, and supervised real-domain fine-tuning.
 
-On a fresh held-out synthetic test set the network establishes significant gains in five challenge
-conditions, with homogeneous clutter a practical tie and an unresolved-target stress case showing no
-significant difference after correction. Attribution shows the advantage is not simple
-mainlobe-energy integration, and that the network's localisation behaviour is largely a consequence
-of how it is supervised rather than an inherent limitation.
+On a held-out synthetic test set the network establishes significant gains in five challenge
+conditions, ties in homogeneous clutter, and shows no significant difference on an unresolved-target
+stress case. Attribution shows the advantage is not simple mainlobe-energy integration, and that its
+localisation behaviour is largely set by how it is supervised.
 
-Transfer changes the picture. Evaluated zero-shot on CARRADA, the synthetic-trained network and
-CA-CFAR are statistically indistinguishable in exact dense-mask recall, while the network emits
-roughly \RoneBurdenRatio{} times more unmatched detections per frame. A domain audit measured large
-differences between the simulator and the real sensor in background smoothness, spread, zero-Doppler
-ridge structure and range non-stationarity. Rebuilding the synthetic training background from
-CARRADA \emph{training}-split statistics alone --- with no real frame entering neural optimisation
---- raised exact test recall from \CiTestOrig{} to \CiTestNew{} (sequence-balanced difference
-\CiTestDelta{}, 95\,\% CI [\CiTestCIlo{}, \CiTestCIhi{}]), but at roughly
-\CiTestBurdenRatio{} times the output density, which burden-matched analysis showed did not
-establish superiority over CA-CFAR.
+Transfer changes the picture. Zero-shot on the CARRADA test split the two are statistically
+indistinguishable in exact dense-mask recall, while the network emits roughly \RoneBurdenRatio{}
+times more unmatched detections per frame. Rebuilding the synthetic training background from CARRADA
+\emph{training}-split statistics alone, with no real frame entering neural optimisation, raised exact
+test recall from \CiTestOrig{} to \CiTestNew{} --- but at \CiTestBurdenRatio{} times the output
+density, with no superiority over CA-CFAR under burden matching.
 
-Finally, fine-tuning that network on CARRADA training sequences, with the operating point fixed on
-training data alone, gave exact recall \FtValFt{} against CA-CFAR's \FtValCFAR{} on previously
-unscored validation sequences --- a difference of \FtDelta{} (95\,\% CI [\FtCIlo{}, \FtCIhi{}]) at a
-slightly \emph{lower} output burden (\FtValBurdenFt{} against \FtValBurdenCFAR{} unmatched
-detections per frame). Against the synthetic-only arm, fine-tuning established no recall gain; its
-effect was selectivity, cutting output by about an order of magnitude at equal recall.
+Finally, fine-tuning on CARRADA training sequences, with the operating point fixed on training data
+alone, gave exact recall \FtValFt{} against CA-CFAR's \FtValCFAR{} on previously unscored validation
+sequences: \FtDelta{} (95\,\% CI [\FtCIlo{}, \FtCIhi{}]), at a slightly \emph{lower} burden of
+\FtValBurdenFt{} against \FtValBurdenCFAR{} unmatched detections per frame. Against the
+synthetic-only arm it established no recall gain; what it improved was the recall--output trade-off.
 
-The evidence supports a conditional conclusion rather than a ranking. CFAR is the stronger
-out-of-the-box detector: training-free, interpretable, and transferable without adaptation. The
-learned detector has the higher observed performance ceiling, but reaches it only when the
-deployment domain is represented during training.
+CFAR is therefore the stronger training-free detector: interpretable, cheap and transferable without
+adaptation. The learned detector demonstrated the higher observed performance ceiling, but reached it
+only when the deployment domain was represented during training.
 
-\vspace{0.4em}
-\noindent\textbf{Keywords:} FMCW radar, CFAR detection, convolutional neural networks, domain shift,
-domain adaptation.
+\noindent\textbf{Keywords:} FMCW radar, CFAR, convolutional networks, domain adaptation.
+\end{spacing}

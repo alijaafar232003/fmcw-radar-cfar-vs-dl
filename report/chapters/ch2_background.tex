@@ -281,7 +281,7 @@ interferer, the more effectively it hides its neighbour.
 Figure~\ref{fig:cfarfail} illustrates both mechanisms on a one-dimensional cut, using the same
 guard and reference counts per side as the window used in the rest of this work.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter2/ch2_fig5_cfar_failure_modes.png}
 \caption[The two dominant CFAR failure modes]{\textbf{An illustrative simulation of the two
@@ -510,14 +510,9 @@ learned weights.
 Together they support the framing used throughout this report: \textbf{CFAR is a fixed local rule,
 and a CNN is a learned local rule}, applied over comparable context.
 
-\subsubsection*{Two patterns}
-
-Two observations run through the comparative studies. First, learned detectors often provide little
-advantage over a well-configured CFAR in homogeneous conditions, but can gain in more difficult
-clutter. Second, the reasons for those gains are not fully established.
-
-These two observations motivate what follows: a controlled benchmark that measures the difference
-under matched conditions, and a set of attribution experiments that tests why it arises.
+Two observations run through these comparative studies, and they motivate what follows. Learned
+detectors often provide little advantage over a well-configured CFAR in homogeneous conditions but
+can gain in more difficult clutter; and the reasons for those gains are not fully established.
 
 \section{Gap addressed by this work}
 
@@ -547,18 +542,15 @@ reports that evaluation.
 An FMCW radar turns range into a beat frequency and velocity into a phase rotation across chirps,
 and two Fourier transforms produce the range--Doppler map on which detection is performed. CFAR
 detects by estimating the local background from a reference window and applying an adaptive
-threshold proportional to it. Its variants --- CA, GO, SO and OS --- differ only in how that
+threshold proportional to it; its variants --- CA, GO, SO and OS --- differ only in how that
 estimate is formed, and each has different strengths and weaknesses across homogeneous background,
 clutter edges and multiple targets.
 
-Two ideas from this chapter carry into the rest of the report. CFAR can be interpreted as a
-\emph{fixed} local operator applied to a neighbourhood of each cell, and a convolutional network
-can be interpreted as a \emph{learned} local operator over comparable context. That is what makes
-the comparison in this report a controlled one. And the literature shows that learned detectors can
-gain in difficult clutter but often tie CFAR in simple conditions.
-
-Two questions are left open. Why those gains occur, and whether they survive a change of domain,
-are both unresolved in the reviewed work. They motivate the experiments of the following chapters.
+One idea from this chapter carries into the rest of the report: \textbf{CFAR is a fixed local
+operator applied to a neighbourhood of each cell, and a convolutional network is a learned local
+operator over comparable context}. That framing is what makes the comparison in this report a
+controlled one. Two questions are left open by the reviewed work --- why the reported learned gains
+occur, and whether they survive a change of domain --- and they motivate the experiments that follow.
 Chapter~\ref{chp:simulator} begins by specifying the simulator and the datasets, chosen so that the
 conditions identified in Section~\ref{sec:cfar_failures} are represented and so that the
 range--Doppler geometry matches the real dataset used later.

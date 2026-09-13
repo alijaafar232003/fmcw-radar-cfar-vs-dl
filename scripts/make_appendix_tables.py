@@ -53,7 +53,7 @@ def radius():
 
 
 def table(caption, label, colspec, header, rows, note=None):
-    w(r"\begin{table}[H]")
+    w(r"\begin{table}[htbp]")
     w(r"\centering\small")
     w(r"\caption{%s}" % caption)
     w(r"\label{%s}" % label)
@@ -194,9 +194,9 @@ def main():
                                     "%.4f" % v["tinycnn"], "%.4f" % v["cfar_CA"],
                                     "%+.4f" % (v["tinycnn"] - v["cfar_CA"]),
                                     "%.4f" % v["cfar_OS"]]))
-    table("Every pre-registered CARRADA stratum with its difference column, which "
-          "Table~\\ref{tab:r1_strata} omits. Class comparisons are confounded by mask size and the "
-          "cyclist row rests on two sequences only.",
+    table("Every pre-specified CARRADA test stratum, with its difference column. "
+          "Section~\\ref{sec:r7secondary} discusses the range blocks; class comparisons are "
+          "confounded by mask size and the cyclist row rests on two sequences only.",
           "tab:appStrata", "lrcccc",
           r"\textbf{Stratum} & \textbf{$n$} & \textbf{TinyCNN} & \textbf{CA-CFAR} & "
           r"\textbf{Diff.} & \textbf{OS-CFAR}", rows)

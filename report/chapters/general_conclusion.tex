@@ -8,15 +8,14 @@ CFAR, and what is required for that advantage to survive the move from controlle
 measurements. It answered that question in five stages, each of which changed the answer the
 previous one would have given.
 
-\section*{What the project built}
-
-A simulator producing labelled FMCW range--Doppler maps with a calibrated cell-SNR definition; four
-CFAR detectors on a measured window geometry; a \TinyParams{}-parameter convolutional detector whose
-receptive field equals the CFAR window by construction; and one evaluation path shared by both arms
---- the same candidate extraction, the same one-to-one matching, the same operating-point
-definition, the same statistics. Every comparison in this report is made through that single path,
-which is what allows the differences to be attributed to the detectors rather than to the
-measurement.
+To do so it built: a simulator producing labelled FMCW range--Doppler maps with a calibrated
+cell-SNR definition; four CFAR detectors on a measured window geometry; a
+\TinyParams{}-parameter convolutional detector whose receptive field equals the CFAR window by
+construction; and one shared evaluation path --- the same candidate extraction, the same one-to-one
+matching, the same statistics. \emph{Within each experiment, all detector arms share the same
+evaluation rule and operating-point definition.} The synthetic and real-data experiments necessarily
+use different operating-point protocols, because real data supplies no false-alarm axis to match on,
+and they are therefore compared only within domain.
 
 \section*{Answering the research questions}
 
@@ -24,64 +23,73 @@ measurement.
 at matched \emph{measured} false-alarm rate, the learned detector establishes gains in five challenge
 conditions, ties in homogeneous clutter, and shows no significant difference on the
 resolution-limited stress case after correction. It reaches $\Pd = 0.5$ at a cell SNR
-\SI{\SynSnrGainDL}{\deci\bel} below CA-CFAR. This establishes potential under controlled conditions.
-It establishes nothing about deployment.
+\SI{\SynSnrGainDL}{\deci\bel} below CA-CFAR. This establishes potential under controlled conditions;
+it establishes nothing about deployment.
 
 \textbf{RQ2 --- where the advantage comes from.} Attribution by intervention rules out the cheap
 explanation: giving CFAR the same integrated mainlobe energy makes it worse, not better, on every
 condition. Guard-region access contributes a small tolerant-detection benefit and simultaneously
 broadens the response, hurting exact centring. Most usefully, the frozen arm's localisation deficit
-proved to be largely a consequence of its flat $3\times3$ supervision rather than an inherent
-property of learned detection --- concentrating the label removes most of it at negligible detection
-cost. Together these narrow the field to an adaptive learned decision rule without uniquely
-identifying its mechanism, which the experiments were not designed to do.
+is largely attributable to its flat $3\times3$ supervision rather than to learned detection as such
+--- concentrating the label removes most of it at negligible detection cost. Together these narrow
+the field to an adaptive learned decision rule without uniquely identifying its mechanism, which the
+experiments were not designed to do.
 
-\textbf{RQ3 --- whether it survives transfer.} It does not. Evaluated zero-shot on CARRADA, with no
-retraining, fine-tuning or real-data recalibration, the synthetic-trained network and CA-CFAR are
-\textbf{statistically indistinguishable} in exact dense-mask recall (\RoneTinyCNN{} against
-\RoneCFARCA{}; sequence-balanced difference \RoneDelta{}, 95\,\% CI [\RoneCIlo{}, \RoneCIhi{}]),
-while the network emits \RoneBurdenRatio{} times more unmatched detections per frame. The classical
-detector does not reverse the result; the learned advantage simply disappears, and the learned arm
-pays for parity with output density.
+\textbf{RQ3 --- whether it survives transfer.} It does not. Evaluated zero-shot on the CARRADA test
+split, with no retraining, fine-tuning or real-data recalibration, the synthetic-trained network and
+CA-CFAR are \textbf{statistically indistinguishable} in exact dense-mask recall (\RoneTinyCNN{}
+against \RoneCFARCA{}; sequence-balanced difference \RoneDelta{}, 95\,\% CI
+[\RoneCIlo{}, \RoneCIhi{}]), while the network emits \RoneBurdenRatio{} times more unmatched
+detections per frame. The classical detector does not reverse the result; the learned advantage
+simply disappears, and the learned arm pays for parity with output density.
 
-\textbf{RQ4 --- whether the training domain was the limiting factor.} Substantially, yes. The domain
-audit measured large differences between the simulator and the real sensor in background smoothness,
-spread, zero-Doppler ridge structure and range non-stationarity. Rebuilding the synthetic training
-background from CARRADA \emph{training}-split statistics alone --- with no real frame entering
-neural optimisation or threshold calibration --- raised exact test recall from \CiTestOrig{} to
-\CiTestNew{} (\CiTestDelta{}, 95\,\% CI [\CiTestCIlo{}, \CiTestCIhi{}]), positive on every test
-sequence, and closed the near-range deficit. But it did so at \CiTestBurdenRatio{} times the output
-density, and burden-matched analysis showed CA-CFAR still ahead once output was equalised. Domain
-alignment recovered recall; it did not by itself establish superiority.
+\textbf{RQ4 --- whether the training domain was the limiting factor.} Substantially, yes. Rebuilding
+the synthetic training background from CARRADA \emph{training}-split statistics alone --- with no
+real frame entering neural optimisation or threshold calibration --- raised exact test recall from
+\CiTestOrig{} to \CiTestNew{} (\CiTestDelta{}, 95\,\% CI [\CiTestCIlo{}, \CiTestCIhi{}]), positive on
+every test sequence, and closed the near-range deficit. But it did so at \CiTestBurdenRatio{} times
+the output density, and burden-matched analysis showed CA-CFAR still ahead once output was equalised.
+Domain alignment recovered recall; it did not by itself establish superiority.
 
 \textbf{RQ5 --- what real supervision adds.} Fine-tuned on CARRADA training sequences, with the
-operating point fixed on held-out training sequences before the evaluation split was opened, the
-same network reached exact recall \FtValFt{} against CA-CFAR's \FtValCFAR{} on previously unscored
-validation sequences --- a difference of \FtDelta{} (95\,\% CI [\FtCIlo{}, \FtCIhi{}]) at a slightly
-\emph{lower} unmatched-detection burden (\FtValBurdenFt{} against \FtValBurdenCFAR{}). It remains
-ahead under an evaluation-only burden sweep. Notably, fine-tuning established \emph{no} recall gain
-over the domain-informed synthetic arm (\FtVsCiDelta{}, CI [\FtVsCiCIlo{}, \FtVsCiCIhi{}]); what it
-changed was selectivity, cutting output roughly \FtBurdenDrop{}-fold at equal recall.
+operating point fixed on held-out training sequences under a burden constraint before the evaluation
+split was opened, the same network reached exact recall \FtValFt{} against CA-CFAR's \FtValCFAR{} on
+previously unscored validation sequences --- a difference of \FtDelta{} (95\,\% CI
+[\FtCIlo{}, \FtCIhi{}]) at a slightly \emph{lower} unmatched-detection burden (\FtValBurdenFt{}
+against \FtValBurdenCFAR{}). Against the domain-informed synthetic arm, fine-tuning established
+\emph{no} recall gain (\FtVsCiDelta{}, CI [\FtVsCiCIlo{}, \FtVsCiCIhi{}]); what it changed was the
+recall--output trade-off. At CA-CFAR's own burden of \FtMatchedBurden{} detections per frame the
+fine-tuned arm reads \FtMatchedFt{} against the synthetic-only arm's \FtMatchedCi{} and CA-CFAR's
+\FtMatchedCFAR{}.
 
-\section*{What the evidence supports}
+\section*{What this means for CFAR versus deep learning}
 
-\textbf{Recall alone would have been misleading at every stage.} Read on recall only, the five
-stages say: the learned detector wins, then ties, then wins large, then wins. Read with output
-burden beside it, they say something more useful and less flattering --- that the learned detector's
-standing depends on how much output it is allowed to emit, and that the one stage where it is ahead
-on both axes at once is the stage where it received real supervision.
+\textbf{This study does not support replacing CFAR universally with deep learning.} CA-CFAR provided
+a strong training-free baseline and transferred to a new real domain without adaptation of any kind.
+TinyCNN demonstrated a higher observed performance ceiling, but that ceiling depended on the training
+distribution. Controlled synthetic gains were lost under zero-shot real transfer, substantially
+recovered through target-domain-informed simulation, and converted into a recall--efficiency
+advantage only after supervised real-domain adaptation. \textbf{The practical choice is therefore
+conditional: when representative training data are unavailable, CFAR remains a robust default; when
+the deployment domain can be represented during training, a learned local detector can exceed it.}
 
-\textbf{The fairness caveat that belongs with the final result.} The fine-tuned network is supervised
-with the same dense segmentation support the primary metric scores against. That is legitimate
-supervised adaptation --- it is what the experiment set out to test --- but it gives the learned
-detector an opportunity the classical detector never receives. The defensible statement is that
-\emph{under supervised target-domain adaptation, the learned detector outperformed CA-CFAR on this
-evaluation}, not that it is inherently the better detector.
+Two qualifications belong with that statement.
 
-\textbf{The statistical caveat.} The final interval's lower bound is \FtCIlo{} on \FtNseq{}
-sequences. It excludes zero, but narrowly; the fine-tuned arm is ahead on \FtSeqAhead{} of
-\FtNseq{} sequences and marginally behind on the rest, and the aggregate leans on two sequences
-where the classical detector does poorly. The result is real and it is not comfortable.
+\textbf{Recall alone would have been misleading at every stage.} Read on recall only, the five stages
+say: the learned detector wins, then ties, then wins large, then wins. Read with output burden beside
+it, they say something more useful --- that the learned detector's standing depends on how much output
+it is allowed to emit, and that the one stage where it leads on both axes at once is the stage where
+it received real supervision.
+
+\textbf{The final comparison gives the learned detector something CA-CFAR does not get.} The
+fine-tuned network is supervised with the same dense segmentation support the primary metric scores
+against. That is legitimate supervised adaptation --- it is what the experiment set out to test --- but
+it aligns the network's output geometry with the truth geometry, and the classical detector has no
+equivalent opportunity. The defensible statement is that \emph{under supervised target-domain
+adaptation, the learned detector outperformed CA-CFAR on this evaluation}, not that it is inherently
+the better detector. The interval also only narrowly excludes zero: its lower bound is \FtCIlo{} on
+\FtNseq{} sequences, with the fine-tuned arm ahead on \FtSeqAhead{} of \FtNseq{}, so substantial
+sequence-level uncertainty remains.
 
 \section*{Limitations}
 
@@ -90,14 +98,14 @@ where the classical detector does poorly. The result is real and it is not comfo
 \item \textbf{One simulator, one real dataset, one architecture.} Nothing here supports a claim about
 learned detectors in general.
 \item \textbf{No false-alarm measurement on real data.} CARRADA annotates the objects that were
-labelled, not every scatterer present, so the learned arm's denser output is an output-burden
-measure and can never be priced against recall as a false-alarm rate.
+labelled, not every scatterer present, so the learned arm's denser output is an output-burden measure
+and can never be priced against recall as a false-alarm rate.
 \item \textbf{The domain intervention changed several properties jointly.} It supports a causal
 statement about the combined intervention and about nothing narrower; no individual background
-property has been isolated.
-\item \textbf{Partial domain-gap reduction only.} The Doppler correlation structure was deliberately
-left unmatched, because correcting it would have required changing the range--Doppler processing
-window that also defines the target point spread function and the guard geometry.
+property has been isolated. It is also a \emph{partial} domain-gap reduction: the Doppler correlation
+structure was deliberately left unmatched, because correcting it would have required changing the
+range--Doppler processing window that also defines the target point spread function and the guard
+geometry.
 \item \textbf{The attribution experiments run on validation data.} They explain the frozen benchmark;
 they do not extend it, and no arm they identify as better was itself frozen and scored on held-out
 data.
@@ -112,47 +120,38 @@ data, and the real data re-scored under it. Appendix~\ref{app:prereg} records wh
 
 The results point to specific next experiments rather than general ambitions.
 
-\textbf{Separate what the domain intervention bundled.} One ablation per property --- multi-look-like
-smoothness, ridge modelling, range non-stationarity, correlation structure --- would convert a
-combined causal statement into individual ones.
-
-\textbf{Measure how much real data is actually needed.} The fine-tuning result used all fifteen
-fitting sequences. A sample-efficiency curve over increasing fractions of real labelled data would
-say whether the advantage requires a substantial annotation effort or a small one, which is the
-question a practitioner actually faces.
-
-\textbf{Prefer domain randomisation to calibration against one dataset.} The intervention here was
-tuned toward a single sensor. Randomising background statistics over a plausible range would test
-whether the recovered transfer generalises or is specific to CARRADA, and a second real dataset
-would test the same thing directly.
-
-\textbf{Make output burden part of the objective.} Every stage of this work found burden to matter as
-much as recall, yet it was never optimised --- only measured. A burden-aware loss or calibration
-criterion follows naturally.
-
-\textbf{Adapt with weaker supervision.} Dense mask supervision is expensive. Whether weak,
-self-supervised or unsupervised adaptation recovers any of the same benefit is open.
-
-\textbf{Carry the improved supervision design through a complete benchmark.} The label ablation
-showed concentrated supervision substantially improves localisation at negligible detection cost, but
-that arm was never frozen, never scored on held-out data and never taken to real measurements.
+\begin{itemize}
+\itemsep2pt
+\item \textbf{Separate what the domain intervention bundled}, with one ablation per property ---
+multi-look-like smoothness, ridge modelling, range non-stationarity, correlation structure --- to
+convert a combined causal statement into individual ones.
+\item \textbf{Measure how much real data is actually needed.} The fine-tuning result used all
+fifteen fitting sequences; a sample-efficiency curve over increasing fractions of real labelled data
+would answer the question a practitioner actually faces.
+\item \textbf{Prefer domain randomisation to calibration against one dataset.} Randomising background
+statistics over a plausible range would test whether the recovered transfer generalises or is
+specific to CARRADA, and a second real dataset would test the same thing directly.
+\item \textbf{Make output burden part of the objective.} Burden mattered as much as recall at every
+stage, yet it was only ever measured, never optimised. A burden-aware loss or calibration criterion
+follows naturally.
+\item \textbf{Adapt with weaker supervision}, since dense mask supervision is expensive and it is
+open whether weak, self-supervised or unsupervised adaptation recovers any of the same benefit.
+\item \textbf{Carry the improved supervision design through a complete benchmark.} The label
+ablation showed concentrated supervision substantially improves localisation at negligible detection
+cost, but that arm was never frozen, never scored on held-out data and never taken to real
+measurements.
+\end{itemize}
 
 Larger architectures are deliberately \emph{not} the first recommendation. The behaviour that
 dominated every stage of this project --- domain sensitivity, operating-point dependence, the
-recall-versus-burden trade --- was visible at \TinyParams{} parameters, and is better understood
-there than hidden inside a larger model.
+recall-versus-burden trade --- was visible at \TinyParams{} parameters, and is better understood there
+than hidden inside a larger model.
 
 \section*{Final statement}
 
-The results do not support replacing CFAR with deep learning. They support a conditional hierarchy.
-CFAR is the stronger out-of-the-box detector: training-free, interpretable, cheap, and transferable
-without adaptation --- it carried to a real sensor it had never seen with no change at all. A small
-learned detector can exceed it, but its advantage is distribution-dependent. In this study the
-controlled synthetic gains were lost under zero-shot transfer, substantially recovered by
-target-informed synthetic modelling, and converted into a joint recall-and-efficiency advantage only
-after supervised real-domain adaptation.
-
-The practical question is therefore not whether deep learning beats CFAR, but whether enough domain
-knowledge and representative training data are available to justify the learned detector's higher
-performance ceiling. Where they are, it is worth the effort. Where they are not, CFAR is still the
-right answer.
+CFAR is the stronger training-free detector: cheap, interpretable, and transferable to a real sensor
+it had never seen with no change at all. A small learned detector demonstrated the higher observed
+performance ceiling in this study, but reached it only when the deployment domain was represented
+during training. The practical question is therefore not whether deep learning beats CFAR, but
+whether enough domain knowledge and representative training data are available to justify that
+ceiling. Where they are, it is worth the effort. Where they are not, CFAR is still the right answer.

@@ -1,20 +1,91 @@
 % !TEX root = ../main.tex
-\chapter{Supplementary Tables}
+\chapter{Supplementary Tables and Figures}
 \label{app:tables}
 
-These tables give the breakdowns the results chapters summarise. They are generated directly from
-the same artefacts the chapters read, by the script
-\texttt{make\_appendix\_\allowbreak tables.py}, so no value here is transcribed by hand
-and none can drift from the main text.
+These tables and figures give the breakdowns the results chapters summarise. The tables are
+generated directly from the same artefacts the chapters read, by the script
+\texttt{make\_appendix\_\allowbreak tables.py}, so no value here is transcribed by hand and none can
+drift from the main text.
 
-Nothing already shown clearly in Chapters~\ref{chp:synthetic} and~\ref{chp:realdata} is repeated.
-What is added is the detail those chapters compress: every CFAR variant rather than the
-per-condition best, both matching gates rather than the primary one, per-condition localisation
-rather than the pooled figure, and the per-sequence and per-seed real-data results that appear in
-the main text only as figures.
+Nothing already shown clearly in the main body is repeated. What is added is the detail those
+chapters compress: every CFAR variant rather than the per-condition best, both matching gates rather
+than the primary one, per-condition localisation rather than the pooled figure, the per-sequence and
+per-seed real-data results, and the full stratum breakdown.
 
 All synthetic values are from the held-out split at the final suppression radius of
 \ProtocolNms{}; all real-data values are from the revised evaluation described in
 Appendix~\ref{app:prereg}.
+
+\section{Supporting figures}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter3/ch3_fig2_strata_montage.png}
+\caption[The eight strata at full map scale]{The frames of Figure~\ref{fig:stratazoom} at full map
+scale, with red circles marking the annotated targets. Several targets are not obvious by eye, which
+is by design: the benchmark places them near the detection transition.}
+\label{fig:strata}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{figures/Chapter4/ch4_fig3_geometry_sweep.png}
+\caption[Window geometry selection]{Mean detection probability across conditions for each candidate
+CFAR window, measured on \texttt{bench2\_tune} and fixed before any read of the test split. Only CA,
+GO and OS appear, for the reason given in Section~\ref{sec:whatiscommon}.}
+\label{fig:geomsweep}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter4/ch4_fig8_nms_selection.png}
+\caption[Selecting the non-maximum-suppression radius]{The full suppression-radius sweep, on
+\textbf{development data only}. \textbf{A}: candidate density on pure-noise frames, the quantity the
+radius directly controls --- going from $r = 5$ to $r = 1$ raises CA-CFAR's count from
+\NmsCandFive{} to \NmsCandOne{} per frame. \textbf{B}: detection probability on isolated targets,
+essentially flat across radii. \textbf{C}: the masking and unresolved strata, where a larger window
+merges peaks belonging to different targets; the unresolved stratum reads \NmsUnresolvedOne{} at
+$r = 1$, lifted by the duplicate mechanism of panel D. \textbf{D}: the fraction of truths receiving
+two or more detections inside their gate, non-zero only at radius~1. Shading marks the selected
+radius. \textbf{These are protocol-selection measurements, not benchmark results}: no held-out
+synthetic data and no real data of any kind entered this choice.}
+\label{fig:nmssel}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/Chapter7/r0_fig6_object_footprint.png}
+\caption[Annotated object support by class]{Extent of CARRADA's annotated dense support by class,
+over all \CarradaObjectFrames{} frame-level object instances. A synthetic point target occupies one
+bin; this difference is why the synthetic point-target metric cannot transfer
+(Section~\ref{sec:r7protocol}).}
+\label{fig:r0_footprint}
+\end{figure}
+
+CARRADA also publishes a bounding box per object, and it is tempting to treat it as the extent of
+the dense mask. It is not: the box is strictly smaller than the dense support on both axes in every
+one of the \CarradaObjectFrames{} instances, so the two describe different annotation constructs.
+Quoting one while meaning the other would understate object extent by roughly a quarter.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter7/r1_fig2_strata.png}
+\caption[Zero-shot recall by stratum]{Zero-shot recall by class, zero-Doppler proximity and range
+block on the CARRADA test split, with counts annotated. The range blocks are discussed in
+Section~\ref{sec:r7secondary}; class recall is confounded by mask size.}
+\label{fig:r1_strata}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/Chapter7/r1_fig6_rd_examples.png}
+\caption[Range--Doppler examples with detector outputs]{Synthetic frames (top) and real CARRADA
+frames (bottom) under one display convention, with the annotated truth and both detectors' peaks.
+Frames were selected deterministically on annotation geometry alone, never on which detector
+performed better. Illustrative, not evidence.}
+\label{fig:rd_examples}
+\end{figure}
+
+\section{Supporting tables}
 
 \input{appendix_tables.tex}

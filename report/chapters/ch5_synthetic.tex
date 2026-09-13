@@ -40,7 +40,7 @@ argument is only useful if the matching then worked.
 Figure~\ref{fig:oppoint} shows the achieved per-cell false-alarm rate for every arm and every
 condition, as a ratio to the design rate of $10^{-4}$.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=0.92\textwidth]{figures/Chapter5/ch5_fig5_operating_point.png}
 \caption[Achieved operating point]{Achieved per-cell false-alarm rate divided by the design rate,
@@ -59,7 +59,7 @@ Figure~\ref{fig:headline} gives the headline measurement: detection probability 
 network against the best CFAR variant for each condition, at the primary $\pm\ProtocolGate$-bin
 gate.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter5/ch5_fig1_headline.png}
 \caption[Detection probability by condition]{Left: detection probability at matched measured
@@ -154,7 +154,7 @@ Per-condition probabilities are hard to compare against published work, which re
 decibels of signal-to-noise ratio. Figure~\ref{fig:pdsnr} expresses the same frozen result in that
 currency, using the dedicated SNR-sweep split.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter5/ch5_fig2_pd_vs_snr.png}
 \caption[Detection probability against cell SNR]{Detection probability as a function of measured
@@ -194,7 +194,7 @@ account for the network's advantage; Chapter~\ref{chp:attribution} takes that fu
 Chapter~\ref{chp:detectors} committed to reporting both tolerances for every condition.
 Figure~\ref{fig:tol} does so.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=0.92\textwidth]{figures/Chapter5/ch5_fig3_tolerance.png}
 \caption[Sensitivity to matching tolerance]{The paired difference at the primary
@@ -240,7 +240,7 @@ being averaged, not only in how well each arm places them. The metric is also bo
 a detection displaced further than the gate is scored as a miss rather than as a large error, so
 severe displacement appears as lost $\Pd$ instead. Both gates are reported for that reason.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter5/ch5_fig4_localization.png}
 \caption[Localisation error]{Mean absolute localisation error by axis, and combined RMSE, pooled
@@ -329,16 +329,13 @@ block label this arm was trained with, not of learned detection in general:
 Chapter~\ref{chp:attribution} varies the label and removes most of the gap.
 \end{itemize}
 
-\textbf{What this chapter does and does not establish.} It establishes that a learned local decision
-rule \emph{can} improve on CFAR under controlled conditions: five challenge-condition gains, one
-practical tie in homogeneous clutter, and one resolution-limited stress case whose small difference
-does not survive correction. That is a statement about potential, measured on the simulator that
-produced the training data. It is \textbf{not} a statement about real-world superiority, and nothing
-in this chapter licenses one.
+\textbf{This establishes a controlled in-domain advantage, not real-world superiority.} A learned
+local decision rule \emph{can} improve on CFAR under controlled conditions --- that is a statement
+about potential, measured on the simulator that produced the training data, and nothing in this
+chapter licenses more than it.
 
-The controlled benchmark therefore establishes that the learned detector can improve the local
-decision rule. The question it leaves open is whether that improvement is a property of the detector
-or of the distribution it was trained on. The next chapters take one piece each:
+The question the benchmark leaves open is whether that improvement is a property of the detector or
+of the distribution it was trained on. The next chapters take one piece each:
 Chapter~\ref{chp:attribution} asks where the margin comes from and how much of the placement
 behaviour is set by supervision; Chapter~\ref{chp:realdata} freezes the detectors and asks whether
 any of it survives contact with real radar measurements; and Chapter~\ref{chp:domaingap} asks what

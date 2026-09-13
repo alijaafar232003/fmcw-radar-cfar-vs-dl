@@ -21,20 +21,18 @@ clustering, tracking, classification, and ultimately the driving decision --- wo
 extracted from this map.
 
 Extracting targets from the RD map is a detection problem, and it is the first stage of that chain.
-Detection determines which measurements are passed to later processing. A tracker can bridge an
-occasional missed detection, but a target that is missed persistently cannot be tracked, classified
-or acted upon, because no measurement of it reaches those stages. Excessive false detections cause
-the opposite problem: they consume tracking resources and can trigger unnecessary responses.
-Detection therefore sets a limit on how well the later processing stages can perform.
+A tracker can bridge an occasional missed detection, but a target that is missed persistently cannot
+be tracked, classified or acted upon, because no measurement of it reaches those stages. Excessive
+false detections cause the opposite problem: they consume tracking resources and can trigger
+unnecessary responses. Detection therefore sets a limit on how well the later stages can perform.
 
 For about fifty years the standard solution has been the constant false alarm rate (CFAR) family of
-detectors. The idea is simple and remains effective. Comparing each cell against a fixed threshold
-would require knowing the noise power, which changes with temperature, terrain, weather and
-interference. Instead, CFAR estimates the local background from cells surrounding the cell under
-test (CUT), and scales that estimate by a multiplier chosen to hold the false-alarm rate constant.
-The detector therefore adapts to conditions it was never told about. CFAR needs no training data, is
-cheap to compute, and its behaviour can be predicted mathematically, provided the background behaves
-as assumed.
+detectors. Comparing each cell against a fixed threshold would require knowing the noise power,
+which changes with temperature, terrain, weather and interference. Instead, CFAR estimates the local
+background from cells surrounding the cell under test (CUT), and scales that estimate by a
+multiplier chosen to hold the false-alarm rate constant. The detector therefore adapts to conditions
+it was never told about. CFAR needs no training data, is cheap to compute, and its behaviour can be
+predicted mathematically, provided the background behaves as assumed.
 
 Those assumptions are also its weakness, and this was documented early. Gandhi and
 Kassam~\cite{gandhi1988cfar} showed that cell-averaging CFAR degrades in situations that matter in
@@ -80,25 +78,15 @@ that tolerance.
 
 Each of these choices can be reasonable on its own. Together, however, they mean that the reported
 improvement depends partly on how the experiment was set up, and not only on the detector itself.
-This makes three questions difficult to answer separately:
 
-\begin{enumerate}
-\itemsep2pt
-\item \textbf{Is there a genuine advantage} when both detectors receive comparable information and
-are compared at a matched operating point?
-\item \textbf{Where does it come from?} If the learned detector performs better, we also need to
-know why. Otherwise there is no way to tell whether the same advantage will still be present under
-different conditions.
-\item \textbf{Does it survive outside the training domain?} A detector trained on simulated data and
-evaluated on the same simulator has shown that it learned the simulator. Whether it learned
-\emph{radar} is a separate question, and one that much of the literature does not test.
-\end{enumerate}
-
-The third question matters particularly for a learned detector, for a reason specific to this
-problem. CFAR estimates its threshold from the data in front of it at inference time, so it keeps
-adapting in whatever domain it is used. A conventionally frozen feed-forward network has no explicit
-mechanism to re-estimate its decision rule when the deployment distribution changes: its behaviour
-is fixed by weights fitted to the training distribution.
+A second difficulty compounds the first. A detector trained on simulated data and evaluated on the
+same simulator has shown that it learned the simulator; whether it learned \emph{radar} is a
+separate question, and one that much of the literature does not test. That question matters
+particularly here, for a reason specific to the problem. CFAR estimates its threshold from the data
+in front of it at inference time, so it keeps adapting in whatever domain it is used. A
+conventionally frozen feed-forward network has no explicit mechanism to re-estimate its decision
+rule when the deployment distribution changes: its behaviour is fixed by weights fitted to the
+training distribution.
 
 This shapes the central question of the project, and it is deliberately not ``is a CNN better than
 CFAR?''. A single ranking would hide the thing that turns out to matter most. The question this
@@ -137,47 +125,36 @@ they are the reason this thesis does not end with its synthetic benchmark.
 
 \section{Objectives}
 
-Four objectives follow from the three questions above.
+Six objectives operationalise the five research questions above.
 
 \begin{description}
-\itemsep4pt
+\itemsep3pt
 \item[O1 --- Build a controlled comparison.] Construct a classical arm and a learned arm that work
-from the same underlying range--Doppler data, observe comparable local context, and are scored by a
-single evaluator at a matched \emph{measured} false-alarm rate. The two arms do not share an input
-\emph{transform}: the classical detector works from power directly, while the learned detector
-applies a fixed decibel normalisation that is part of what it is. Chapter~\ref{chp:detectors} states
-that asymmetry explicitly rather than leaving it implicit. The learned detector's receptive field is
-deliberately matched to the spatial footprint of the CFAR window, providing comparable local context
-while allowing each detector to process that context according to its own decision rule. The two
-rules are not identical: CFAR uses the CUT as its test statistic, excludes the surrounding guard
-cells, and estimates the interference level from the remaining reference cells, whereas the network
-may use all cells in its footprint jointly.
+from the same range--Doppler data, observe comparable local context, and are scored by one evaluator
+at a matched \emph{measured} false-alarm rate. Chapter~\ref{chp:detectors} states what the two arms
+share and what they do not.
 
-\item[O2 --- Measure the margin.] Quantify the difference across a set of conditions chosen to
-include both regimes where CFAR is close to optimal and regimes where it is known to fail. Report
-confidence intervals, and correct for multiple comparisons.
+\item[O2 --- Measure the margin.] Quantify the difference across conditions chosen to include both
+regimes where CFAR is close to optimal and regimes where it is known to fail, with confidence
+intervals and a correction for multiple comparisons.
 
-\item[O3 --- Attribute the margin.] Find out which mechanisms explain any difference, by testing the
-possible explanations experimentally instead of arguing for one of them. Two explanations in the
-literature both predict a learned advantage in homogeneous conditions, so neither can be accepted
-without testing the other. These experiments can support or rule out particular explanations, which
-narrows the range of plausible mechanisms. They are not expected to prove a single cause on their
-own.
+\item[O3 --- Attribute the margin.] Pair each competing explanation with an experiment
+capable of disproving it, rather than arguing for one of them. Such experiments can support or rule
+out particular mechanisms; they are not expected to identify a single cause.
 
 \item[O4 --- Test external validity.] Evaluate both frozen detectors, with no retraining or
-recalibration of any kind, on real automotive radar data taken from a public dataset, under a
-protocol registered and hash-frozen before the test data were scored.
+recalibration of any kind, on real automotive radar data from a public dataset, under a protocol
+fixed before the evaluation data were scored.
 
-\item[O5 --- Test whether the training domain is the limiting factor.] If the transfer result is
-negative, measure the difference between the simulated and real domains, rebuild the synthetic
-training background from target-domain statistics alone, and re-measure transfer --- while keeping
-every real radar frame out of neural optimisation. This separates ``the detector cannot transfer''
-from ``it was trained on the wrong distribution''.
+\item[O5 --- Test the training domain.] If transfer fails, measure the difference between the
+simulated and real domains, rebuild the synthetic training background from target-domain statistics
+alone, and re-measure transfer --- keeping every real radar frame out of neural optimisation. This
+separates ``the detector cannot transfer'' from ``it was trained on the wrong distribution''.
 
-\item[O6 --- Test what real supervision adds.] Permit real-domain adaptation, finally, and ask
-whether the same small network can exceed the classical baseline on previously unscored real
-sequences at a comparable output burden --- with the operating point fixed on training data before
-the evaluation split is opened.
+\item[O6 --- Test what real supervision adds.] Permit real-domain adaptation and ask whether the
+same small network can exceed the classical baseline on previously unscored real sequences at a
+comparable output burden, with the operating point fixed on training data before the evaluation
+split is opened.
 \end{description}
 
 One objective is deliberately excluded. This project does not aim to produce a state-of-the-art
@@ -190,116 +167,94 @@ a large unexplained one.
 
 \begin{enumerate}
 \itemsep5pt
-\item \textbf{A controlled like-for-like protocol.} The learned detector's receptive field is
-matched to the spatial footprint of the CFAR window; both arms are scored by one evaluator through a
-single code path; operating points are matched at measured rather than design $\Pfa$; and results
-are reported across a tolerance ladder rather than at a single gate. Each choice removes one of the
-asymmetries listed in Section~\ref{sec:problem}, and is documented alongside the asymmetry it
-removes.
+\item \textbf{A controlled like-for-like comparison of CFAR and a learned local detector.} The
+learned detector's receptive field is matched to the spatial footprint of the CFAR window; both arms
+are scored by one evaluator through a single code path; operating points are matched at measured
+rather than design $\Pfa$; and results are reported across a tolerance ladder rather than at a
+single gate. Each choice removes one of the asymmetries listed in Section~\ref{sec:problem}. The
+resulting margin is reported per condition with confidence intervals and a correction for multiple
+comparisons, and expressed in decibels of cell SNR so that it can be placed beside the comparable
+literature.
 
-\item \textbf{A quantified and externally calibrated synthetic margin}, reported per condition with
-confidence intervals and a correction for multiple comparisons, and expressed in decibels of cell
-SNR so that it can be placed beside the comparable literature. The CFAR loss proposed as an
-explanation for learned wins in homogeneous conditions~\cite{lallouet2023loss} is measured here
-rather than assumed.
+\item \textbf{Attribution by intervention.} Three experiments each pair a candidate explanation with
+a measurement capable of disproving it. One outcome is directly useful: the frozen benchmark's
+localisation deficit is largely attributable to its supervision, and substantially removable, rather
+than an inherent property of the learned detector.
 
-\item \textbf{Attribution by intervention.} Three pre-registered experiments each pair a candidate
-explanation with a measurement capable of disproving it. One outcome is directly useful: the frozen
-benchmark's localisation deficit proves to be largely a consequence of its supervision, and
-substantially removable, rather than an inherent property of the learned detector.
-
-\item \textbf{A pre-registered zero-shot external validation.} The frozen detectors are evaluated on
-the CARRADA automotive radar dataset~\cite{ouaknine2021carrada} with no real-data training,
-fine-tuning or recalibration. Ground truth, matching, metrics and the statistical plan were fixed by
-cryptographic hash before any test frame was scored, and no threshold or post-processing constant
-was ever tuned on CARRADA. None of the directly comparable studies identified in the reviewed
-literature performs the same zero-shot synthetic-to-real evaluation. One qualification is owed: a
-single post-processing constant --- the suppression radius --- was later revised using synthetic
-development data and the real data re-scored under it, so the reported figures come from that
-disclosed re-run rather than from the original one-shot read. Appendix~\ref{app:prereg} carries the
-full history.
+\item \textbf{A zero-shot synthetic-to-real evaluation.} The frozen detectors are evaluated on the
+CARRADA automotive radar dataset~\cite{ouaknine2021carrada} with no real-data training, fine-tuning
+or recalibration. Ground truth, matching, metrics and the statistical plan were pre-specified and
+frozen before any evaluation frame was scored. No directly comparable zero-shot experiment was
+identified in the reviewed corpus.
 
 \item \textbf{A target-domain-informed synthetic intervention.} The simulated background was rebuilt
-from statistics measured on the CARRADA \emph{training} split alone --- smoothness, range
-dependence and zero-Doppler ridge structure --- with no real frame entering neural optimisation or
-threshold calibration. Exact real-data recall rose from \CiTestOrig{} to \CiTestNew{}, showing that a
+from statistics measured on the CARRADA \emph{training} split alone --- smoothness, range dependence
+and zero-Doppler ridge structure --- with no real frame entering neural optimisation or threshold
+calibration. Exact real-data recall rose from \CiTestOrig{} to \CiTestNew{}, showing that a
 substantial part of the transfer failure was a property of the training distribution rather than of
 the detector. The same experiment shows the limit of that reading: the recovery came with
 \CiTestBurdenRatio{} times the output density, and did not survive burden matching against CA-CFAR.
 
-\item \textbf{A real-domain adaptation result.} Fine-tuned on CARRADA training sequences with its
-operating point fixed on training data alone, the same \TinyParams{}-parameter network reached exact
-recall \FtValFt{} against CA-CFAR's \FtValCFAR{} on previously unscored validation sequences, at a
-slightly \emph{lower} unmatched-detection burden. Within the reviewed corpus, no directly comparable
-experiment was identified that carries one small detector through controlled synthetic comparison,
-zero-shot transfer, domain-informed retraining and real adaptation under a single evaluation
-protocol.
-
-\item \textbf{A protocol-sensitivity finding about extended objects.} The real-data comparison
-proved to depend not only on the two score maps but on the fixed rule that converts a dense score
-map into object candidates. On synthetic point targets the choice of that rule moved the reported
-margins by an order of magnitude less than the published confidence intervals; on annotated objects
-larger than the suppression window it moved the headline result.
+\item \textbf{A real-domain adaptation result with burden-aware evaluation.} Fine-tuned on CARRADA
+training sequences with its operating point fixed on training data alone, the same
+\TinyParams{}-parameter network reached exact recall \FtValFt{} against CA-CFAR's \FtValCFAR{} on
+previously unscored validation sequences, at a slightly \emph{lower} unmatched-detection burden.
+Within the reviewed corpus, no directly comparable experiment was identified that carries one small
+detector through controlled synthetic comparison, zero-shot transfer, domain-informed retraining and
+real adaptation under a single evaluation protocol.
 
 \item \textbf{An empirical argument against single-number detector comparisons.} Across the five
 stages, detection probability alone would have supported three different and partly contradictory
 conclusions. Output burden, training domain, tolerance and operating point each changed the answer,
 and the strongest learned result in the thesis is one where recall and burden had to be read
-together.
-
-\item \textbf{A reproducibility framework supporting these claims:} frozen model and detector
-artefacts, isolation manifests that prevent completed experiments from being modified later, raw
-detector outputs kept unchanged alongside the tables derived from them, and a corrections log
-recording every analysis error found and superseded during the work.
+together. A related protocol-sensitivity finding is reported separately: on annotated objects larger
+than the suppression window, the rule that converts a dense score map into candidates moved the
+headline result, where on synthetic point targets it did not.
 \end{enumerate}
 
 \section{Report outline}
 
-The report follows the order in which the work was carried out. This matters because several
-conclusions depend on what was known at the time a given decision was made.
+The report follows the order in which the work was carried out, because several conclusions depend
+on what was known when a given decision was made. Figure~\ref{fig:roadmap} shows that order as a
+single roadmap: five stages, one question each, and the conclusion they lead to.
 
-\textbf{Chapter~\ref{chp:background}, \emph{Radar Background and State of the Art}}, develops the
-material needed for the rest of the report: the FMCW waveform, range and Doppler estimation, the
-construction of the RD map, and the CFAR family with its documented failure modes. It then reviews
-learned detection and shows that the published work falls into families that use different metrics.
-Those metrics cannot be compared directly, and the rest of the report keeps them separate.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.86\textwidth]{figures/Chapter1/ch1_fig1_roadmap.png}
+\caption[The five-stage experimental roadmap]{The five stages of this thesis. Each answers one
+question and motivates the next; the later stages are progressively stronger tests of the same
+hypothesis, not separate experiments. Numbers, intervals and caveats are deliberately omitted ---
+this figure is for orientation, and the chapters carry the evidence.}
+\label{fig:roadmap}
+\end{figure}
 
-\textbf{Chapter~\ref{chp:simulator}, \emph{Simulator, Radar Specification and Dataset Design}},
-describes the simulator, the radar parameters and the labelled datasets. The radar parameters were
-chosen to reproduce the RD bin geometry and scale of the real dataset used later, so that range and
-Doppler bins mean the same physical quantity in both domains. This is a statement about the axes,
-not about the targets: the simulator's targets are point scatterers, whereas the real dataset
-annotates extended object regions, and Chapter~\ref{chp:realdata} treats that difference as a
-first-class limitation. Without the matched bin geometry, a transfer failure could have been
-dismissed as a scaling artefact.
+\begin{description}
+\itemsep3pt
+\item[Chapter~\ref{chp:background}, \emph{Radar Background and State of the Art}.] The FMCW
+waveform, the RD map, the CFAR family and its documented failure modes, learned detection, and the
+gap in the published comparisons that this work addresses.
+\item[Chapter~\ref{chp:simulator}, \emph{Simulator, Radar Specification and Dataset Design}.] The
+simulator, the radar parameters --- chosen to reproduce the real dataset's RD bin geometry --- and
+the labelled datasets.
+\item[Chapter~\ref{chp:detectors}, \emph{Detectors and Evaluation Protocol}.] Both detectors and the
+shared evaluation protocol: candidate extraction, matching, operating point and statistics.
+\item[Chapter~\ref{chp:synthetic}, \emph{Synthetic Benchmark Results}.] Stage~1: the controlled
+comparison across the seven scored conditions, including detection probability against cell SNR.
+\item[Chapter~\ref{chp:attribution}, \emph{Attribution Experiments}.] Stage~2: three interventions
+that separate the competing explanations for the measured margin.
+\item[Chapter~\ref{chp:realdata}, \emph{Real-Data External Validation}.] Stage~3: the frozen
+detectors evaluated zero-shot on real automotive radar data, and a domain audit explaining what
+changed.
+\item[Chapter~\ref{chp:domaingap}, \emph{Domain Alignment and Real-Data Adaptation}.] Stages~4
+and~5: rebuilding the synthetic training domain from target-domain statistics, then permitting
+supervised real-domain fine-tuning.
+\item[\emph{General Conclusion}.] The five research questions answered in turn, what the evidence
+supports, and what follows.
+\end{description}
 
-\textbf{Chapter~\ref{chp:detectors}, \emph{Detectors and Evaluation Protocol}}, specifies both
-detectors and fixes the evaluation protocol: peak extraction, matching, the operating-point
-definition and the statistical treatment. The protocol was frozen before any comparative result was
-produced; the single field revised afterwards, and the disclosure of that revision, are recorded in
-Appendix~\ref{app:prereg}.
-
-\textbf{Chapter~\ref{chp:synthetic}, \emph{Synthetic Benchmark Results}}, reports the benchmark
-across the seven conditions, including detection probability as a function of cell signal-to-noise
-ratio, which expresses the result in the units used by the comparable literature.
-
-\textbf{Chapter~\ref{chp:attribution}, \emph{Attribution}}, asks where the measured margin comes
-from and reports the experiments that separate the competing explanations.
-
-\textbf{Chapter~\ref{chp:realdata}, \emph{Real-Data External Validation}}, evaluates the frozen
-detectors zero-shot on real automotive radar data under the pre-registered protocol, with the one
-later post-processing revision it records explicitly. It audits the difference between the two
-domains before any scoring, reports what survives the transfer and what does not, and places both
-halves of the project against the published literature. Its result is negative, and that is what
-makes the next chapter necessary.
-
-\textbf{Chapter~\ref{chp:domaingap}, \emph{Closing the Domain Gap}}, takes the measured
-synthetic-to-real differences and turns them into two interventions. The first rebuilds the
-synthetic training background from target-domain statistics with no real frame entering neural
-optimisation; the second permits supervised real-domain fine-tuning and evaluates it on sequences no
-detector in this project had scored. Both are follow-up experiments carried out after the
-pre-registered transfer result, and the chapter says so plainly.
-
-The \textbf{General Conclusion} answers the five research questions in turn, states what the
-evidence supports and what it does not, and sets out the directions that follow. Three appendices
-record the corrections log, the frozen pre-registration and the supporting tables.
+Two appendices support the main text: Appendix~\ref{app:prereg} records the protocol revisions and
+sensitivity checks that a reader needs in order to interpret the final evidence, and
+Appendix~\ref{app:tables} carries the detailed breakdowns the results chapters summarise. Full
+provenance --- freeze records, file manifests, commit chain and the complete corrections log kept
+during development --- is retained in the accompanying project repository rather than reproduced
+here.

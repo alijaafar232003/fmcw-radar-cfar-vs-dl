@@ -1,5 +1,5 @@
 % !TEX root = ../main.tex
-\ulfgchapter{6}{Attribution: Where Does the Learned Advantage Come From?}{chp:attribution}
+\ulfgchapter{6}{Attribution Experiments: Explaining the Learned Advantage}{chp:attribution}
 
 \section{Introduction}
 
@@ -11,8 +11,8 @@ mechanism there is no way to predict whether the same advantage will appear unde
 conditions, which is exactly the question Chapter~\ref{chp:realdata} goes on to ask.
 
 This chapter therefore states the candidate explanations and pairs each with an experiment capable
-of disproving it. Three were run. Each was pre-registered in its own directory before any result
-existed, each is isolated from the frozen artefacts, and none of them touched the held-out split.
+of disproving it. Three were run. Each was specified in full before any result existed, each is isolated from the
+frozen artefacts, and none of them touched the held-out split.
 
 \textbf{A note on scope that applies to the whole chapter.} All three attribution experiments are
 reported under the final radius-\ProtocolNms{} post-processing protocol of
@@ -104,8 +104,10 @@ arm}, so any difference between arms is attributable to the label alone.
 
 \begin{table}[H]
 \centering
-\caption{Label ablation, pooled over conditions on the validation split at epoch~\TinyEpochs{}.
-$\Pd$ and Doppler error are at the primary gate; the last column is exact-cell $\Pd$.}
+\caption[Label ablation]{Concentrating the supervision cuts localisation error sharply at
+negligible detection cost. Pooled over conditions on the validation split at
+epoch~\TinyEpochs{}; $\Pd$ and Doppler error are at the primary gate, and the last column is
+exact-cell $\Pd$.}
 \label{tab:e3}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
@@ -123,7 +125,7 @@ Point $1\times1$            & \EthreePointDv{} bins & \EthreePointPd & \EthreePo
 \end{table}
 
 \textbf{The measured result.} The incumbent label costs \EthreeFlatDvRatio{} times the Doppler error
-of a point label. The sharpest test was pre-registered as the growth of localisation error with
+of a point label. The sharpest test was specified in advance as the growth of localisation error with
 training, and it lands as the hypothesis predicted: between epoch~5 and epoch~\TinyEpochs{} Doppler
 error grows by a factor of \EthreeFlatGrowth{} under flat supervision, \EthreeGaussGrowth{} under
 the Gaussian and \EthreePointGrowth{} under the point label --- monotone in how flat the supervision
@@ -137,7 +139,7 @@ label moves detection by \EthreeGaussDeltaPd{} --- within seed noise. That conve
 the benchmark configuration into a design choice with a measured alternative, and it retires two
 competing explanations: the deficit is not the network's capacity, and not the matching gate.
 
-\textbf{Caveat.} The point label was pre-registered as likely to train poorly at its extreme class
+\textbf{Caveat.} The point label was predicted in advance to train poorly at its extreme class
 imbalance, which would have vindicated the $3\times3$ choice. It trained stably on all
 \TinySeeds{} seeds and localised best, so that prediction failed. The $3\times3$ label's only
 advantage is \EthreePointPdGap{} of $\Pd$ at the primary gate, and even that is not uniform: the
@@ -213,7 +215,7 @@ precision (E4).
 
 Figure~\ref{fig:attribsummary} puts the three results side by side.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/Chapter6/ch6_fig1_attribution_summary.png}
 \caption[Summary of the three attribution experiments]{Summary of the three attribution experiments
@@ -241,10 +243,10 @@ than as its established cause.
 \section{Conclusion}
 \label{sec:attrib_scope}
 
-Three pre-registered interventions were run, at zero cost to the frozen benchmark. The cheap
-explanation for the detection margin was eliminated; the frozen arm's placement behaviour was
-traced largely to its supervision and shown to be substantially fixable; and the value of
-guard-region access was measured.
+Three interventions were run, each fixed before its result existed, at zero cost to the frozen
+benchmark. The cheap explanation for the detection margin was eliminated; the frozen arm's placement
+behaviour was shown to be largely attributable to its supervision, and substantially reducible; and
+the value of guard-region access was measured.
 
 Two limits bound everything in this chapter.
 
@@ -259,8 +261,6 @@ behaves as it does, and no such account is claimed.
 
 All three experiments are reported at the final suppression radius of \ProtocolNms{}. They were
 first analysed at the superseded radius \ProtocolNmsOriginal{} and re-scored from the same frozen
-checkpoints before submission, with no model retrained;
-Appendix~\ref{app:attribrescore} records what that involved and what it did not change.
+checkpoints, with no model retrained; Appendix~\ref{app:attribrescore} records what that involved.
 
-Chapter~\ref{chp:realdata} now asks whether any of this survives contact with real radar
-measurements.
+Chapter~\ref{chp:realdata} now asks whether any of this survives real radar measurements.
