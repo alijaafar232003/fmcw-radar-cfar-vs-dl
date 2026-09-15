@@ -1,0 +1,226 @@
+{
+ "cfar_geometry_mean_pd": {
+  "value": {
+   "21x21": {
+    "CA": 0.3844,
+    "GO": 0.3802,
+    "OS": 0.387
+   },
+   "21x13": {
+    "CA": 0.4189,
+    "GO": 0.4127,
+    "OS": 0.4257
+   },
+   "21x11": {
+    "CA": 0.4335,
+    "GO": 0.4371,
+    "OS": 0.4455
+   },
+   "29x9": {
+    "CA": 0.446,
+    "GO": 0.444,
+    "OS": 0.46
+   },
+   "21x9": {
+    "CA": 0.4472,
+    "GO": 0.4548,
+    "OS": 0.4458
+   }
+  },
+  "source": "results\\cfar_geometry_percondition_v2.csv"
+ },
+ "nms_frac_truths_two_plus": {
+  "value": {
+   "1": {
+    "CA": 0.0067,
+    "DL": 0.0831,
+    "OS": 0.0081,
+    "candidates": NaN
+   },
+   "2": {
+    "CA": 0.0,
+    "DL": 0.0,
+    "OS": 0.0,
+    "candidates": NaN
+   },
+   "3": {
+    "CA": 0.0,
+    "DL": 0.0,
+    "OS": 0.0,
+    "candidates": NaN
+   },
+   "5": {
+    "CA": 0.0,
+    "DL": 0.0,
+    "OS": 0.0,
+    "candidates": NaN
+   }
+  },
+  "source": "experiments\\e6_nms_audit\\results\\p1_selection\\nms_selection_sweep_val.csv"
+ },
+ "nms_masking_pd": {
+  "value": {
+   "1": {
+    "CA": 0.515,
+    "DL": 0.8016,
+    "OS": 0.725
+   },
+   "2": {
+    "CA": 0.515,
+    "DL": 0.7703,
+    "OS": 0.705
+   },
+   "3": {
+    "CA": 0.515,
+    "DL": 0.7425,
+    "OS": 0.6825
+   },
+   "5": {
+    "CA": 0.515,
+    "DL": 0.6959,
+    "OS": 0.645
+   }
+  },
+  "source": "experiments\\e6_nms_audit\\results\\p1_selection\\nms_selection_sweep_val.csv"
+ },
+ "delta_pd_tol1": {
+  "value": {
+   "clutter_edge": 0.2672,
+   "mixed": 0.0997,
+   "masking": 0.077,
+   "isolated": 0.0491,
+   "multi": 0.0311,
+   "unresolved": 0.008,
+   "clutter": 0.0005
+  },
+  "source": "experiments\\e6_nms_audit\\results\\final\\bootstrap_final_r2_tol1.csv"
+ },
+ "delta_pd_tol3": {
+  "value": {
+   "clutter_edge": 0.271,
+   "mixed": 0.1002,
+   "masking": 0.0903,
+   "isolated": 0.0544,
+   "multi": 0.0358,
+   "unresolved": 0.0111,
+   "clutter": -0.0078
+  },
+  "source": "experiments\\e6_nms_audit\\results\\final\\bootstrap_final_r2_tol3.csv"
+ },
+ "zeroshot_range_recall": {
+  "value": {
+   "10-60": {
+    "TinyCNN": 0.8455,
+    "CA-CFAR": 0.9475,
+    "n": 533
+   },
+   "60-110": {
+    "TinyCNN": 0.8589,
+    "CA-CFAR": 0.83,
+    "n": 853
+   },
+   "110-160": {
+    "TinyCNN": 0.9809,
+    "CA-CFAR": 0.9279,
+    "n": 111
+   },
+   "160-210": {
+    "TinyCNN": 0.9921,
+    "CA-CFAR": 0.9114,
+    "n": 79
+   },
+   "210-246": {
+    "TinyCNN": 0.9485,
+    "CA-CFAR": 0.9804,
+    "n": 51
+   }
+  },
+  "source": "experiments\\e6_nms_audit\\results\\p4_carrada\\r1_test\\r1_summary.json"
+ },
+ "carrada_mask_median": {
+  "value": {
+   "pedestrian": {
+    "range": 9,
+    "doppler": 9,
+    "cells": 74,
+    "n_instances": 3239
+   },
+   "cyclist": {
+    "range": 11,
+    "doppler": 11,
+    "cells": 93,
+    "n_instances": 1770
+   },
+   "car": {
+    "range": 18,
+    "doppler": 13,
+    "cells": 147,
+    "n_instances": 3741
+   }
+  },
+  "source": "experiments\\r_carrada_real_data_validation\\results\\r0_object_footprint.csv"
+ },
+ "zeroshot_per_seed": {
+  "value": {
+   "0": 0.8537,
+   "1": 0.8783,
+   "2": 0.8709,
+   "3": 0.8752,
+   "4": 0.8457,
+   "5": 0.8697,
+   "6": 0.8851,
+   "7": 0.898
+  },
+  "source": "experiments\\e6_nms_audit\\results\\p4_carrada\\r1_test\\r1_summary.json"
+ },
+ "stage4_burden_matched": {
+  "value": {
+   "CA-CFAR level / A": [
+    0.6469,
+    12.1
+   ],
+   "CA-CFAR level / B": [
+    0.8708,
+    12.41
+   ],
+   "CA-CFAR level / C": [
+    0.8851,
+    12.4
+   ],
+   "original-TinyCNN level / A": [
+    0.836,
+    21.75
+   ],
+   "original-TinyCNN level / B": [
+    0.9011,
+    23.59
+   ],
+   "original-TinyCNN level / C": [
+    0.9312,
+    23.57
+   ],
+   "CARRADA-informed level / A": [
+    0.9311,
+    29.88
+   ],
+   "CARRADA-informed level / B": [
+    0.9428,
+    109.14
+   ],
+   "CARRADA-informed level / C": [
+    0.973,
+    109.34
+   ]
+  },
+  "source": "experiments\\carrada_informed_domain\\results\\burden_matched.json"
+ },
+ "stage5_recall_at_CA_burden": {
+  "value": {
+   "original synthetic": 0.6465,
+   "CARRADA-informed": 0.8637,
+   "+ real fine-tuning": 0.9613,
+   "CA-CFAR": 0.8725
+  },
+  "source": "experiments\\carrada_real_finetune\\results\\validation_analysis.json"
+ }
+}

@@ -1,0 +1,252 @@
+{
+ "synthetic_delta_pd": {
+  "value": {
+   "clutter_edge": 0.2672,
+   "mixed": 0.0997,
+   "masking": 0.077,
+   "isolated": 0.0491,
+   "multi": 0.0311,
+   "unresolved": 0.008,
+   "clutter": 0.0005
+  },
+  "source": "experiments\\e6_nms_audit\\results\\final\\bootstrap_final_r2_tol1.csv"
+ },
+ "synthetic_significant": {
+  "value": {
+   "clutter_edge": true,
+   "mixed": true,
+   "masking": true,
+   "isolated": true,
+   "multi": true,
+   "unresolved": false,
+   "clutter": false
+  },
+  "source": "experiments\\e6_nms_audit\\results\\final\\bootstrap_final_r2_tol1.csv"
+ },
+ "roc_pd_at_pfa_1e-4_pooled": {
+  "value": {
+   "CA": 0.474,
+   "GO": 0.4879,
+   "OS": 0.4747,
+   "SO": 0.2486,
+   "DL": 0.5937
+  },
+  "source": "experiments\\e6_nms_audit\\results\\final\\roc_final_r2_tol1.csv"
+ },
+ "snr50_gate1": {
+  "value": {
+   "TinyCNN": 8.06,
+   "CA-CFAR": 9.12,
+   "margin_dB": 1.06
+  },
+  "source": "experiments\\e6_nms_audit\\results\\final\\pd_vs_snr_final_r2_summary.csv"
+ },
+ "snr50_gate0": {
+  "value": {
+   "CA-CFAR": 11.36,
+   "clairvoyant": 10.89,
+   "cfar_loss_dB": 0.47
+  },
+  "source": "experiments\\e6_nms_audit\\results\\final\\pd_vs_snr_final_r2_summary.csv"
+ },
+ "localisation_rmse_bins": {
+  "value": {
+   "TinyCNN": 0.921,
+   "CA-CFAR": 0.544,
+   "ratio": 1.69
+  },
+  "source": "experiments\\e6_nms_audit\\results\\final\\localization_final_r2.csv"
+ },
+ "localisation_doppler_bins": {
+  "value": {
+   "TinyCNN": 0.378,
+   "CA-CFAR": 0.101
+  },
+  "source": "experiments\\e6_nms_audit\\results\\final\\localization_final_r2.csv"
+ },
+ "e2_mean_delta_pd_gate1": {
+  "value": {
+   "uniform": -0.0376,
+   "psf": -0.0237
+  },
+  "source": "experiments\\e6_nms_audit\\results\\p10_attribution\\e2\\deltas.csv"
+ },
+ "e3_pooled_doppler_error_bins_gate1_epoch21": {
+  "value": {
+   "flat 3x3": 0.3946,
+   "gaussian": 0.1719,
+   "point": 0.1116
+  },
+  "source": "experiments\\e6_nms_audit\\results\\p10_attribution\\e3\\epoch_curve.csv"
+ },
+ "e4_mean_delta_pd": {
+  "value": {
+   "gate +/-1": 0.0173,
+   "exact cell": -0.1597
+  },
+  "source": "experiments\\e6_nms_audit\\results\\p10_attribution\\e4\\deltas.csv"
+ },
+ "carrada_median_support_bins": {
+  "value": {
+   "car": [
+    18,
+    13
+   ],
+   "cyclist": [
+    11,
+    11
+   ],
+   "pedestrian": [
+    9,
+    9
+   ]
+  },
+  "source": "experiments\\r_carrada_real_data_validation\\results\\r0_object_footprint.csv"
+ },
+ "domain_audit_rows": {
+  "value": [
+   [
+    "Effective Gamma shape $k$",
+    "0.990",
+    "4.771"
+   ],
+   [
+    "Background spread [dB]",
+    "5.573",
+    "2.211"
+   ],
+   [
+    "Lag-1 correlation, range",
+    "0.573",
+    "0.563"
+   ],
+   [
+    "Lag-1 correlation, Doppler",
+    "0.574",
+    "0.226"
+   ],
+   [
+    "Zero-Doppler ridge",
+    "14.8 dB, \u00b14 bins",
+    "24.0 dB, \u00b11 bin"
+   ],
+   [
+    "Target representation",
+    "point target",
+    "extended object"
+   ],
+   [
+    "Median support [bins]",
+    "1 \u00d7 1",
+    "9\u00d79 / 11\u00d711 / 18\u00d713"
+   ]
+  ],
+  "source": "experiments\\r_carrada_real_data_validation\\results\\r0_audit.json"
+ },
+ "zeroshot_recall_burden": {
+  "value": {
+   "TinyCNN": [
+    0.8721,
+    23.48
+   ],
+   "CA-CFAR": [
+    0.8838,
+    12.28
+   ],
+   "GO-CFAR": [
+    0.9219,
+    30.29
+   ],
+   "SO-CFAR": [
+    0.9687,
+    30.36
+   ],
+   "OS-CFAR": [
+    0.9662,
+    31.87
+   ]
+  },
+  "source": "experiments\\e6_nms_audit\\results\\p4_carrada\\r1_test\\r1_summary.json"
+ },
+ "zeroshot_primary": {
+  "value": {
+   "TinyCNN_recall": 0.8721,
+   "CA_recall": 0.8838,
+   "seq_balanced_delta": -0.0136,
+   "ci": [
+    -0.0269,
+    0.0045
+   ],
+   "TinyCNN_burden": 23.48,
+   "CA_burden": 12.28,
+   "burden_ratio": 1.91
+  },
+  "source": "experiments\\e6_nms_audit\\results\\p4_carrada\\r1_test\\r1_summary.json"
+ },
+ "stage4_test_recall_burden": {
+  "value": {
+   "original synthetic": [
+    0.8721,
+    23.48
+   ],
+   "CARRADA-informed": [
+    0.9449,
+    109.28
+   ],
+   "CA-CFAR": [
+    0.8838,
+    12.28
+   ],
+   "B_minus_A": 0.0629,
+   "ci": [
+    0.0353,
+    0.0879
+   ]
+  },
+  "source": "experiments\\carrada_informed_domain\\results\\test_analysis_r5.json"
+ },
+ "stage4_near_range_10_60": {
+  "value": {
+   "A": 0.8455,
+   "B": 0.9468,
+   "C": 0.9475
+  },
+  "source": "experiments\\carrada_informed_domain\\results\\test_analysis_r5.json"
+ },
+ "stage5_validation_recall_burden": {
+  "value": {
+   "original synthetic": [
+    0.9033,
+    22.5
+   ],
+   "CARRADA-informed": [
+    0.9577,
+    109.59
+   ],
+   "fine-tuned": [
+    0.9611,
+    11.17
+   ],
+   "CA-CFAR": [
+    0.8725,
+    11.64
+   ]
+  },
+  "source": "experiments\\carrada_real_finetune\\results\\validation_analysis.json"
+ },
+ "stage5_deltas": {
+  "value": {
+   "C_minus_D": [
+    0.0554,
+    0.0024,
+    0.121
+   ],
+   "C_minus_B": [
+    0.0022,
+    -0.009,
+    0.0138
+   ]
+  },
+  "source": "experiments\\carrada_real_finetune\\results\\validation_analysis.json"
+ }
+}
