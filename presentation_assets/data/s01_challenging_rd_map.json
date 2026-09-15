@@ -1,0 +1,174 @@
+{
+ "what": "One deliberately difficult RD frame for the defence deck. Produced by the frozen project simulator; not an illustration.",
+ "seed": 20260915,
+ "radar_config": {
+  "fc": 77000000000.0,
+  "B": 768000000.0,
+  "Tc": 7.24e-05,
+  "N": 512,
+  "M": 64
+ },
+ "radar_derived": {
+  "range_res_m": 0.19517738151041666,
+  "range_max_m": 49.96540966666667,
+  "vel_res_mps": 0.420127821289553,
+  "vel_max_mps": 13.444090281265696,
+  "map_shape_range_doppler": [
+   256,
+   64
+  ]
+ },
+ "reference_cell_snr_db": 6.0,
+ "noise_variance": 2712.0570013113775,
+ "clutter": {
+  "enabled": true,
+  "cnr_db": 16.0,
+  "width_bins": 1,
+  "distribution": "weibull",
+  "shape": 1.6
+ },
+ "multipath": {
+  "enabled": true,
+  "delay_m": 2.0,
+  "attenuation_db": -8.0
+ },
+ "propagation": {
+  "enabled": true,
+  "ref_range_m": 25.0,
+  "exponent_db": 40.0
+ },
+ "measured_resolution_limits": {
+  "range_equal_strength_m": 0.39,
+  "range_weak_partner_m": 0.59,
+  "velocity_mps": 1.16,
+  "mainlobe_bins": 2,
+  "source": "scripts/measure_psf.py, quoted in configs/bench2_test.yaml"
+ },
+ "targets": [
+  {
+   "range_m": 34.0,
+   "velocity_mps": -5.6,
+   "range_bin": 174,
+   "velocity_bin": 19,
+   "nearest_range_m": 33.9608643828125,
+   "nearest_velocity_mps": -5.461661676764188,
+   "cell_snr_db": 20.519019066329236,
+   "id": "pair_a",
+   "role": "unresolved_pair",
+   "nominal_amplitude_db": 20.0,
+   "propagated_amplitude_db": 14.6584436651913
+  },
+  {
+   "range_m": 34.28,
+   "velocity_mps": -5.42,
+   "range_bin": 176,
+   "velocity_bin": 19,
+   "nearest_range_m": 34.35121914583333,
+   "nearest_velocity_mps": -5.461661676764188,
+   "cell_snr_db": 20.519019066329236,
+   "id": "pair_b",
+   "role": "unresolved_pair",
+   "nominal_amplitude_db": 18.0,
+   "propagated_amplitude_db": 12.515967816835083
+  },
+  {
+   "range_m": 13.0,
+   "velocity_mps": 6.4,
+   "range_bin": 67,
+   "velocity_bin": 47,
+   "nearest_range_m": 13.076884561197918,
+   "nearest_velocity_mps": 6.3019173193432945,
+   "cell_snr_db": 24.425933346727042,
+   "id": "multipath",
+   "role": "multipath_primary",
+   "nominal_amplitude_db": 7.5,
+   "propagated_amplitude_db": 18.859866254608033
+  },
+  {
+   "range_m": 10.5,
+   "velocity_mps": -0.45,
+   "range_bin": 54,
+   "velocity_bin": 31,
+   "nearest_range_m": 10.539578601562502,
+   "nearest_velocity_mps": -0.42012782128955295,
+   "cell_snr_db": 17.325182752651504,
+   "id": "weak",
+   "role": "weak_masked",
+   "nominal_amplitude_db": -3.5,
+   "propagated_amplitude_db": 11.570028384083983
+  }
+ ],
+ "non_target_returns": [
+  {
+   "id": "multipath_ghost",
+   "role": "multipath_ghost_NOT_a_target",
+   "range_m": 15.0,
+   "velocity_mps": 6.4,
+   "range_bin": 77,
+   "velocity_bin": 47,
+   "nearest_range_m": 15.028658376302085,
+   "nearest_velocity_mps": 6.3019173193432945,
+   "propagated_amplitude_db": 10.859866254608033,
+   "cell_snr_db": 16.33012953713978
+  }
+ ],
+ "validation": {
+  "cpi_superposition_max_abs_err": 7.444291678311382e-15,
+  "simulate_cpi_max_abs_err": 0.0,
+  "ghost_db_with_multipath": -10.87640831985884,
+  "ghost_db_without_multipath": -25.21759871921131,
+  "ghost_db_drop": 14.34119039935247,
+  "ridge_zero_doppler_bin": 32,
+  "ridge_median_db_with_clutter": -11.649771256296106,
+  "ridge_median_db_without_clutter": -25.958107291731885,
+  "ridge_rise_db": 14.30833603543578,
+  "ridge_width_bins_6db": 3,
+  "ridge_width_mps_6db": 1.260383463868659,
+  "pair_separation_m": 0.28000000000000114,
+  "pair_separation_mps": 0.17999999999999972,
+  "pair_separation_range_bins": 1.434592460628218,
+  "pair_separation_velocity_bins": 0.4284410383666149,
+  "pair_below_equal_strength_limit": true,
+  "pair_within_mainlobe": true,
+  "pair_distinct_truth_objects": true,
+  "pair_profile_db": [
+   -44.15,
+   -28.76,
+   -25.61,
+   -9.33,
+   -5.4,
+   -6.17,
+   -8.21,
+   -16.45,
+   -24.41,
+   -22.9,
+   -21.85
+  ],
+  "pair_local_maxima": 1,
+  "pair_shares_one_peak": true,
+  "weak_in_truth": true,
+  "weak_cell_snr_db": 17.33,
+  "weak_cell_db": -7.300321024914447,
+  "weak_local_background_median_db": -11.04607888493591,
+  "weak_excess_over_local_db": 3.745757860021464
+ },
+ "source_files_used": [
+  "src/radar/config.py",
+  "src/radar/simulator.py",
+  "src/radar/rd_processing.py",
+  "src/radar/calibration.py",
+  "src/radar/propagation.py",
+  "src/radar/labels.py",
+  "configs/bench2_test.yaml (scene settings)",
+  "src/data/generate_single_frame.py (frame recipe and plot convention)"
+ ],
+ "outputs": [
+  "presentation_assets\\figures\\s01_challenging_rd_map.png",
+  "presentation_assets\\figures\\s01_challenging_rd_map.svg",
+  "presentation_assets\\figures\\s02_challenging_rd_map_annotated.png",
+  "presentation_assets\\figures\\s02_challenging_rd_map_annotated.svg",
+  "presentation_assets\\figures\\s03_challenging_rd_map_truth_mask.png",
+  "presentation_assets\\figures\\s03_challenging_rd_map_truth_mask.svg",
+  "presentation_assets\\data\\s01_challenging_rd_map.npz"
+ ]
+}

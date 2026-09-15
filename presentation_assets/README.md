@@ -162,6 +162,50 @@ was **also** selected on held-out CARRADA TRAIN sequences under a burden constra
 
 ---
 
+## Simulated scene — a deliberately difficult frame
+
+Built by its own script, separate from the three builders above. It imports the frozen
+simulator and runs it once:
+
+```bash
+venv/Scripts/python.exe presentation_assets/generate_challenging_rd_map.py
+```
+
+| Asset | Shows |
+|---|---|
+| `figures/s01_challenging_rd_map` | the frame, axes and colourbar only — the slide version |
+| `figures/s02_challenging_rd_map_annotated` | the same frame with ground-truth centres, roles and cell SNRs |
+| `figures/s03_challenging_rd_map_truth_mask` | the 3x3 label mask the detectors are scored against |
+| `data/s01_challenging_rd_map.npz` | `rd_db_above_noise` (plotted), `rd_db_rel_max`, `rd_mag`, `label_mask`, both axes |
+| `data/s01_challenging_rd_map.json` | scene, every target, the ghost, the validation checks, the seed |
+
+**What it contains.** Four true targets and one multipath ghost, on a narrow zero-Doppler
+ridge. It reads as three obvious returns; it is not.
+
+| id | role | range | velocity | bins | cell SNR |
+|---|---|---:|---:|---:|---:|
+| `pair_a` | unresolved pair | 34.00 m | −5.60 m/s | (174, 19) | 20.52 dB |
+| `pair_b` | unresolved pair | 34.28 m | −5.42 m/s | (176, 19) | 20.52 dB |
+| `multipath` | multipath primary | 13.00 m | +6.40 m/s | (67, 47) | 24.43 dB |
+| `weak` | weak / masked | 10.50 m | −0.45 m/s | (54, 31) | 17.33 dB |
+| `multipath_ghost` | **not a target** | 15.00 m | +6.40 m/s | (77, 47) | 16.33 dB |
+
+Seed 20260915. Reference cell SNR 6 dB. Ridge CNR 16 dB, `width_bins` 1, Weibull shape 1.6.
+Multipath delay 2.0 m, attenuation −8 dB. Radar equation on, referenced to 25 m.
+
+**Everything is produced by the simulator, and the script asserts it:** the two-call
+multipath split reproduces a single call exactly (max abs error 0.0); the clutter/noise
+path reproduces `simulate_cpi` bit-for-bit (0.0); switching multipath off drops the ghost
+cell by 14.3 dB; switching clutter off drops the ridge by 14.3 dB; the pair is 0.28 m
+apart, below the measured 0.39 m equal-strength limit, and leaves **one** local maximum in
+the range cut; the weak target is in the label mask and sits 3.7 dB over its local ridge
+background.
+
+The ridge runs along the **velocity = 0 column**, i.e. a vertical band spanning the range
+axis, because the thesis plots range on y and velocity on x.
+
+---
+
 ## Backup — for Q&A only
 
 | Asset | Shows | Source | Key values |
