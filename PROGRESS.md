@@ -1,5 +1,9 @@
 # Progress Log
 
+> **This log ends 2026-08-31.** The NMS radius audit, the CARRADA-informed domain, the
+> real-domain fine-tune and the final report are **not** recorded here. For anything after
+> 31 Aug the thesis and `experiments/*/results/` are the source of truth, not this file.
+
 A backward-looking journal of what I did, what I decided, and *why* — so I can re-orient after
 a break. (Forward-looking plan lives in `Plan.md`; deep notes in `docs/`.)
 
@@ -3017,6 +3021,22 @@ footprint separated, caption retracted, A.1 strengthened), on branch
 
 ### 2026-08-24 — Integrated CFAR: mainlobe energy explains NONE of the DL margin
 
+> **⚠ SUPERSEDED POST-PROCESSING — the numbers below were scored at NMS radius 5.**
+> The NMS audit later froze the protocol at **radius 2**, and all three attribution
+> experiments were re-scored from the **same frozen checkpoints** into
+> `experiments/e6_nms_audit/results/p10_attribution/e2/`. No model was retrained and
+> `bench2_test` was not read. **The thesis quotes the radius-2 values; quote those, not
+> the table below.** Nothing qualitative changes — every sign, ordering and conclusion
+> in this entry survives.
+>
+> | mean ΔPd, gate ±1 | radius 5 (below) | **radius 2 (final)** |
+> |---|---:|---:|
+> | uniform 3×3 | −0.0366 | **−0.0376** |
+> | PSF-weighted | −0.0246 | **−0.0237** |
+>
+> Both remain negative on all 7 conditions and significant on 4.
+
+
 **Standalone attribution experiment.** Everything lives in `experiments/integrated_cfar/`; nothing in
 `src/`, `scripts/`, `notebooks/` or `results/` was modified, and **`bench2_test` was not touched**.
 This does not alter the project's primary results or conclusions. Pre-registered in
@@ -3105,6 +3125,26 @@ that it does not need the reported split at all.
 
 ### 2026-08-27 — Label ablation: the 3×3 label CAUSES the localization deficit, and it is fixable
 
+> **⚠ SUPERSEDED POST-PROCESSING — the numbers below were scored at NMS radius 5.**
+> The NMS audit later froze the protocol at **radius 2**, and all three attribution
+> experiments were re-scored from the **same frozen checkpoints** into
+> `experiments/e6_nms_audit/results/p10_attribution/e3/`. No model was retrained and
+> `bench2_test` was not read. **The thesis quotes the radius-2 values; quote those, not
+> the table below.** Nothing qualitative changes — every sign, ordering and conclusion
+> in this entry survives.
+>
+> | pooled, gate ±1, epoch 21 | radius 5 (below) | **radius 2 (final)** |
+> |---|---:|---:|
+> | flat 3×3 — Doppler err / Pd | 0.3933 / 0.5848 | **0.3946 / 0.5949** |
+> | Gaussian — Doppler err / Pd | 0.1708 / 0.5871 | **0.1719 / 0.5982** |
+> | point — Doppler err / Pd | 0.1097 / 0.5750 | **0.1116 / 0.5899** |
+>
+> **The point arm's Doppler error is 0.1116 in the thesis, not the 0.1097 below.** Three
+> nearby values are easy to confuse: 0.1116 is this error, 0.1112 is the point arm's
+> positive-mass ratio in the `pos_weight` derivation, and 0.1111 is the uniform
+> integration kernel's cell weight in the Integrated CFAR experiment.
+
+
 **Standalone attribution experiment** (PLAN.md E3), isolated in `experiments/label_ablation/`.
 Nothing in `src/`, `scripts/`, `data/`, `notebooks/` or `results/` was modified; **`bench2_test` was
 not touched**. Pre-registered in `experiments/label_ablation/PREREGISTRATION.md`, committed
@@ -3192,6 +3232,22 @@ point label buys more localization at a real cost in clutter.
 `label_ablation_experiment.ipynb` (17 cells, 4 figures, zero errors).
 
 ### 2026-08-28 — E4: guard access buys ~1.5 pp of Pd and costs a great deal of localization
+
+> **⚠ SUPERSEDED POST-PROCESSING — the numbers below were scored at NMS radius 5.**
+> The NMS audit later froze the protocol at **radius 2**, and all three attribution
+> experiments were re-scored from the **same frozen checkpoints** into
+> `experiments/e6_nms_audit/results/p10_attribution/e4/`. No model was retrained and
+> `bench2_test` was not read. **The thesis quotes the radius-2 values; quote those, not
+> the table below.** Nothing qualitative changes — every sign, ordering and conclusion
+> in this entry survives.
+>
+> | mean ΔPd (unmasked − masked) | radius 5 (below) | **radius 2 (final)** |
+> |---|---:|---:|
+> | gate ±1 | +0.0150 | **+0.0173** |
+> | gate 0 (exact cell) | −0.1574 | **−0.1597** |
+>
+> Sign, direction and significance counts (3 of 7 at ±1, 7 of 7 at gate 0) are unchanged.
+
 
 **Standalone attribution experiment** (PLAN.md E4), isolated in `experiments/e4_cut_guard_mask/`.
 Pre-registered before any masked model existed. **The frozen TinyCNN was never retrained**;

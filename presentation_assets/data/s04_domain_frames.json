@@ -1,0 +1,118 @@
+{
+  "display": {
+    "convention": "10*log10(power) minus the frame median",
+    "cmap": "magma",
+    "vmin": -5.0,
+    "vmax": 35.0,
+    "extent": [
+      -13.44,
+      13.44,
+      0.0,
+      50.0
+    ],
+    "interpolation": "nearest",
+    "shape": "256 range x 64 velocity"
+  },
+  "selection_rule": {
+    "synthetic": "first frame_id in sorted order for each of isolated, multi, masking, mixed, clutter, clutter_edge",
+    "carrada": "middle annotated frame of the first sequences of each recording day, interleaved"
+  },
+  "sources": {
+    "synthetic": "data/bench2_val/frames/<id>/rd_map_mag.npy",
+    "informed": "data/carrada_informed_val/frames/<id>/rd_map_mag.npy",
+    "carrada": "C:/Users/USER/Desktop/CARRADA/Carrada/<seq>/range_doppler_numpy/<frame>.npy"
+  },
+  "frames": {
+    "synthetic_original": [
+      {
+        "id": "frame_000000",
+        "condition": "isolated"
+      },
+      {
+        "id": "frame_000004",
+        "condition": "multi"
+      },
+      {
+        "id": "frame_000001",
+        "condition": "masking"
+      },
+      {
+        "id": "frame_000006",
+        "condition": "mixed"
+      },
+      {
+        "id": "frame_000002",
+        "condition": "clutter"
+      },
+      {
+        "id": "frame_000003",
+        "condition": "clutter_edge"
+      }
+    ],
+    "synthetic_informed": [
+      {
+        "id": "frame_000000",
+        "condition": "isolated"
+      },
+      {
+        "id": "frame_000004",
+        "condition": "multi"
+      },
+      {
+        "id": "frame_000001",
+        "condition": "masking"
+      },
+      {
+        "id": "frame_000006",
+        "condition": "mixed"
+      },
+      {
+        "id": "frame_000002",
+        "condition": "clutter"
+      },
+      {
+        "id": "frame_000003",
+        "condition": "clutter_edge"
+      }
+    ],
+    "carrada": [
+      {
+        "id": "2019-09-16-12-52-12/000580"
+      },
+      {
+        "id": "2020-02-28-12-12-16/000241"
+      },
+      {
+        "id": "2019-09-16-12-55-51/000300"
+      },
+      {
+        "id": "2020-02-28-12-13-54/000286"
+      },
+      {
+        "id": "2019-09-16-12-58-42/000496"
+      },
+      {
+        "id": "2020-02-28-12-16-05/000341"
+      }
+    ]
+  },
+  "measured_context": {
+    "note": "quantified in experiments/r_carrada_real_data_validation/results/r0_audit.json; repeated here only as a reading aid",
+    "background_db_std": {
+      "synthetic": 5.573,
+      "carrada": 2.211
+    },
+    "gamma_k": {
+      "synthetic": 0.99,
+      "carrada": 4.771
+    },
+    "zero_doppler_ridge_db": {
+      "synthetic": 14.8,
+      "carrada": 24.0
+    },
+    "ridge_width_bins": {
+      "synthetic": 4,
+      "carrada": 1
+    }
+  }
+}

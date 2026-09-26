@@ -171,7 +171,8 @@ distinction.
 \subsection{Result on previously unscored validation sequences}
 
 The official CARRADA validation split had never been scored by any detector, nor used for any model
-or threshold decision. It was read once, after the configuration above was frozen.
+or threshold decision. It was read once, after the configuration above was frozen, giving
+Table~\ref{tab:stage5}.
 
 \begin{table}[H]
 \centering
@@ -288,6 +289,7 @@ CA-CFAR (untrained)               & \FtValCFAR & \FtValBurdenCFAR \\
 Read down the columns, the progression is: a strong in-domain synthetic result that does not
 transfer; a domain-informed intervention that recovers recall at a heavy output cost; and a real
 adaptation step that keeps the recall and gives the output back.
+Figure~\ref{fig:progression} shows the same three domains graphically.
 
 \begin{figure}[htbp]
 \centering

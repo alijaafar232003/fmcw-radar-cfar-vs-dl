@@ -25,7 +25,8 @@ as two instances of the same operator, rather than as two unrelated systems plac
 \subsection{Chirp generation and the beat frequency}
 
 An FMCW radar transmits a signal whose frequency increases linearly with time. One such sweep is
-called a \emph{chirp}. Writing $B$ for the swept bandwidth and $T_c$ for the chirp duration, the
+called a \emph{chirp}. The treatment here follows the standard
+accounts~\cite{skolnik2001radar,richards2014radar}. Writing $B$ for the swept bandwidth and $T_c$ for the chirp duration, the
 instantaneous frequency rises at a constant rate, the \emph{slope}
 \begin{equation}
 S = \frac{B}{T_c}.
@@ -214,7 +215,8 @@ Chapter~\ref{chp:detectors}.}
 
 \subsection{Cell-averaging CFAR}
 
-The simplest choice is to average all reference cells,
+The simplest choice, and the original adaptive-threshold scheme of Finn and
+Johnson~\cite{finn1968cfar}, is to average all reference cells,
 \begin{equation}
 Z_{\mathrm{CA}} = \frac{1}{N} \sum_{i=1}^{N} x_i ,
 \end{equation}
@@ -240,14 +242,16 @@ into $Z$. That single choice determines the variant's strengths and weaknesses.
 \begin{description}
 \itemsep3pt
 \item[GO-CFAR (greatest-of).] The reference cells are split into a leading and a lagging half, and
-$Z$ is the larger of the two means. Keeping the higher estimate limits the increase in false-alarm
-rate that CA-CFAR shows at a clutter edge, at the cost of masking targets more readily.
-\item[SO-CFAR (smallest-of).] The mirror image: $Z$ is the smaller of the two half-means. If an
+$Z$ is the larger of the two means~\cite{hansen1980go}. Keeping the higher estimate limits the
+increase in false-alarm rate that CA-CFAR shows at a clutter edge, at the cost of masking targets
+more readily.
+\item[SO-CFAR (smallest-of).] The mirror image: $Z$ is the smaller of the two
+half-means~\cite{weiss1982modified}. If an
 interfering target contaminates one half, the clean half is used, so closely spaced targets are
 resolved. At a clutter edge the estimate is taken from the quieter side, the threshold is set too
 low, and the false-alarm rate can increase substantially.
 \item[OS-CFAR (order-statistic).] The reference cells are sorted and the $k$-th ranked value is
-taken as $Z$, typically with $k \approx 0.75N$. Interfering targets are high outliers and are
+taken as $Z$, typically with $k \approx 0.75N$~\cite{rohling1983os}. Interfering targets are high outliers and are
 excluded by the ranking, which makes the variant robust in multi-target scenes. The cost is a sort
 per cell and a small additional loss in homogeneous background.
 \end{description}
@@ -317,8 +321,8 @@ CFAR estimates the background power from a finite number of reference cells. Tha
 therefore imperfect, and it varies from one window to the next. To keep the false-alarm rate at its
 design value despite this variability, the threshold must be set slightly higher than a detector
 that somehow knew the true background power would need. The resulting penalty in signal-to-noise
-ratio is called \emph{CFAR loss}. It becomes smaller as the number of reference cells grows,
-because the estimate becomes more reliable.
+ratio is called \emph{CFAR loss}~\cite{richards2014radar}. It becomes smaller as the number of
+reference cells grows, because the estimate becomes more reliable.
 
 The reason this matters for the present work is that CFAR loss offers a second possible explanation
 for any advantage a learned detector shows. The obvious explanation is that the network uses its
@@ -361,6 +365,7 @@ the comparison in this thesis: both CFAR and TinyCNN map a local neighbourhood t
 uses a hand-derived fixed rule whereas TinyCNN learns that rule from data. TinyCNN is a richer
 nonlinear function rather than a single equivalent CFAR kernel, so the comparison asks whether
 learning the local decision rule provides an advantage when spatial context is kept comparable.
+Figure~\ref{fig:cfarconv} places the two rules side by side over the same footprint.
 
 \begin{figure}[H]
 \centering

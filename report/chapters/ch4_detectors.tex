@@ -125,7 +125,7 @@ With that definition, the right-hand panel is the argument. At the analytic refe
 rates are not the design rate: CA overshoots by roughly a factor of two and SO by more than six,
 while OS undershoots by nearly an order of magnitude --- the largest error, as expected, for the
 variant whose statistic the expression fits worst. After calibration all four sit at the design rate
-on data not used to set them.
+on data not used to set them; Table~\ref{tab:alphas} lists the multipliers actually used.
 
 \begin{table}[H]
 \centering
@@ -156,7 +156,8 @@ Chapter~\ref{chp:synthetic}.
 \subsection{Architecture}
 
 The learned detector, referred to throughout as TinyCNN, is a fully convolutional network that maps a
-range--Doppler map to a per-cell score at the same resolution. It has \TinyParams{} parameters.
+range--Doppler map to a per-cell score at the same resolution. It has \TinyParams{} parameters, and
+its layer stack is drawn in Figure~\ref{fig:network}.
 
 \begin{figure}[htbp]
 \centering
@@ -172,8 +173,8 @@ Three choices define it.
 \textbf{The receptive field is matched to the CFAR window.} This is the central design decision of
 the project. The layers use dilations $(\TinyDilR)$ along range and $(\TinyDilD)$ along Doppler,
 composing to a receptive field of $\TinyRFR \times \TinyRFD$ --- exactly the window of
-Figure~\ref{fig:window}. Dilation enlarges the receptive field without adding parameters and without
-downsampling. The value was verified empirically, by back-propagating from a single output cell and
+Figure~\ref{fig:window}. Dilation~\cite{yu2016dilated} enlarges the receptive field without adding
+parameters and without downsampling. The value was verified empirically, by back-propagating from a single output cell and
 recording which input cells receive non-zero gradient, rather than trusting the arithmetic.
 
 \textbf{There is no downsampling.} Padding equals dilation at every layer, so spatial size is
@@ -263,7 +264,7 @@ touches candidate extraction, not the network or its training.
 \midrule
 Loss & \texttt{BCEWithLogits} & with positive-class weighting \\
 Positive weight & \TinyPosWeight & chosen by ablation, not class balancing \\
-Optimiser & Adam & learning rate \TinyLR, batch \TinyBatch \\
+Optimiser & Adam~\cite{kingma2015adam} & learning rate \TinyLR, batch \TinyBatch \\
 Epochs & \TinyEpochs & selection rule below \\
 Early stopping & off & deliberately \\
 Seeds & \TinySeeds & all reported; single-seed results not trusted \\
@@ -302,6 +303,8 @@ after that point is shared. Both maps go through the same code, in the same orde
 score map $\rightarrow$ peak extraction (NMS) $\rightarrow$ operating threshold\\[2pt]
 $\rightarrow$ one-to-one matching $\rightarrow$ metrics
 \end{center}
+
+Figure~\ref{fig:protocol} shows the same chain with the stage boundaries marked.
 
 \begin{figure}[htbp]
 \centering
@@ -358,7 +361,7 @@ logit of zero.
 
 A detection matches a truth if it lies inside the tolerance gate,
 $|\Delta r| \le G_r$ and $|\Delta v| \le G_v$. Matching is one-to-one, computed by Hungarian
-assignment on the distance between candidate and truth --- the pairing that minimises total distance,
+assignment~\cite{kuhn1955hungarian} on the distance between candidate and truth --- the pairing that minimises total distance,
 with pairs outside the gate made unaffordable. A matched detection is a true positive; an unmatched
 truth is a false negative.
 
@@ -434,7 +437,8 @@ Both are reported for every condition, whichever way they point.
 
 \subsection{Statistics}
 
-Differences are assessed by a paired bootstrap with \ProtocolBootstrap{} resamples. \textbf{The
+Differences are assessed by a paired bootstrap~\cite{efron1993bootstrap} with
+\ProtocolBootstrap{} resamples. \textbf{The
 resampling unit is the frame.} Frames are drawn with replacement, and within each resample both arms
 are re-scored on exactly the same frames, so frame difficulty cancels instead of adding noise.
 Resampling whole frames also preserves the dependence among targets belonging to the same frame.

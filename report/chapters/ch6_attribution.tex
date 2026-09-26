@@ -52,8 +52,8 @@ target's energy, $3\times3$ captures \EtwoCapThree{} and $5\times5$ captures \Et
 $3\times3$ takes almost all the available energy while still sitting strictly inside the guard
 region, where it cannot contaminate the reference ring.
 
-\textbf{The measured result.} Integration does not close the gap. It makes the classical detector
-\emph{worse}, on every condition and for both kernels.
+\textbf{The measured result}, in Table~\ref{tab:e2}. Integration does not close the gap. It makes
+the classical detector \emph{worse}, on every condition and for both kernels.
 
 \begin{table}[H]
 \centering
@@ -75,8 +75,8 @@ PSF-weighted $3\times3$ & \EtwoDeltaPsf     & \EtwoNegPsf{} of \EtwoConds     &
 The ordering is informative. Performance is monotone in how sharply the kernel concentrates on the
 centre: single-cell CFAR is best, the matched filter second, the uniform sum worst. Localisation
 follows the same order --- averaged over the seven conditions, Doppler error rises to
-\EtwoDvRatioPsf{} times CFAR's under the PSF kernel and \EtwoDvRatioUniform{} times under the uniform
-one.
+\EtwoDvRatioPsf{} times CA-CFAR's under the PSF kernel and \EtwoDvRatioUniform{} times under the
+uniform one.
 
 \textbf{What it supports.} The response is concentrated in very few cells, so summing nine of them
 adds little signal and a great deal of noise; because the window functions correlate adjacent cells,
@@ -124,8 +124,8 @@ Point $1\times1$            & \EthreePointDv{} bins & \EthreePointPd & \EthreePo
 \end{tabular}
 \end{table}
 
-\textbf{The measured result.} The incumbent label costs \EthreeFlatDvRatio{} times the Doppler error
-of a point label. The sharpest test was specified in advance as the growth of localisation error with
+\textbf{The measured result}, in Table~\ref{tab:e3}. The incumbent label costs
+\EthreeFlatDvRatio{} times the Doppler error of a point label. The sharpest test was specified in advance as the growth of localisation error with
 training, and it lands as the hypothesis predicted: between epoch~5 and epoch~\TinyEpochs{} Doppler
 error grows by a factor of \EthreeFlatGrowth{} under flat supervision, \EthreeGaussGrowth{} under
 the Gaussian and \EthreePointGrowth{} under the point label --- monotone in how flat the supervision
@@ -160,7 +160,8 @@ therefore be a patch model centred on each cell under test. The primary contrast
 \textbf{masked patch against unmasked patch}, so that the patch-training differences are common-mode
 and cancel.
 
-\textbf{The measured result. The two gates disagree, and that disagreement is the finding.}
+\textbf{The measured result, in Table~\ref{tab:e4}. The two gates disagree, and that disagreement
+is the finding.}
 
 \begin{table}[H]
 \centering

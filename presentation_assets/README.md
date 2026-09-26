@@ -206,6 +206,79 @@ axis, because the thesis plots range on y and velocity on x.
 
 ---
 
+## Domain gap — frames, not statistics
+
+```bash
+venv/Scripts/python.exe presentation_assets/build_domain_frames.py
+```
+
+| Asset | Shows |
+|---|---|
+| `figures/s04_domain_frames` | 2 rows x 6 frames: synthetic (top) vs real CARRADA (bottom) |
+| `figures/s05_domain_frames_three_rows` | the same, with the CARRADA-informed synthetic domain as a middle row |
+| `data/s04_domain_frames.json` | display convention, the frame-selection rule, and every frame id |
+
+No markers, no boxes, no target annotation — background texture only. One display
+convention throughout: dB above **that frame's own** median, magma, −5 to +35 dB,
+identical 256 x 64 axes. Selection is a fixed rule, not a choice: the first frame id in
+sorted order for each of isolated / multi / masking / mixed / clutter / clutter_edge, and
+the middle annotated frame of the first sequences of each CARRADA recording day.
+
+What the eye should catch, and the numbers behind it
+(`r_carrada_real_data_validation/results/r0_audit.json`):
+
+| | synthetic | CARRADA |
+|---|---:|---:|
+| background dB spread | 5.573 dB | 2.211 dB |
+| Gamma shape k | 0.990 | 4.771 |
+| zero-Doppler ridge | 14.8 dB, ±4 bins | 24.0 dB, ±1 bin |
+
+Coarse single-look speckle and a wide, blocky ridge on one side; a smooth background and a
+razor-thin, much brighter ridge on the other. `s05` then shows what the Stage 4
+intervention actually changed.
+
+**Slide** Stage 3 → 4, next to `f11_domain_gap`. This is the picture; `f11` is the
+measurement.
+
+---
+
+## Attribution experiments — design diagrams
+
+```bash
+venv/Scripts/python.exe presentation_assets/build_attribution_diagrams.py
+```
+
+No results on any of these; they explain the design only, so each can go up before its
+result slide.
+
+### d06_label_ablation — *diagrams/*
+**Shows** The three supervision targets on a 3x3 footprint: point, flat 3x3 (the incumbent),
+Gaussian from the measured PSF. Truth drawn off-grid, because it is.
+**Source** `experiments/label_ablation/DERIVED_VALUES.md`
+**Values** sigma_range 0.6895, sigma_Doppler 0.7007 bins, derived from `results/psf_profile.csv`
+(off-bin worst case, -3 dB width / 2.3548). Gaussian weights 1.00 / 0.361 / 0.349 / 0.126.
+pos_weight 899 / 100 / 308, scaled so pos_weight x sum(y) is identical across arms.
+**Slide** Stage 2, before the label result.
+
+### d07_masked_cnn — *diagrams/*
+**Shows** The three arms: frozen dense TinyCNN (reference, not retrained), unmasked 21x9 patch,
+guard-masked patch with the 24 guard cells blanked and the CUT still visible.
+**Source** `experiments/e4_cut_guard_mask/PREREGISTRATION.md`
+**Values** 21x9 receptive field, guard +/-2 range and +/-2 Doppler = 24 cells, masked cells set
+to 0.0 which `normalize_rd` maps to the frame's own median. No mask channel is added.
+**Slide** Stage 2. The subtitle carries the reason the contrast is patch-vs-patch rather than
+dense-vs-dense, which is the first question anyone asks.
+
+### d08_integrated_cfar — *diagrams/*
+**Shows** The same 21x9 CFAR window with the numerator widened from one cell to 3x3, plus both
+kernels. Everything else — ring, guard, matcher, protocol — unchanged.
+**Source** `experiments/integrated_cfar/results/kernels.npz`, read at build time
+**Values** uniform 0.111 everywhere; PSF-weighted 0.288 centre, 0.126 / 0.122 edges,
+0.054 corners. 3x3 fits inside the guard, so numerator and denominator stay disjoint.
+**Slide** Stage 2, before the integration result.
+
+---
+
 ## Backup — for Q&A only
 
 | Asset | Shows | Source | Key values |

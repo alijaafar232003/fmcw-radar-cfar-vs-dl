@@ -170,7 +170,8 @@ inside the unambiguous interval.
 \textbf{Processing gain.} Combining \RadarN{} fast-time samples and \RadarM{} chirps concentrates a
 target's coherent energy into a small region of the RD map while noise remains spread across it. In
 the ideal, unwindowed case this concentration is worth \SI{\RadarCoherentGain}{\deci\bel}. The
-range and Doppler window functions applied before each transform suppress spectral leakage but cost
+range and Doppler window functions applied before each transform suppress spectral
+leakage~\cite{harris1978windows} but cost
 some of that gain, leaving an effective \SI{\RadarProcGain}{\deci\bel}. The second figure is
 computed directly from the window coefficients rather than measured from data, so it tracks any
 change to the configuration automatically. It is the one used when setting dataset difficulty,

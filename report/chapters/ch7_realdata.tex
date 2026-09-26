@@ -275,6 +275,8 @@ the classical family: several CFAR variants achieve substantially higher raw rec
 greater output burden. \textbf{On this dataset recall and output density move together for every
 detector tested}, which is precisely why recall alone cannot rank them. CA remains the primary
 comparator as fixed in advance; no variant was promoted after the fact.
+Figure~\ref{fig:alldetector} plots every arm, and Figure~\ref{fig:r1_primary} gives the primary
+comparison together with its per-sequence breakdown.
 
 \begin{figure}[H]
 \centering
@@ -478,6 +480,7 @@ performance still differ measurably under domain shift, and a single-seed result
 reported as a win or a loss depending only on which seed happened to be trained. That is why every
 network value in this report is a mean over \TinySeeds{} seeds. This is a property of this detector
 and this training configuration, not evidence about neural networks in general.
+Figure~\ref{fig:r1_tolerance} collects the tolerance ladder, the output burden and the seed spread.
 
 \begin{figure}[htbp]
 \centering
